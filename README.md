@@ -285,9 +285,8 @@ report expectations.
 knowledge folders. It is Apache-2.0 licensed and is not an official project from
 Andrej Karpathy or any upstream producer named in compatibility examples.
 
-This repository is prepared for public preview and is currently in private org
-staging until the public-unpublished gate passes. Source-checkout usage is the
-supported path today. Package-install commands apply after the first PyPI
+This repository is in public source-checkout preview. Source-checkout usage is
+the supported path today. Package-install commands apply after the first PyPI
 release is published. Use the hosted docs and Release Status & Compatibility
 matrix for the current package and protocol posture.
 
