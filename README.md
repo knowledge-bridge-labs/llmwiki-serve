@@ -40,6 +40,14 @@ vector store, run a model, synthesize final answers, or mutate your wiki.
 > Public-preview note: source-checkout usage is the supported first-run path.
 > Package-install commands apply after the first PyPI release is published.
 
+## Demo
+
+[Watch the docs demo](https://knowledge-bridge-labs.github.io/llmwiki-docs/demo)
+to see `llmwiki-serve` project an already-existing LLMWiki, Markdown, or
+Obsidian-style folder as a read-only Knowledge Source.
+
+[![First-run demo poster](https://knowledge-bridge-labs.github.io/llmwiki-docs/demo/first-run/first-run-poster.png)](https://knowledge-bridge-labs.github.io/llmwiki-docs/demo)
+
 ## 10-Minute Quick Start
 
 Install `uv` and use Python 3.11 or newer:
