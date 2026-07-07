@@ -1,0 +1,30 @@
+name: Security contact request
+description: Request a private reporting path when GitHub private vulnerability reporting is unavailable.
+title: "[Security contact request]: "
+labels: ["security"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form only when GitHub private vulnerability reporting is unavailable and you need a private maintainer contact route.
+
+        Do not include vulnerability details, secrets, credentials, private data, exploit steps, request logs, screenshots, or proof-of-concept payloads in this public issue.
+
+        Review SECURITY.md and wait for maintainer-provided private routing before sharing sensitive details.
+  - type: checkboxes
+    id: public_safety
+    attributes:
+      label: Public safety confirmation
+      options:
+        - label: I am not including vulnerability details, secrets, credentials, private data, exploit steps, request logs, screenshots, or proof-of-concept payloads.
+          required: true
+        - label: I have reviewed SECURITY.md and only need a private maintainer contact route.
+          required: true
+  - type: textarea
+    id: contact_context
+    attributes:
+      label: Contact request context
+      description: Provide only non-sensitive routing context, such as the affected package name or preferred private contact method.
+      placeholder: Private reporting is unavailable; please provide a private maintainer contact route.
+    validations:
+      required: true

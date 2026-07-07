@@ -1,0 +1,43 @@
+name: Documentation issue
+description: Report missing, confusing, or outdated project documentation.
+title: "[Docs]: "
+labels: ["documentation"]
+body:
+  - type: textarea
+    id: page
+    attributes:
+      label: Page or file
+      description: Point to the README, CONTRIBUTING, SECURITY, CODE_OF_CONDUCT, CHANGELOG, docs file, or GitHub template.
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is confusing, missing, or outdated?
+    validations:
+      required: true
+  - type: checkboxes
+    id: affected_area
+    attributes:
+      label: Affected area
+      options:
+        - label: README
+        - label: Contributing flow
+        - label: Architecture
+        - label: CLI usage
+        - label: HTTP / MCP / A2A endpoint behavior
+        - label: Adapter or source-folder compatibility
+        - label: Security or secret-handling guidance
+        - label: Release notes
+        - label: GitHub templates or workflows
+  - type: textarea
+    id: suggested
+    attributes:
+      label: Suggested improvement
+  - type: checkboxes
+    id: data_safety
+    attributes:
+      label: Data safety
+      options:
+        - label: This issue does not include credentials, tokens, private endpoint URLs, private paths, raw sensitive wiki content, request logs with secrets, or screenshots exposing private infrastructure.
+          required: true

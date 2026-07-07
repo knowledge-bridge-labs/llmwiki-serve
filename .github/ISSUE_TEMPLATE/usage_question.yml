@@ -1,0 +1,42 @@
+name: Usage question
+description: Ask a setup, operation, or integration question.
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for non-sensitive usage questions. For suspected security vulnerabilities, follow SECURITY.md instead of opening a public issue.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Setup or installation
+        - Source folder compatibility
+        - HTTP endpoint usage
+        - MCP-style JSON-RPC usage
+        - A2A-style message usage
+        - Network or deployment shape
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: Describe what you are trying to do and where you got stuck.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Include OS, version or commit, commands, endpoint shape, and sanitized responses when relevant.
+  - type: checkboxes
+    id: data_safety
+    attributes:
+      label: Data safety
+      options:
+        - label: This question does not include credentials, tokens, private endpoint URLs, private exports, raw sensitive wiki content, or unredacted logs.
+          required: true

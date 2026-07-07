@@ -1,0 +1,93 @@
+name: Bug report
+description: Report a reproducible problem in LLMWiki Serve.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for reproducible server defects. For suspected security vulnerabilities, follow SECURITY.md instead of opening a public issue.
+  - type: dropdown
+    id: usage_mode
+    attributes:
+      label: Usage mode
+      options:
+        - CLI command
+        - Long-running HTTP server
+        - Imported or embedded server
+        - Multiple usage modes
+        - Not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: protocol
+    attributes:
+      label: Endpoint or protocol
+      options:
+        - HTTP
+        - MCP JSON-RPC
+        - A2A
+        - CLI only
+        - Multiple
+        - Not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: source_format
+    attributes:
+      label: Served folder format
+      options:
+        - Native LLMWiki Markdown
+        - Obsidian vault
+        - Logseq graph
+        - Foam workspace
+        - Dendron vault
+        - Quartz content folder
+        - Generic Markdown folder
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the visible behavior, error state, or regression.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Provide the smallest public reproduction steps.
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include OS, Python version, uv version, llmwiki-serve version or commit, command flags, and whether the served folder is local or mounted. Do not include private paths or URLs.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs, response body, or traceback
+      description: Redact credentials, tokens, private endpoint URLs, private paths, raw sensitive wiki content, and infrastructure details.
+      render: text
+  - type: checkboxes
+    id: data_safety
+    attributes:
+      label: Data safety
+      options:
+        - label: This report does not include real credentials, tokens, private endpoint URLs, private exports, raw sensitive wiki content, or unredacted logs.
+          required: true

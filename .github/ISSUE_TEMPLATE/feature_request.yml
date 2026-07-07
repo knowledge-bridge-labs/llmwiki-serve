@@ -1,0 +1,72 @@
+name: Feature request
+description: Suggest an improvement for LLMWiki Serve.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for focused feature requests. Keep examples public and non-sensitive.
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Use case
+      description: What server, agent, or wiki-serving workflow should this improve?
+    validations:
+      required: true
+  - type: checkboxes
+    id: usage_modes
+    attributes:
+      label: Usage mode impact
+      options:
+        - label: CLI commands
+        - label: Long-running HTTP server
+        - label: Imported or embedded server
+        - label: LLMWiki folder serving or adapter behavior
+        - label: Not sure
+  - type: checkboxes
+    id: endpoint_impact
+    attributes:
+      label: Endpoint impact
+      options:
+        - label: HTTP endpoints
+        - label: MCP JSON-RPC endpoint
+        - label: A2A agent-card or message endpoint
+        - label: Search, read, or graph projection
+        - label: Documentation
+        - label: CI or project maintenance
+  - type: checkboxes
+    id: source_formats
+    attributes:
+      label: Source folder formats
+      options:
+        - label: Native LLMWiki Markdown
+        - label: Obsidian
+        - label: Logseq
+        - label: Foam
+        - label: Dendron
+        - label: Quartz
+        - label: Generic Markdown
+        - label: Not format-specific
+  - type: textarea
+    id: proposed
+    attributes:
+      label: Proposed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Compatibility notes
+      description: Explain impact on existing CLI usage, HTTP clients, MCP tools, A2A clients, adapters, or source-folder contracts.
+  - type: checkboxes
+    id: data_safety
+    attributes:
+      label: Data safety
+      options:
+        - label: This request does not include real credentials, tokens, private endpoint URLs, private exports, raw sensitive wiki content, or screenshots exposing private infrastructure.
+          required: true

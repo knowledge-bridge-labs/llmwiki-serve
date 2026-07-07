@@ -1,0 +1,133 @@
+name: pr-review-guide
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review, edited]
+
+permissions:
+  issues: write
+  pull-requests: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review-guide:
+    name: review guide
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Post contributor review guide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          files="$(gh api "repos/$REPO/pulls/$PR_NUMBER/files" --paginate --jq '.[].filename')"
+
+          server=false
+          adapters=false
+          docs=false
+          tests=false
+          ci=false
+          security=false
+          packaging=false
+
+          while IFS= read -r file; do
+            case "$file" in
+              src/llmwiki_serve/api.py|src/llmwiki_serve/cli.py|src/llmwiki_serve/service.py)
+                server=true
+                ;;
+            esac
+            case "$file" in
+              src/llmwiki_serve/adapters.py|src/llmwiki_serve/models.py|src/llmwiki_serve/parser.py|src/llmwiki_serve/projection.py|src/llmwiki_serve/search.py)
+                adapters=true
+                ;;
+            esac
+            case "$file" in
+              tests/*)
+                tests=true
+                ;;
+            esac
+            case "$file" in
+              README.md|CHANGELOG.md|CONTRIBUTING.md|docs/*)
+                docs=true
+                ;;
+            esac
+            case "$file" in
+              .github/*|.github/workflows/*|scripts/release_smoke.py)
+                ci=true
+                ;;
+            esac
+            case "$file" in
+              pyproject.toml|uv.lock)
+                packaging=true
+                ;;
+            esac
+            case "$file" in
+              SECURITY.md|SUPPORT.md|CODE_OF_CONDUCT.md|THIRD_PARTY_NOTICES.md)
+                security=true
+                ;;
+            esac
+          done <<< "$files"
+
+          {
+            echo "<!-- llmwiki-serve-pr-review-guide -->"
+            echo "## Automated Review Guide"
+            echo
+            echo "This is a contributor aid, not a maintainer approval. It is generated from changed paths and points reviewers at the checks that usually matter for this repo."
+            echo
+            echo "Changed files:"
+            echo
+            printf '%s\n' "$files" | sed 's/^/    /'
+            echo
+            echo "Review focus:"
+            if [ "$server" = true ]; then
+              echo "- Server/API behavior: verify CLI, HTTP, MCP-style JSON-RPC, and A2A-style contracts stay compatible and keep local paths redacted on network surfaces."
+            fi
+            if [ "$adapters" = true ]; then
+              echo "- Adapter/projection/search behavior: cover native LLMWiki, nested wiki/, Obsidian, Logseq, Foam, Dendron, Quartz, and generic Markdown assumptions where relevant."
+            fi
+            if [ "$packaging" = true ]; then
+              echo "- Packaging/dependencies: run the locked uv sync --extra dev --locked path, uv build, and release smoke against the built wheel and sdist."
+            fi
+            if [ "$ci" = true ]; then
+              echo "- CI/release automation: avoid privileged execution of untrusted PR code; keep generated artifacts, credentials, and private wiki output out of packages and logs."
+            fi
+            if [ "$security" = true ]; then
+              echo "- Security/governance: check private disclosure, support routing, license notices, and data-handling expectations before merge."
+            fi
+            if [ "$docs" = true ]; then
+              echo "- Docs/release notes: make sure user-facing behavior, validation, compatibility, and operational caveats are documented."
+            fi
+            if [ "$tests" = true ]; then
+              echo "- Tests: keep fixtures synthetic, avoid private vault content, and prefer behavior-focused assertions over broad snapshots."
+            fi
+            echo
+            echo "Contributor checklist:"
+            echo "- Fill in the PR template's usage mode, endpoint impact, validation, and data-handling sections."
+            echo "- Add focused tests for behavior changes and update CHANGELOG.md for notable compatibility, serving, security, or maintenance changes."
+            echo "- Run the documented validation commands, or explain skipped checks."
+            echo "- Call out any generated or AI-assisted implementation area that deserves closer human review."
+          } > review-guide.md
+
+          comment_id="$(
+            gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
+              --paginate \
+              --jq '.[] | select(.body | contains("llmwiki-serve-pr-review-guide")) | .id' \
+              | head -n 1 \
+              || true
+          )"
+
+          if [ -n "$comment_id" ]; then
+            if ! gh api -X PATCH "repos/$REPO/issues/comments/$comment_id" -F body=@review-guide.md >/dev/null; then
+              echo "::warning::Unable to update automated review guide comment."
+            fi
+          else
+            if ! gh api -X POST "repos/$REPO/issues/$PR_NUMBER/comments" -F body=@review-guide.md >/dev/null; then
+              echo "::warning::Unable to post automated review guide comment."
+            fi
+          fi
