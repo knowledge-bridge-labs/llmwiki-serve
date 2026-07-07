@@ -1,0 +1,16 @@
+{
+  "edges": [
+    {
+      "from": "overview",
+      "to": "concepts/release",
+      "type": "supports",
+      "confidence": 0.88
+    },
+    {
+      "source": "concepts/release",
+      "target": "GH-42",
+      "type": "tracks",
+      "confidence": 0.7
+    }
+  ]
+}

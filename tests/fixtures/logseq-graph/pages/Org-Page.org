@@ -1,0 +1,4 @@
+* Org Page
+
+- Logseq Org page links to [[Product]].
+- tags:: #org-fixture

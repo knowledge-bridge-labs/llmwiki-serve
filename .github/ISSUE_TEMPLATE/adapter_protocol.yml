@@ -1,0 +1,100 @@
+name: Adapter or protocol compatibility
+description: Report an adapter, source-folder, HTTP, MCP, or A2A compatibility issue.
+title: "[Compatibility]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for adapter detection, source-folder projection, endpoint contract, graph, search, citation, or compatibility problems. For suspected vulnerabilities, follow SECURITY.md instead.
+  - type: dropdown
+    id: compatibility_area
+    attributes:
+      label: Compatibility area
+      options:
+        - Source-folder adapter
+        - HTTP endpoint contract
+        - MCP JSON-RPC tools
+        - A2A agent card or message handling
+        - Graph projection
+        - Search or context ranking
+        - Multiple areas
+        - Not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: source_format
+    attributes:
+      label: Served folder format
+      options:
+        - Native LLMWiki Markdown
+        - Obsidian vault
+        - Logseq graph
+        - Foam workspace
+        - Dendron vault
+        - Quartz content folder
+        - Generic Markdown folder
+        - Other
+        - Not applicable
+    validations:
+      required: true
+  - type: dropdown
+    id: protocol
+    attributes:
+      label: Endpoint or protocol
+      options:
+        - HTTP
+        - MCP JSON-RPC
+        - A2A
+        - CLI only
+        - Multiple
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: issue
+    attributes:
+      label: Contract or compatibility issue
+      description: Describe the adapter behavior, endpoint response, graph data, context pack, or error handling that does not match the documented contract.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: checkboxes
+    id: validation
+    attributes:
+      label: Validation already tried
+      options:
+        - label: "`uv run llmwiki-serve manifest <folder>`"
+        - label: "`uv run llmwiki-serve query <folder> \"...\"`"
+        - label: Local HTTP server smoke test
+        - label: MCP client or JSON-RPC smoke test
+        - label: A2A client smoke test
+        - label: "`uv run pytest`"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or response samples
+      description: Redact credentials, bearer tokens, private endpoint URLs, private paths, raw sensitive wiki content, and infrastructure details.
+      render: text
+  - type: checkboxes
+    id: data_safety
+    attributes:
+      label: Data safety
+      options:
+        - label: This report does not include real credentials, tokens, private endpoint URLs, private exports, raw sensitive wiki content, or unredacted logs.
+          required: true
