@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import os
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -20,7 +22,7 @@ from .models import (
     WikiManifest,
 )
 from .projection import project_wiki, slug
-from .search import context_orientation, search
+from .search import SearchCorpus, build_search_corpus, context_orientation, search_corpus
 
 SourceSignature = tuple[tuple[str, int, int], ...]
 _ProjectionSignature = tuple["_PathState", ...]
@@ -40,14 +42,30 @@ IGNORED_SIGNATURE_PARTS = {".git", "node_modules", ".venv", "__pycache__", "dist
 
 
 class LlmWikiService:
-    def __init__(self, root: Path | str) -> None:
+    def __init__(
+        self,
+        root: Path | str,
+        *,
+        refresh_interval_seconds: float = 0.0,
+        clock: Callable[[], float] | None = None,
+    ) -> None:
+        if refresh_interval_seconds < 0:
+            raise ValueError("refresh_interval_seconds must be non-negative")
         self.root = Path(root)
+        self.refresh_interval_seconds = refresh_interval_seconds
+        self._clock = clock or time.monotonic
+        self._last_refresh_check: float | None = None
         self._index: WikiIndex | None = None
+        self._views: _IndexViews | None = None
         self._signature: SourceSignature | None = None
         self._projection_signature: _ProjectionSignature | None = None
         self._signature_cache = _SourceSignatureCache(self.root)
 
     def index(self, *, refresh: bool = False) -> WikiIndex:
+        if self._can_reuse_cached_index(refresh=refresh):
+            assert self._index is not None
+            return self._index
+
         snapshot = self._signature_cache.current_snapshot(refresh=refresh)
         if (
             self._index is None
@@ -56,9 +74,21 @@ class LlmWikiService:
             or snapshot.projection_signature != self._projection_signature
         ):
             self._index = project_wiki(load_wiki(self.root))
+            self._views = None
             self._signature = snapshot.signature
             self._projection_signature = snapshot.projection_signature
+        self._last_refresh_check = self._clock() if self.refresh_interval_seconds > 0 else None
         return self._index
+
+    def _can_reuse_cached_index(self, *, refresh: bool) -> bool:
+        if (
+            refresh
+            or self._index is None
+            or self.refresh_interval_seconds <= 0
+            or self._last_refresh_check is None
+        ):
+            return False
+        return self._clock() - self._last_refresh_check < self.refresh_interval_seconds
 
     def manifest(self, *, enable_a2a_compat: bool = False) -> WikiManifest:
         index = self.index()
@@ -107,8 +137,9 @@ class LlmWikiService:
 
     def context(self, query: str, *, limit: int = 8, include_drafts: bool = False) -> ContextPack:
         index = self.index()
+        views = self._index_views(index)
         orientation = context_orientation(index, include_drafts=include_drafts)
-        evidence = search(index, query, limit=limit, include_drafts=include_drafts)
+        evidence = search_corpus(views.search_corpus(include_drafts), query, limit=limit)
         limitations: list[str] = []
         if not evidence:
             limitations.append("No matching approved LLMWiki page was found.")
@@ -134,10 +165,17 @@ class LlmWikiService:
     def search(
         self, query: str, *, limit: int = 8, include_drafts: bool = False
     ) -> list[dict[str, Any]]:
+        views = self._index_views()
         return [
             item.model_dump()
-            for item in search(self.index(), query, limit=limit, include_drafts=include_drafts)
+            for item in search_corpus(views.search_corpus(include_drafts), query, limit=limit)
         ]
+
+    def _index_views(self, index: WikiIndex | None = None) -> _IndexViews:
+        current = index or self.index()
+        if self._views is None or self._views.index is not current:
+            self._views = _IndexViews.build(current)
+        return self._views
 
     def read(self, page_id: str, *, include_drafts: bool = False) -> dict[str, Any]:
         for page in self.index().pages:
@@ -227,6 +265,25 @@ class LlmWikiService:
             if edge.source in visible_nodes and edge.target in visible_nodes
         ]
         return closed_graph_payload(nodes, edges, limit)
+
+
+@dataclass(frozen=True)
+class _IndexViews:
+    index: WikiIndex
+    approved_search: SearchCorpus
+    all_search: SearchCorpus
+
+    @classmethod
+    def build(cls, index: WikiIndex) -> _IndexViews:
+        approved_pages = [page for page in index.pages if page.approved_for_serving]
+        return cls(
+            index=index,
+            approved_search=build_search_corpus(approved_pages),
+            all_search=build_search_corpus(index.pages),
+        )
+
+    def search_corpus(self, include_drafts: bool) -> SearchCorpus:
+        return self.all_search if include_drafts else self.approved_search
 
 
 def closed_graph_payload(

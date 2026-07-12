@@ -140,8 +140,9 @@ def create_app(
     allow_drafts: bool = False,
     cors_origins: Sequence[str] | None = None,
     enable_a2a_compat: bool = False,
+    refresh_interval_seconds: float = 0.0,
 ) -> FastAPI:
-    service = LlmWikiService(root)
+    service = LlmWikiService(root, refresh_interval_seconds=refresh_interval_seconds)
     mcp_stream = create_mcp_stream_server(
         service,
         allow_drafts=allow_drafts,

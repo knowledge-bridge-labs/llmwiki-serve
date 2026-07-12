@@ -35,6 +35,17 @@ ServePortOption: TypeAlias = Annotated[
     int,
     typer.Option("--port", min=1, max=65_535, help="TCP port for the HTTP server."),
 ]
+RefreshIntervalOption: TypeAlias = Annotated[
+    float,
+    typer.Option(
+        "--refresh-interval-seconds",
+        min=0.0,
+        help=(
+            "Seconds to reuse the in-memory projection before checking files again. "
+            "Default 0 keeps strict per-request freshness."
+        ),
+    ),
+]
 
 
 @app.command()
@@ -99,12 +110,13 @@ def serve(
             help="Enable legacy A2A-style compatibility endpoints.",
         ),
     ] = False,
+    refresh_interval_seconds: RefreshIntervalOption = 0.0,
 ) -> None:
     """Run the HTTP, MCP-style JSON-RPC, and MCP Streamable HTTP server."""
     import uvicorn
 
     try:
-        LlmWikiService(root).index()
+        LlmWikiService(root, refresh_interval_seconds=refresh_interval_seconds).index()
     except FileNotFoundError as exc:
         exit_with_error(str(exc))
 
@@ -114,6 +126,7 @@ def serve(
             allow_drafts=allow_drafts,
             cors_origins=cors_origin,
             enable_a2a_compat=enable_a2a_compat,
+            refresh_interval_seconds=refresh_interval_seconds,
         ),
         host=host,
         port=port,
