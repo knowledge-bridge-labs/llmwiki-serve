@@ -3,35 +3,67 @@ from __future__ import annotations
 import math
 import re
 from collections import Counter
+from dataclasses import dataclass
 
 from .models import SearchResult, WikiIndex, WikiPage
 
 TOKEN_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*|[가-힣]{2,}")
 
 
+@dataclass(frozen=True)
+class SearchDocument:
+    page: WikiPage
+    tokens: tuple[str, ...]
+    counts: Counter[str]
+
+
+@dataclass(frozen=True)
+class SearchCorpus:
+    pages: list[WikiPage]
+    documents: list[SearchDocument]
+    doc_freq: Counter[str]
+
+    @property
+    def total(self) -> int:
+        return max(1, len(self.documents))
+
+
 def search(
     index: WikiIndex, query: str, *, limit: int = 8, include_drafts: bool = False
 ) -> list[SearchResult]:
     pages = visible_pages(index.pages, include_drafts)
+    return search_corpus(build_search_corpus(pages), query, limit=limit)
+
+
+def build_search_corpus(pages: list[WikiPage]) -> SearchCorpus:
+    documents: list[SearchDocument] = []
+    doc_freq: Counter[str] = Counter()
+    for page in pages:
+        tokens = tuple(tokenize(page_text(page)))
+        counts = Counter(tokens)
+        doc_freq.update(set(tokens))
+        documents.append(SearchDocument(page=page, tokens=tokens, counts=counts))
+    return SearchCorpus(pages=pages, documents=documents, doc_freq=doc_freq)
+
+
+def search_corpus(corpus: SearchCorpus, query: str, *, limit: int = 8) -> list[SearchResult]:
     tokens = tokenize(query)
     if not tokens:
-        return overview_results(pages, limit)
+        return overview_results(corpus.pages, limit)
 
-    documents = [page_text(page) for page in pages]
-    doc_freq = Counter(token for text in documents for token in set(tokenize(text)))
-    total = max(1, len(documents))
     results: list[SearchResult] = []
-    for page in pages:
-        page_tokens = tokenize(page_text(page))
-        counts = Counter(page_tokens)
+    for document in corpus.documents:
         text_score = 0.0
         for token in tokens:
-            if not counts[token]:
+            if not document.counts[token]:
                 continue
-            idf = math.log(1 + (total - doc_freq[token] + 0.5) / (doc_freq[token] + 0.5))
-            text_score += counts[token] * idf
+            idf = math.log(
+                1 + (corpus.total - corpus.doc_freq[token] + 0.5) / (corpus.doc_freq[token] + 0.5)
+            )
+            text_score += document.counts[token] * idf
         if text_score <= 0:
             continue
+        page = document.page
         score = text_score + role_boost(page)
         results.append(to_result(page, score=score, query_tokens=tokens, route="search"))
     results.sort(key=lambda item: (-item.score, role_rank(item.role), item.path))

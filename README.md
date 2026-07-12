@@ -251,7 +251,11 @@ details unless documented here.
 - CLI `manifest` and `query` build a fresh projection for each process.
   Long-running `serve` instances cache an in-memory projection and refresh it on
   the next request when Markdown, Org, adapter marker/config, or
-  `graph/graph.json` source files change.
+  `graph/graph.json` source files change. By default this freshness check runs
+  before each request. Operators can opt into
+  `--refresh-interval-seconds <seconds>` to reuse the current in-memory
+  projection between checks for larger local graphs where a short visibility
+  delay is acceptable.
 - Draft and unpublished pages are withheld by default from read, search,
   context, and graph responses. Visibility blocks explicit non-serving markers:
   `draft: true`, `published: false`, `publish: false`,

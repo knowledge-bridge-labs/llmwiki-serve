@@ -83,6 +83,12 @@ or `graph/graph.json` files appear, change, move, or disappear. Library callers
 that own a service instance can explicitly call `index(refresh=True)` to force a
 rebuild from disk.
 
+`serve --refresh-interval-seconds <seconds>` is an opt-in local performance
+knob. The default `0.0` preserves strict per-request freshness. Positive values
+reuse the current in-memory projection until the interval expires, reducing
+repeated filesystem scans for larger local graphs while allowing recent source
+updates to remain invisible for that interval.
+
 External compiler or ingest jobs are reflected when they write compatible files
 into the served folder. `llmwiki-serve` detects those outputs and rebuilds its
 projection, but it does not run ingestion, compilation, migration, or authoring

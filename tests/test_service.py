@@ -25,6 +25,7 @@ from llmwiki_serve.api import (
     create_app,
 )
 from llmwiki_serve.cli import app as cli_app
+from llmwiki_serve.search import search as raw_search
 from llmwiki_serve.service import LlmWikiService, source_signature
 
 FIXTURE = Path(__file__).parent / "fixtures" / "sample-wiki"
@@ -615,6 +616,7 @@ def test_cli_rejects_out_of_range_runtime_options_without_traceback() -> None:
         ["query", str(FIXTURE), "required copy", "--limit", "0"],
         ["query", str(FIXTURE), "required copy", "--limit", "31"],
         ["serve", str(FIXTURE), "--port", "0"],
+        ["serve", str(FIXTURE), "--refresh-interval-seconds", "-1"],
     ):
         result = CliRunner().invoke(cli_app, command)
 
@@ -1309,6 +1311,37 @@ def test_service_reuses_source_signature_scan_between_manifest_and_query(monkeyp
     assert walk_calls == 1
 
 
+def test_service_reuses_search_corpus_until_projection_changes(monkeypatch) -> None:
+    import llmwiki_serve.service as service_module
+
+    real_build_search_corpus = service_module.build_search_corpus
+    build_calls = 0
+
+    def counting_build_search_corpus(*args: Any, **kwargs: Any) -> Any:
+        nonlocal build_calls
+        build_calls += 1
+        return real_build_search_corpus(*args, **kwargs)
+
+    monkeypatch.setattr(service_module, "build_search_corpus", counting_build_search_corpus)
+
+    service = LlmWikiService(FIXTURE)
+    index = service.index()
+    expected = [item.model_dump() for item in raw_search(index, "required copy", limit=4)]
+
+    assert service.search("required copy", limit=4) == expected
+    assert build_calls == 2
+    assert service.search("requester return", limit=4)
+    assert build_calls == 2
+    assert service.context("required copy", limit=4).answerable
+    assert build_calls == 2
+    assert service.search("draft", limit=4, include_drafts=True)
+    assert build_calls == 2
+
+    service.index(refresh=True)
+    assert service.search("required copy", limit=4) == expected
+    assert build_calls == 4
+
+
 def test_service_signature_cache_refreshes_when_source_file_changes(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -1500,6 +1533,136 @@ Start with [[topic]].
     refreshed = service.read("topic")
     assert "Updated stat body BBBB" in refreshed["text"]
     assert "Initial stat body AAAA" not in refreshed["text"]
+
+
+def test_service_default_strict_refresh_detects_immediate_same_stat_rewrite(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "wiki"
+    root.mkdir()
+    write_markdown(
+        root / "index.md",
+        """
+---
+wiki_title: Strict Refresh Fixture
+review_state: approved
+---
+# Strict Refresh Fixture
+
+Start with [[topic]].
+""",
+    )
+    topic = root / "topic.md"
+
+    def topic_content(body: str) -> str:
+        return f"---\ntitle: Topic\nreview_state: approved\n---\n# Topic\n\n{body}\n"
+
+    initial_content = topic_content("Strict one body AAAA")
+    replacement_content = topic_content("Strict two body BBBB")
+    assert len(initial_content.encode("utf-8")) == len(replacement_content.encode("utf-8"))
+
+    topic.write_text(initial_content, encoding="utf-8")
+    requested_mtime_ns = 1_730_000_000_123_456_789
+    os.utime(topic, ns=(requested_mtime_ns, requested_mtime_ns))
+
+    service = LlmWikiService(root)
+    assert "Strict one body AAAA" in service.read("topic")["text"]
+
+    before_stat = topic.stat()
+    topic.write_text(replacement_content, encoding="utf-8")
+    os.utime(topic, ns=(before_stat.st_atime_ns, before_stat.st_mtime_ns))
+
+    after_stat = topic.stat()
+    assert after_stat.st_size == before_stat.st_size
+    assert after_stat.st_mtime_ns == before_stat.st_mtime_ns
+
+    refreshed = service.read("topic")
+    assert "Strict two body BBBB" in refreshed["text"]
+    assert "Strict one body AAAA" not in refreshed["text"]
+
+
+def test_service_refresh_interval_reuses_then_refreshes_and_allows_explicit_refresh(
+    tmp_path: Path, monkeypatch
+) -> None:
+    root = tmp_path / "wiki"
+    root.mkdir()
+    write_markdown(
+        root / "index.md",
+        """
+---
+wiki_title: Refresh Interval Fixture
+review_state: approved
+---
+# Refresh Interval Fixture
+
+Start with [[topic]].
+""",
+    )
+    topic = root / "topic.md"
+
+    def topic_content(body: str) -> str:
+        return f"---\ntitle: Topic\nreview_state: approved\n---\n# Topic\n\n{body}\n"
+
+    initial_content = topic_content("Version one body AAAA")
+    interval_content = topic_content("Version two body BBBB")
+    explicit_content = topic_content("Version tri body CCCC")
+    assert len(initial_content.encode("utf-8")) == len(interval_content.encode("utf-8"))
+    assert len(interval_content.encode("utf-8")) == len(explicit_content.encode("utf-8"))
+
+    topic.write_text(initial_content, encoding="utf-8")
+    requested_mtime_ns = 1_740_000_000_123_456_789
+    os.utime(topic, ns=(requested_mtime_ns, requested_mtime_ns))
+
+    now = 0.0
+
+    def clock() -> float:
+        return now
+
+    real_walk = os.walk
+    walk_calls = 0
+
+    def counting_walk(*args: Any, **kwargs: Any) -> Any:
+        nonlocal walk_calls
+        walk_calls += 1
+        return real_walk(*args, **kwargs)
+
+    monkeypatch.setattr("llmwiki_serve.service.os.walk", counting_walk)
+
+    service = LlmWikiService(root, refresh_interval_seconds=10.0, clock=clock)
+    assert "Version one body AAAA" in service.read("topic")["text"]
+    assert walk_calls == 1
+
+    before_stat = topic.stat()
+    topic.write_text(interval_content, encoding="utf-8")
+    os.utime(topic, ns=(before_stat.st_atime_ns, before_stat.st_mtime_ns))
+
+    now = 9.0
+    cached = service.read("topic")
+    assert "Version one body AAAA" in cached["text"]
+    assert "Version two body BBBB" not in cached["text"]
+    assert walk_calls == 1
+
+    now = 10.0
+    interval_refreshed = service.read("topic")
+    assert "Version two body BBBB" in interval_refreshed["text"]
+    assert "Version one body AAAA" not in interval_refreshed["text"]
+    assert walk_calls == 2
+
+    before_stat = topic.stat()
+    topic.write_text(explicit_content, encoding="utf-8")
+    os.utime(topic, ns=(before_stat.st_atime_ns, before_stat.st_mtime_ns))
+
+    now = 11.0
+    still_cached = service.read("topic")
+    assert "Version two body BBBB" in still_cached["text"]
+    assert "Version tri body CCCC" not in still_cached["text"]
+    assert walk_calls == 2
+
+    service.index(refresh=True)
+    explicitly_refreshed = service.read("topic")
+    assert "Version tri body CCCC" in explicitly_refreshed["text"]
+    assert "Version two body BBBB" not in explicitly_refreshed["text"]
+    assert walk_calls == 3
 
 
 def test_service_signature_cache_refreshes_when_sidecar_file_stat_is_preserved(
