@@ -22,7 +22,8 @@ LLMWIKI_TYPED_DIRS = {
     "categories",
     "questions",
 }
-LLMWIKI_HUB_FILES = {"index.md", "overview.md", "hot.md", "critical_facts.md"}
+LLMWIKI_HUB_FILES = {"index.md", "overview.md", "hot.md", "critical_facts.md", "quickstart.md"}
+LLMWIKI_SOURCE_ROOT_NAMES = ("wiki", "openwiki")
 IGNORED_ADAPTER_PARTS = {
     ".git",
     ".obsidian",
@@ -135,6 +136,12 @@ SUPPORTED_IMPLEMENTATIONS: tuple[AdapterProfile, ...] = (
             "Reads the generated raw/wiki/log workspace layout when the nested wiki/ "
             "folder contains Markdown pages."
         ),
+    ),
+    AdapterProfile(
+        "langchain-ai/openwiki",
+        "llmwiki-markdown",
+        "compatible-output",
+        "Reads generated openwiki/ documentation where quickstart.md is the entrypoint.",
     ),
     AdapterProfile(
         "Obsidian vault",
@@ -463,9 +470,10 @@ def markdown_metadata(root: Path, pages: list[WikiPage]) -> tuple[str, str]:
 
 
 def llmwiki_source_root(root: Path) -> Path | None:
-    nested = root / "wiki"
-    if is_llmwiki_markdown_root(nested, nested=True):
-        return nested
+    for name in LLMWIKI_SOURCE_ROOT_NAMES:
+        nested = root / name
+        if is_llmwiki_markdown_root(nested, nested=True):
+            return nested
     if is_llmwiki_markdown_root(root, nested=False):
         return root
     return None
@@ -481,6 +489,8 @@ def is_llmwiki_markdown_root(root: Path, *, nested: bool) -> bool:
 
     if nested:
         return has_hub or has_typed_pages
+    if is_named_llmwiki_source_root(root, markdown_names):
+        return True
     return ("hot.md" in markdown_names and bool({"index.md", "overview.md"} & markdown_names)) or (
         has_hub and has_typed_pages
     )
@@ -490,11 +500,12 @@ def llmwiki_hub_source_roots(root: Path) -> list[Path]:
     if not root.is_dir() or root.is_symlink():
         return []
     roots: list[Path] = []
-    preferred = root / "wiki"
-    if is_llmwiki_markdown_root(preferred, nested=True):
-        roots.append(preferred)
+    preferred_roots = [root / name for name in LLMWIKI_SOURCE_ROOT_NAMES]
+    for preferred in preferred_roots:
+        if is_llmwiki_markdown_root(preferred, nested=True):
+            roots.append(preferred)
     for child in sorted(root.iterdir()):
-        if child == preferred or child.name in IGNORED_HUB_ROOT_NAMES:
+        if child in preferred_roots or child.name in IGNORED_HUB_ROOT_NAMES:
             continue
         if not include_adapter_dir(child, root=root):
             continue
@@ -509,7 +520,13 @@ def is_probable_nested_llmwiki_source_root(root: Path) -> bool:
     marker, markdown_names, has_typed_pages = llmwiki_root_signals(root)
     if marker or has_typed_pages:
         return True
+    if is_named_llmwiki_source_root(root, markdown_names):
+        return True
     return len(markdown_names & LLMWIKI_HUB_FILES) >= 2
+
+
+def is_named_llmwiki_source_root(root: Path, markdown_names: set[str]) -> bool:
+    return root.name.casefold() in LLMWIKI_SOURCE_ROOT_NAMES and "quickstart.md" in markdown_names
 
 
 def llmwiki_root_signals(root: Path) -> tuple[bool, set[str], bool]:

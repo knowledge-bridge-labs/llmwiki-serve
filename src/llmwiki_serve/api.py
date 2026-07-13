@@ -347,8 +347,8 @@ def create_mcp_stream_server(
     @mcp_stream.tool(
         name="llmwiki_context",
         description=(
-            "Build a context pack with wiki metadata, hot/index/overview orientation first, "
-            "then query-ranked citation evidence."
+            "Build a context pack with wiki metadata, hot/index/overview or OpenWiki "
+            "quickstart orientation first, then query-ranked citation evidence."
         ),
     )
     def llmwiki_context(
@@ -455,8 +455,9 @@ def handle_mcp(
                 {
                     "name": "llmwiki_context",
                     "description": (
-                        "Build a context pack with wiki metadata, hot/index/overview "
-                        "orientation first, then query-ranked citation evidence."
+                        "Build a context pack with wiki metadata, hot/index/overview or "
+                        "OpenWiki quickstart orientation first, then query-ranked citation "
+                        "evidence."
                     ),
                 },
                 {"name": "llmwiki_search", "description": "Search approved LLMWiki pages."},
