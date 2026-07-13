@@ -123,7 +123,7 @@ def hub_role(name: str) -> PageRole | None:
     name = name.lower()
     if name == "hot.md":
         return "hot"
-    if name == "index.md":
+    if name in {"index.md", "quickstart.md"}:
         return "index"
     if name == "overview.md":
         return "overview"

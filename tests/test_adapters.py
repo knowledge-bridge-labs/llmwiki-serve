@@ -30,6 +30,7 @@ def test_supported_implementation_catalog_covers_supported_targets() -> None:
         "lucasastorian/llmwiki",
         "Pratiyush/llm-wiki",
         "langchain-ai/deepagents examples/llm-wiki",
+        "langchain-ai/openwiki",
         "Obsidian vault",
         "logseq/logseq",
         "foambubble/foam",
@@ -118,6 +119,139 @@ def test_native_llmwiki_nested_wiki_source_root_and_overview_hub() -> None:
     assert service.read("concepts/release")["path"] == "concepts/release.md"
     assert service.read("concepts/release.md")["path"] == "concepts/release.md"
     assert service.read("wiki/concepts/release.md") == {"found": False}
+
+
+def test_openwiki_quickstart_entrypoint_is_index_hub(tmp_path: Path) -> None:
+    root = tmp_path / "openwiki"
+    (root / "architecture").mkdir(parents=True)
+    write_markdown(
+        root / "quickstart.md",
+        """
+---
+wiki_title: OpenWiki Fixture
+review_state: approved
+---
+# OpenWiki Quickstart
+
+Start here for the generated repository documentation.
+""",
+    )
+    write_markdown(
+        root / "architecture" / "overview.md",
+        """
+---
+review_state: approved
+---
+# Architecture Overview
+
+Architecture details.
+""",
+    )
+
+    loaded = load_wiki(root)
+    service = LlmWikiService(root)
+    roles = {page.path: page.role for page in loaded.pages}
+    manifest = service.manifest()
+    context = service.context("")
+
+    assert loaded.adapter == "llmwiki-markdown"
+    assert loaded.metadata["source_root"] == "."
+    assert loaded.title == "OpenWiki Fixture"
+    assert roles["quickstart.md"] == "index"
+    assert roles["architecture/overview.md"] == "topic"
+    assert manifest.index_page == "quickstart.md"
+    assert manifest.hot_page == ""
+    assert manifest.overview_page == ""
+    assert [item.path for item in context.orientation] == [
+        "quickstart.md",
+        "architecture/overview.md",
+    ]
+    assert [item.role for item in context.orientation] == ["index", "topic"]
+
+
+def test_repository_root_uses_nested_openwiki_source_root(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    (root / "openwiki" / "domain").mkdir(parents=True)
+    write_markdown(
+        root / "README.md",
+        """
+# Repository README
+
+This should not be served when openwiki/ is the detected source root.
+""",
+    )
+    write_markdown(
+        root / "openwiki" / "quickstart.md",
+        """
+---
+wiki_title: Nested OpenWiki Fixture
+review_state: approved
+---
+# Quickstart
+
+Generated entrypoint.
+""",
+    )
+    write_markdown(
+        root / "openwiki" / "domain" / "concepts.md",
+        """
+---
+review_state: approved
+---
+# Concepts
+
+Generated domain page.
+""",
+    )
+
+    loaded = load_wiki(root)
+    service = LlmWikiService(root)
+
+    assert loaded.adapter == "llmwiki-markdown"
+    assert loaded.metadata["source_root"] == "openwiki"
+    assert loaded.title == "Nested OpenWiki Fixture"
+    assert {page.path for page in loaded.pages} == {"quickstart.md", "domain/concepts.md"}
+    assert service.manifest().index_page == "quickstart.md"
+    assert service.read("quickstart")["path"] == "quickstart.md"
+    assert service.read("openwiki/quickstart") == {"found": False}
+
+
+def test_generic_nested_quickstart_does_not_become_hub_root(tmp_path: Path) -> None:
+    root = tmp_path / "generic-docs"
+    (root / "guide").mkdir(parents=True)
+    write_markdown(
+        root / "README.md",
+        """
+# Generic Docs
+
+Root readme.
+""",
+    )
+    write_markdown(
+        root / "guide" / "quickstart.md",
+        """
+# Guide Quickstart
+
+Generic quickstart content.
+""",
+    )
+
+    loaded = load_wiki(root)
+    service = LlmWikiService(root)
+    roles = {page.path: page.role for page in loaded.pages}
+    manifest = service.manifest()
+    context = service.context("")
+
+    assert loaded.adapter == "generic-markdown"
+    assert loaded.metadata["source_root"] == "."
+    assert roles["README.md"] == "topic"
+    assert roles["guide/quickstart.md"] == "topic"
+    assert manifest.index_page == ""
+    assert [item.path for item in context.orientation] == [
+        "README.md",
+        "guide/quickstart.md",
+    ]
+    assert [item.role for item in context.orientation] == ["topic", "topic"]
 
 
 def test_obsidian_adapter_with_nested_wiki_recognizes_hubs_and_serves_whole_vault(

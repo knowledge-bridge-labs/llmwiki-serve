@@ -2223,7 +2223,10 @@ def test_mcp_tools_list_contains_context_and_graph() -> None:
     tool_names = {tool["name"] for tool in tools["result"]["tools"]}
     descriptions = {tool["name"]: tool["description"] for tool in tools["result"]["tools"]}
     assert {"llmwiki_context", "llmwiki_graph"} <= tool_names
-    assert "hot/index/overview orientation first" in descriptions["llmwiki_context"]
+    assert (
+        "hot/index/overview or OpenWiki quickstart orientation first"
+        in descriptions["llmwiki_context"]
+    )
     assert "query-ranked citation evidence" in descriptions["llmwiki_context"]
 
 
