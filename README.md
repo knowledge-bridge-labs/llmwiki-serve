@@ -303,6 +303,14 @@ details unless documented here.
   `projection.signature` and `bundle_id` remain content-derived from
   projection-affecting source files and are recomputed on initial load and
   marker changes.
+- Production deployments that need projection reuse across worker processes can
+  install `llmwiki-serve[redis]` and start `serve` with
+  `--projection-store redis --redis-url redis://...`. Redis/Valkey stores
+  derived projection artifacts only; Markdown folders and graph sidecars remain
+  the source of truth. Use `--source-id` and `--cache-namespace` to keep shared
+  Redis deployments collision-free. Treat Redis as sensitive storage: cached
+  projections may include derived page text and front matter, including draft
+  pages that are still filtered from network responses by the serving layer.
 - Draft and unpublished pages are withheld by default from read, search,
   context, and graph responses. Visibility blocks explicit non-serving markers:
   `draft: true`, `published: false`, `publish: false`,

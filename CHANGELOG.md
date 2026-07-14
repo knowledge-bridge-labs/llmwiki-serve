@@ -5,6 +5,12 @@ All notable changes to LLMWiki Serve will be documented here.
 This project follows a lightweight public-preview changelog format. Dates use
 `YYYY-MM-DD`.
 
+## Unreleased
+
+- Added an optional Redis/Valkey projection store extra, CLI configuration, and
+  diagnostics endpoint so production deployments can reuse derived projections
+  across server processes while keeping in-memory projection as the default.
+
 ## 0.2.0 - 2026-07-17
 
 - Added default-on local serve I/O JSONL logging for HTTP, MCP-style,

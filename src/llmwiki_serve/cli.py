@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Annotated, NoReturn, TypeAlias
 
 import typer
 
 from .api import QUERY_LIMIT_MAX, QUERY_LIMIT_MIN, create_app
+from .projection_store import (
+    ProjectionStoreBackend,
+    RedisFailurePolicy,
+    create_projection_store,
+)
 from .service import LlmWikiService
 
 app = typer.Typer(help="Serve or inspect an LLMWiki Markdown folder.")
@@ -66,6 +72,20 @@ IoLogOption: TypeAlias = Annotated[
             ".runtime-logs/llmwiki-serve-io.jsonl; env LLMWIKI_SERVE_IO_LOG "
             "can also be 'off' or a path."
         ),
+    ),
+]
+ProjectionStoreOption: TypeAlias = Annotated[
+    ProjectionStoreBackend | None,
+    typer.Option(
+        "--projection-store",
+        help=("Projection cache backend. Use redis only after installing llmwiki-serve\\[redis]."),
+    ),
+]
+RedisFailurePolicyOption: TypeAlias = Annotated[
+    RedisFailurePolicy,
+    typer.Option(
+        "--redis-failure-policy",
+        help="Redis outage behavior. fallback-local keeps serving from process memory.",
     ),
 ]
 
@@ -135,17 +155,57 @@ def serve(
     refresh_interval_seconds: RefreshIntervalOption = 0.0,
     producer_manifest: ProducerManifestOption = None,
     io_log: IoLogOption = None,
+    projection_store_backend: ProjectionStoreOption = None,
+    redis_url: Annotated[
+        str | None,
+        typer.Option(
+            "--redis-url",
+            help="Redis/Valkey URL for --projection-store=redis.",
+        ),
+    ] = None,
+    redis_failure_policy: RedisFailurePolicyOption = "fallback-local",
+    cache_namespace: Annotated[
+        str | None,
+        typer.Option(
+            "--cache-namespace",
+            help="Projection cache namespace for shared Redis/Valkey deployments.",
+        ),
+    ] = None,
+    source_id: Annotated[
+        str | None,
+        typer.Option(
+            "--source-id",
+            help=(
+                "Explicit source id for cache keys and manifests. Recommended with "
+                "--projection-store=redis."
+            ),
+        ),
+    ] = None,
 ) -> None:
     """Run the HTTP, MCP-style JSON-RPC, and MCP Streamable HTTP server."""
     import uvicorn
 
     try:
+        projection_backend = resolve_projection_store_backend(projection_store_backend)
+        resolved_redis_url = redis_url or os.getenv("LLMWIKI_REDIS_URL")
+        resolved_namespace = cache_namespace or os.getenv("LLMWIKI_CACHE_NAMESPACE") or "default"
+        resolved_source_id = source_id or os.getenv("LLMWIKI_SOURCE_ID")
+        projection_store = create_projection_store(
+            projection_backend,
+            redis_url=resolved_redis_url,
+            redis_failure_policy=redis_failure_policy,
+        )
         LlmWikiService(
             root,
             refresh_interval_seconds=refresh_interval_seconds,
             producer_manifest_path=producer_manifest,
+            projection_store=projection_store,
+            cache_namespace=resolved_namespace,
+            source_id=resolved_source_id,
         ).index()
     except FileNotFoundError as exc:
+        exit_with_error(str(exc))
+    except (RuntimeError, ValueError) as exc:
         exit_with_error(str(exc))
 
     uvicorn.run(
@@ -157,10 +217,28 @@ def serve(
             refresh_interval_seconds=refresh_interval_seconds,
             producer_manifest_path=producer_manifest,
             io_log=io_log,
+            projection_store=projection_store,
+            cache_namespace=resolved_namespace,
+            source_id=resolved_source_id,
         ),
         host=host,
         port=port,
     )
+
+
+def resolve_projection_store_backend(
+    value: ProjectionStoreBackend | None,
+) -> ProjectionStoreBackend:
+    if value is not None:
+        return value
+    env_value = os.getenv("LLMWIKI_PROJECTION_STORE")
+    if env_value == "memory":
+        return "memory"
+    if env_value == "redis":
+        return "redis"
+    if env_value:
+        raise ValueError("LLMWIKI_PROJECTION_STORE must be 'memory' or 'redis'")
+    return "memory"
 
 
 def exit_with_error(message: str) -> NoReturn:

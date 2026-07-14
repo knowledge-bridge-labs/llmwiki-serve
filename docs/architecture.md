@@ -127,6 +127,42 @@ signature from projection-affecting source files and uses that signature for
 `projection.signature` and `bundle_id`. While the marker is unchanged, the
 service reuses the cached projection and cached content identity.
 
+## Projection Store Backends
+
+The default projection store is process memory. This preserves the local-first
+quickstart and requires no external services.
+
+Production operators can install `llmwiki-serve[redis]` and select Redis or
+Valkey as a shared projection store:
+
+```bash
+pip install "llmwiki-serve[redis]"
+llmwiki-serve serve ./wiki \
+  --projection-store redis \
+  --redis-url redis://127.0.0.1:6379/0 \
+  --source-id project-alpha \
+  --cache-namespace local
+```
+
+The Redis backend is a read-through cache for derived `WikiIndex` projections.
+It is not the source of truth, not a raw-file RAG store, and not a replacement
+for file freshness checks. Keys include schema version, namespace, source id,
+and projection signature so one Redis/Valkey instance can hold multiple wiki
+graphs without path-based keys. Payloads omit the local root path and reattach
+the current service root when hydrated. Redis still stores derived wiki content:
+cached projections can include page text and front matter, including draft pages
+that network responses withhold unless draft access is explicitly enabled.
+Operators should secure Redis with the same care as the source wiki, isolate
+namespaces per deployment, and avoid shared or untrusted Redis instances.
+
+If Redis is unavailable and `--redis-failure-policy fallback-local` is used, the
+server falls back to process memory. Use `--redis-failure-policy fail-fast` when
+operators want startup or runtime Redis failures to stop the process instead.
+
+`GET /diagnostics/projection-store` reports backend status, namespace, cache
+source id, availability, and the last backend error without exposing Redis URLs,
+credentials, or local source paths.
+
 ## Compatible Output Targets
 
 The named producer repositories below are compatible output targets for local

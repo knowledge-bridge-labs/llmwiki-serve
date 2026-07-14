@@ -29,6 +29,7 @@ from .models import (
     WikiManifest,
     WikiPage,
 )
+from .projection_store import ProjectionStore
 from .service import LlmWikiService
 
 QUERY_LIMIT_MIN = 1
@@ -122,6 +123,14 @@ class HealthResponse(BaseModel):
     cors: HealthCorsResponse
 
 
+class ProjectionStoreDiagnosticsResponse(BaseModel):
+    backend: str
+    namespace: str
+    cache_source_id: str
+    available: bool
+    last_error: str = ""
+
+
 class SearchResponse(BaseModel):
     results: list[SearchResult] = Field(default_factory=list)
 
@@ -196,11 +205,17 @@ def create_app(
     refresh_interval_seconds: float = 0.0,
     producer_manifest_path: Path | str | None = None,
     io_log: Path | str | bool | None = None,
+    projection_store: ProjectionStore | None = None,
+    cache_namespace: str = "default",
+    source_id: str | None = None,
 ) -> FastAPI:
     service = LlmWikiService(
         root,
         refresh_interval_seconds=refresh_interval_seconds,
         producer_manifest_path=producer_manifest_path,
+        projection_store=projection_store,
+        cache_namespace=cache_namespace,
+        source_id=source_id,
     )
     mcp_stream = create_mcp_stream_server(
         service,
@@ -280,6 +295,13 @@ def create_app(
             "endpoints": health_endpoints(enable_a2a_compat).model_dump(),
             "cors": health_cors(explicit_origins).model_dump(),
         }
+
+    @app.get(
+        "/diagnostics/projection-store",
+        response_model=ProjectionStoreDiagnosticsResponse,
+    )
+    def projection_store_diagnostics() -> dict[str, Any]:
+        return service.projection_store_diagnostics()
 
     @app.get("/manifest", response_model=WikiManifest)
     def manifest() -> dict[str, Any]:
