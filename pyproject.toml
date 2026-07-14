@@ -32,6 +32,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+redis = [
+  "redis>=5",
+]
 dev = [
   "httpx>=0.27",
   "mypy>=1.10",

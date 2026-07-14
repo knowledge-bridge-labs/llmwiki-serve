@@ -7,6 +7,9 @@ begin. Dates use `YYYY-MM-DD`.
 
 ## Unreleased
 
+- Added an optional Redis/Valkey projection store extra, CLI configuration, and
+  diagnostics endpoint so production deployments can reuse derived projections
+  across server processes while keeping in-memory projection as the default.
 - Added CODEOWNERS for the planned Knowledge Bridge Labs maintainer team and
   hardened the automated PR review guide's changed-file rendering.
 - Added a usage-question issue form so public support routing works while blank
