@@ -26,6 +26,7 @@ def test_openapi_contract_covers_core_http_response_models() -> None:
         "/search",
         "/read/{page_id}",
         "/graph",
+        "/diagnostics/projection-store",
         "/mcp",
     } <= set(schema["paths"])
     assert "/.well-known/agent-card.json" not in schema["paths"]
@@ -40,6 +41,7 @@ def test_openapi_contract_covers_core_http_response_models() -> None:
         "ReadNotFoundResponse",
         "HttpDetailResponse",
         "JsonRpcResponse",
+        "ProjectionStoreDiagnosticsResponse",
     } <= set(schema["components"]["schemas"])
     assert "A2AResponse" not in schema["components"]["schemas"]
     assert "A2AResponse" in a2a_schema["components"]["schemas"]

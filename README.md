@@ -256,6 +256,12 @@ details unless documented here.
   `--refresh-interval-seconds <seconds>` to reuse the current in-memory
   projection between checks for larger local graphs where a short visibility
   delay is acceptable.
+- Production deployments that need projection reuse across worker processes can
+  install `llmwiki-serve[redis]` and start `serve` with
+  `--projection-store redis --redis-url redis://...`. Redis/Valkey stores
+  derived projection artifacts only; Markdown folders and graph sidecars remain
+  the source of truth. Use `--source-id` and `--cache-namespace` to keep shared
+  Redis deployments collision-free.
 - Draft and unpublished pages are withheld by default from read, search,
   context, and graph responses. Visibility blocks explicit non-serving markers:
   `draft: true`, `published: false`, `publish: false`,
