@@ -7,6 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import urlsplit
 
 from .adapters import load_wiki
 from .models import (
@@ -45,6 +46,28 @@ SIGNATURE_FILENAMES = {
 SIGNATURE_MARKER_NAMES = {".foam", ".obsidian"}
 SIGNATURE_RELATIVE_FILENAMES = {".vscode/extensions.json", "logseq/config.edn"}
 IGNORED_SIGNATURE_PARTS = {".git", "node_modules", ".venv", "__pycache__", "dist", "build"}
+DIAGNOSTIC_REDACTION = "[redacted]"
+
+
+@dataclass(frozen=True)
+class _IndexRefreshDiagnostics:
+    event: str = "not_checked"
+    refresh_requested: bool = False
+    cache_reused: bool = False
+    signature_checked: bool = False
+    source_signature_changed: bool | None = None
+    projection_signature_changed: bool | None = None
+    projection_store_access: str = "not_checked"
+    rebuilt: bool = False
+    source_path_count: int = 0
+    projection_path_count: int = 0
+
+
+@dataclass(frozen=True)
+class _SourceSignatureDiagnostics:
+    scan_count: int = 0
+    path_check_count: int = 0
+    digest_count: int = 0
 
 
 class LlmWikiService:
@@ -72,14 +95,32 @@ class LlmWikiService:
         self._signature: SourceSignature | None = None
         self._projection_signature: _ProjectionSignature | None = None
         self._signature_cache = _SourceSignatureCache(self.root)
+        self._last_index_refresh = _IndexRefreshDiagnostics()
 
     def index(self, *, refresh: bool = False) -> WikiIndex:
         if self._can_reuse_cached_index(refresh=refresh):
             assert self._index is not None
+            self._last_index_refresh = _IndexRefreshDiagnostics(
+                event="interval_cache_reuse",
+                cache_reused=True,
+                projection_store_access="skipped",
+                source_path_count=self._last_index_refresh.source_path_count,
+                projection_path_count=self._last_index_refresh.projection_path_count,
+            )
             return self._index
 
         snapshot = self._signature_cache.current_snapshot(refresh=refresh)
         projection_signature = projection_signature_digest(snapshot.projection_signature)
+        previous_signature = self._signature
+        previous_projection_signature = self._projection_signature
+        source_signature_changed = (
+            None if previous_signature is None else snapshot.signature != previous_signature
+        )
+        projection_signature_changed = (
+            None
+            if previous_projection_signature is None
+            else snapshot.projection_signature != previous_projection_signature
+        )
         if (
             self._index is None
             or refresh
@@ -92,7 +133,11 @@ class LlmWikiService:
                 projection_signature=projection_signature,
             )
             record = None if refresh else self.projection_store.get(key, root=self.root)
+            projection_store_access = "skipped" if refresh else "hit"
+            rebuilt = False
+            event = "explicit_refresh" if refresh else "projection_store_hit"
             if record is None:
+                projection_store_access = "skipped" if refresh else "miss"
                 index = project_wiki(load_wiki(self.root))
                 key = ProjectionKey(
                     namespace=self.cache_namespace,
@@ -101,10 +146,34 @@ class LlmWikiService:
                 )
                 record = ProjectionRecord(key=key, index=index)
                 self.projection_store.put(record)
+                rebuilt = True
+                event = "explicit_refresh" if refresh else "projection_store_miss_rebuild"
             self._index = record.index
             self._views = None
             self._signature = snapshot.signature
             self._projection_signature = snapshot.projection_signature
+            self._last_index_refresh = _IndexRefreshDiagnostics(
+                event=event,
+                refresh_requested=refresh,
+                signature_checked=True,
+                source_signature_changed=source_signature_changed,
+                projection_signature_changed=projection_signature_changed,
+                projection_store_access=projection_store_access,
+                rebuilt=rebuilt,
+                source_path_count=len(snapshot.paths),
+                projection_path_count=len(snapshot.projection_signature),
+            )
+        else:
+            self._last_index_refresh = _IndexRefreshDiagnostics(
+                event="signature_unchanged",
+                cache_reused=True,
+                signature_checked=True,
+                source_signature_changed=False,
+                projection_signature_changed=False,
+                projection_store_access="skipped",
+                source_path_count=len(snapshot.paths),
+                projection_path_count=len(snapshot.projection_signature),
+            )
         self._last_refresh_check = self._clock() if self.refresh_interval_seconds > 0 else None
         return self._index
 
@@ -271,12 +340,50 @@ class LlmWikiService:
         )
 
     def projection_store_diagnostics(self) -> dict[str, Any]:
+        projection_signature = projection_signature_digest(self._projection_signature or ())
+        source_id = self._source_id_for_index(self._index) if self._index is not None else ""
+        bundle_id = source_bundle_id(source_id, projection_signature) if source_id else ""
+        signature_diagnostics = self._signature_cache.diagnostics()
         return {
             "backend": self.projection_store.__class__.__name__,
             "namespace": self.cache_namespace,
+            "cache_namespace": self.cache_namespace,
             "cache_source_id": self._cache_source_id(),
+            "source_id": source_id,
+            "refresh_interval_seconds": self.refresh_interval_seconds,
             "available": getattr(self.projection_store, "available", True),
-            "last_error": getattr(self.projection_store, "last_error", ""),
+            "last_error": sanitize_diagnostic_text(
+                str(getattr(self.projection_store, "last_error", "")),
+                root=self.root,
+                extra_sensitive_values=[str(getattr(self.projection_store, "url", ""))],
+            ),
+            "projection_signature": projection_signature,
+            "bundle_id": bundle_id,
+            "last_refresh_check": self._last_refresh_check_diagnostics(),
+            "signature_scan_count": signature_diagnostics.scan_count,
+            "signature_path_check_count": signature_diagnostics.path_check_count,
+            "signature_digest_count": signature_diagnostics.digest_count,
+        }
+
+    def _last_refresh_check_diagnostics(self) -> dict[str, Any]:
+        age_seconds: float | None = None
+        interval_remaining_seconds: float | None = None
+        if self._last_refresh_check is not None:
+            age_seconds = max(0.0, self._clock() - self._last_refresh_check)
+            interval_remaining_seconds = max(0.0, self.refresh_interval_seconds - age_seconds)
+        return {
+            "event": self._last_index_refresh.event,
+            "refresh_requested": self._last_index_refresh.refresh_requested,
+            "cache_reused": self._last_index_refresh.cache_reused,
+            "signature_checked": self._last_index_refresh.signature_checked,
+            "source_signature_changed": self._last_index_refresh.source_signature_changed,
+            "projection_signature_changed": self._last_index_refresh.projection_signature_changed,
+            "projection_store_access": self._last_index_refresh.projection_store_access,
+            "rebuilt": self._last_index_refresh.rebuilt,
+            "age_seconds": age_seconds,
+            "interval_remaining_seconds": interval_remaining_seconds,
+            "source_path_count": self._last_index_refresh.source_path_count,
+            "projection_path_count": self._last_index_refresh.projection_path_count,
         }
 
     def graph(
@@ -437,6 +544,45 @@ def source_bundle_id(source_id: str, projection_signature: str) -> str:
     return f"{source_id}:{projection_signature[:12]}"
 
 
+def sanitize_diagnostic_text(
+    text: str, *, root: Path, extra_sensitive_values: list[str] | None = None
+) -> str:
+    if not text:
+        return ""
+    redacted = text
+    for value in sorted(
+        diagnostic_sensitive_values(root, extra_sensitive_values or []),
+        key=len,
+        reverse=True,
+    ):
+        if value:
+            redacted = redacted.replace(value, DIAGNOSTIC_REDACTION)
+    return redacted
+
+
+def diagnostic_sensitive_values(root: Path, extra_sensitive_values: list[str]) -> set[str]:
+    values = {str(root), root.as_posix()}
+    try:
+        resolved = root.resolve()
+    except OSError:
+        resolved = root
+    values.update({str(resolved), resolved.as_posix()})
+    for value in extra_sensitive_values:
+        if not value:
+            continue
+        values.add(value)
+        parsed = urlsplit(value)
+        if parsed.netloc:
+            values.add(parsed.netloc)
+        if parsed.hostname:
+            values.add(parsed.hostname)
+        if parsed.username:
+            values.add(parsed.username)
+        if parsed.password:
+            values.add(parsed.password)
+    return values
+
+
 def raw_origins_metadata(index: WikiIndex) -> RawOriginsMetadata:
     labels = []
     source_root = str(index.metadata.get("source_root") or ".").strip("/") or "."
@@ -490,21 +636,48 @@ class _SourceSignatureSnapshot:
     paths: tuple[_PathState, ...]
 
 
+def _digest_state_count(states: tuple[_PathState, ...]) -> int:
+    return sum(1 for state in states if state.digest)
+
+
 class _SourceSignatureCache:
     def __init__(self, root: Path) -> None:
         self.root = root
         self._snapshot: _SourceSignatureSnapshot | None = None
+        self._scan_count = 0
+        self._path_check_count = 0
+        self._digest_count = 0
 
     def current(self, *, refresh: bool = False) -> SourceSignature:
         return self.current_snapshot(refresh=refresh).signature
 
     def current_snapshot(self, *, refresh: bool = False) -> _SourceSignatureSnapshot:
         if refresh or self._snapshot is None or not self._is_current(self._snapshot):
-            self._snapshot = _source_signature_snapshot(self.root)
+            self._snapshot = self._scan()
         return self._snapshot
 
     def _is_current(self, snapshot: _SourceSignatureSnapshot) -> bool:
-        return all(_current_path_state(self.root, state) == state for state in snapshot.paths)
+        for state in snapshot.paths:
+            self._path_check_count += 1
+            current = _current_path_state(self.root, state)
+            if current is not None and current.digest:
+                self._digest_count += 1
+            if current != state:
+                return False
+        return True
+
+    def _scan(self) -> _SourceSignatureSnapshot:
+        snapshot = _source_signature_snapshot(self.root)
+        self._scan_count += 1
+        self._digest_count += _digest_state_count(snapshot.paths)
+        return snapshot
+
+    def diagnostics(self) -> _SourceSignatureDiagnostics:
+        return _SourceSignatureDiagnostics(
+            scan_count=self._scan_count,
+            path_check_count=self._path_check_count,
+            digest_count=self._digest_count,
+        )
 
 
 def source_signature(root: Path) -> SourceSignature:

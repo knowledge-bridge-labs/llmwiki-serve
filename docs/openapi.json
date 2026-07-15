@@ -339,6 +339,96 @@
         "title": "ProjectionMetadata",
         "type": "object"
       },
+      "ProjectionRefreshDiagnostics": {
+        "properties": {
+          "age_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Age Seconds"
+          },
+          "cache_reused": {
+            "default": false,
+            "title": "Cache Reused",
+            "type": "boolean"
+          },
+          "event": {
+            "default": "not_checked",
+            "title": "Event",
+            "type": "string"
+          },
+          "interval_remaining_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interval Remaining Seconds"
+          },
+          "projection_path_count": {
+            "default": 0,
+            "title": "Projection Path Count",
+            "type": "integer"
+          },
+          "projection_signature_changed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Projection Signature Changed"
+          },
+          "projection_store_access": {
+            "default": "not_checked",
+            "title": "Projection Store Access",
+            "type": "string"
+          },
+          "rebuilt": {
+            "default": false,
+            "title": "Rebuilt",
+            "type": "boolean"
+          },
+          "refresh_requested": {
+            "default": false,
+            "title": "Refresh Requested",
+            "type": "boolean"
+          },
+          "signature_checked": {
+            "default": false,
+            "title": "Signature Checked",
+            "type": "boolean"
+          },
+          "source_path_count": {
+            "default": 0,
+            "title": "Source Path Count",
+            "type": "integer"
+          },
+          "source_signature_changed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Signature Changed"
+          }
+        },
+        "title": "ProjectionRefreshDiagnostics",
+        "type": "object"
+      },
       "ProjectionStoreDiagnosticsResponse": {
         "properties": {
           "available": {
@@ -347,6 +437,15 @@
           },
           "backend": {
             "title": "Backend",
+            "type": "string"
+          },
+          "bundle_id": {
+            "default": "",
+            "title": "Bundle Id",
+            "type": "string"
+          },
+          "cache_namespace": {
+            "title": "Cache Namespace",
             "type": "string"
           },
           "cache_source_id": {
@@ -358,15 +457,49 @@
             "title": "Last Error",
             "type": "string"
           },
+          "last_refresh_check": {
+            "$ref": "#/components/schemas/ProjectionRefreshDiagnostics"
+          },
           "namespace": {
             "title": "Namespace",
+            "type": "string"
+          },
+          "projection_signature": {
+            "default": "",
+            "title": "Projection Signature",
+            "type": "string"
+          },
+          "refresh_interval_seconds": {
+            "title": "Refresh Interval Seconds",
+            "type": "number"
+          },
+          "signature_digest_count": {
+            "default": 0,
+            "title": "Signature Digest Count",
+            "type": "integer"
+          },
+          "signature_path_check_count": {
+            "default": 0,
+            "title": "Signature Path Check Count",
+            "type": "integer"
+          },
+          "signature_scan_count": {
+            "default": 0,
+            "title": "Signature Scan Count",
+            "type": "integer"
+          },
+          "source_id": {
+            "default": "",
+            "title": "Source Id",
             "type": "string"
           }
         },
         "required": [
           "backend",
           "namespace",
+          "cache_namespace",
           "cache_source_id",
+          "refresh_interval_seconds",
           "available"
         ],
         "title": "ProjectionStoreDiagnosticsResponse",
