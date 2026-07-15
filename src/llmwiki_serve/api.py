@@ -70,12 +70,38 @@ class HealthResponse(BaseModel):
     status: Literal["ok"]
 
 
+class ProjectionRefreshDiagnostics(BaseModel):
+    event: str = "not_checked"
+    refresh_requested: bool = False
+    cache_reused: bool = False
+    signature_checked: bool = False
+    source_signature_changed: bool | None = None
+    projection_signature_changed: bool | None = None
+    projection_store_access: str = "not_checked"
+    rebuilt: bool = False
+    age_seconds: float | None = None
+    interval_remaining_seconds: float | None = None
+    source_path_count: int = 0
+    projection_path_count: int = 0
+
+
 class ProjectionStoreDiagnosticsResponse(BaseModel):
     backend: str
     namespace: str
+    cache_namespace: str
     cache_source_id: str
+    source_id: str = ""
+    refresh_interval_seconds: float
     available: bool
     last_error: str = ""
+    projection_signature: str = ""
+    bundle_id: str = ""
+    last_refresh_check: ProjectionRefreshDiagnostics = Field(
+        default_factory=ProjectionRefreshDiagnostics
+    )
+    signature_scan_count: int = 0
+    signature_path_check_count: int = 0
+    signature_digest_count: int = 0
 
 
 class SearchResponse(BaseModel):

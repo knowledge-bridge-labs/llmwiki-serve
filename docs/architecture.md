@@ -123,8 +123,10 @@ server falls back to process memory. Use `--redis-failure-policy fail-fast` when
 operators want startup or runtime Redis failures to stop the process instead.
 
 `GET /diagnostics/projection-store` reports backend status, namespace, cache
-source id, availability, and the last backend error without exposing Redis URLs,
-credentials, or local source paths.
+source id, availability, current public source/bundle identifiers, the last
+freshness/cache path, refresh interval state, signature scan counters, and the
+last backend error without exposing Redis URLs, credentials, private endpoints,
+or local source paths.
 
 ## Compatible Output Targets
 

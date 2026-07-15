@@ -41,6 +41,7 @@ def test_openapi_contract_covers_core_http_response_models() -> None:
         "ReadNotFoundResponse",
         "HttpDetailResponse",
         "JsonRpcResponse",
+        "ProjectionRefreshDiagnostics",
         "ProjectionStoreDiagnosticsResponse",
     } <= set(schema["components"]["schemas"])
     assert "A2AResponse" not in schema["components"]["schemas"]

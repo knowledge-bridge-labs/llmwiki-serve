@@ -1482,6 +1482,220 @@ def test_projection_store_miss_writes_and_fresh_service_can_hydrate_hit(monkeypa
     assert second.search("required copy")
 
 
+def test_refresh_interval_active_request_skips_projection_store_and_rebuild(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    import llmwiki_serve.service as service_module
+
+    root = tmp_path / "wiki"
+    root.mkdir()
+    write_markdown(
+        root / "index.md",
+        """
+---
+wiki_title: Interval Diagnostics Fixture
+review_state: approved
+---
+# Interval Diagnostics Fixture
+
+Start with [[topic]].
+""",
+    )
+    topic = root / "topic.md"
+
+    def topic_content(body: str) -> str:
+        return f"---\ntitle: Topic\nreview_state: approved\n---\n# Topic\n\n{body}\n"
+
+    topic.write_text(topic_content("Version one body AAAA"), encoding="utf-8")
+
+    real_project_wiki = service_module.project_wiki
+    project_calls = 0
+
+    def counting_project_wiki(*args: Any, **kwargs: Any) -> Any:
+        nonlocal project_calls
+        project_calls += 1
+        return real_project_wiki(*args, **kwargs)
+
+    class CountingStore:
+        def __init__(self) -> None:
+            self.records: dict[ProjectionKey, ProjectionRecord] = {}
+            self.get_calls = 0
+            self.put_calls = 0
+
+        def get(self, key: ProjectionKey, *, root: Path) -> ProjectionRecord | None:
+            self.get_calls += 1
+            return self.records.get(key)
+
+        def put(self, record: ProjectionRecord) -> None:
+            self.put_calls += 1
+            self.records[record.key] = record
+
+        def invalidate_source(self, *, namespace: str, source_id: str) -> None:
+            raise AssertionError("invalidate_source should not be called")
+
+    now = 0.0
+
+    def clock() -> float:
+        return now
+
+    monkeypatch.setattr(service_module, "project_wiki", counting_project_wiki)
+    store = CountingStore()
+    service = LlmWikiService(
+        root,
+        refresh_interval_seconds=10.0,
+        projection_store=store,
+        cache_namespace="pytest",
+        source_id="interval-diagnostics-fixture",
+        clock=clock,
+    )
+
+    assert "Version one body AAAA" in service.read("topic")["text"]
+    assert store.get_calls == 1
+    assert store.put_calls == 1
+    assert project_calls == 1
+
+    topic.write_text(topic_content("Version two body BBBB"), encoding="utf-8")
+
+    now = 5.0
+    cached = service.read("topic")
+    diagnostics = service.projection_store_diagnostics()
+
+    assert "Version one body AAAA" in cached["text"]
+    assert "Version two body BBBB" not in cached["text"]
+    assert store.get_calls == 1
+    assert store.put_calls == 1
+    assert project_calls == 1
+    assert diagnostics["last_refresh_check"]["event"] == "interval_cache_reuse"
+    assert diagnostics["last_refresh_check"]["projection_store_access"] == "skipped"
+    assert diagnostics["last_refresh_check"]["cache_reused"] is True
+    assert diagnostics["last_refresh_check"]["interval_remaining_seconds"] == 5.0
+
+
+def test_changed_source_can_hydrate_from_projection_store_hit(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    import llmwiki_serve.service as service_module
+
+    root = tmp_path / "wiki"
+    root.mkdir()
+    write_markdown(
+        root / "index.md",
+        """
+---
+wiki_title: Store Hydration Fixture
+review_state: approved
+---
+# Store Hydration Fixture
+
+Start with [[topic]].
+""",
+    )
+    topic = root / "topic.md"
+
+    def topic_content(body: str) -> str:
+        return f"---\ntitle: Topic\nreview_state: approved\n---\n# Topic\n\n{body}\n"
+
+    topic.write_text(topic_content("Version one body AAAA"), encoding="utf-8")
+
+    store = InMemoryProjectionStore()
+    service = LlmWikiService(
+        root,
+        projection_store=store,
+        cache_namespace="pytest",
+        source_id="store-hydration-fixture",
+    )
+    assert "Version one body AAAA" in service.read("topic")["text"]
+
+    topic.write_text(topic_content("Version two body BBBB"), encoding="utf-8")
+    populator = LlmWikiService(
+        root,
+        projection_store=store,
+        cache_namespace="pytest",
+        source_id="store-hydration-fixture",
+    )
+    assert "Version two body BBBB" in populator.read("topic")["text"]
+
+    def forbidden_builder(*args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("changed source should hydrate projection-store hit")
+
+    monkeypatch.setattr(service_module, "load_wiki", forbidden_builder)
+    monkeypatch.setattr(service_module, "project_wiki", forbidden_builder)
+
+    hydrated = service.read("topic")
+    diagnostics = service.projection_store_diagnostics()
+
+    assert "Version two body BBBB" in hydrated["text"]
+    assert "Version one body AAAA" not in hydrated["text"]
+    assert diagnostics["last_refresh_check"]["event"] == "projection_store_hit"
+    assert diagnostics["last_refresh_check"]["projection_store_access"] == "hit"
+    assert diagnostics["last_refresh_check"]["rebuilt"] is False
+    assert diagnostics["last_refresh_check"]["source_signature_changed"] is True
+    assert diagnostics["last_refresh_check"]["projection_signature_changed"] is True
+
+
+def test_projection_store_miss_rebuilds_once_after_source_change(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    import llmwiki_serve.service as service_module
+
+    root = tmp_path / "wiki"
+    root.mkdir()
+    write_markdown(
+        root / "index.md",
+        """
+---
+wiki_title: Store Miss Fixture
+review_state: approved
+---
+# Store Miss Fixture
+
+Start with [[topic]].
+""",
+    )
+    topic = root / "topic.md"
+
+    def topic_content(body: str) -> str:
+        return f"---\ntitle: Topic\nreview_state: approved\n---\n# Topic\n\n{body}\n"
+
+    topic.write_text(topic_content("Version one body AAAA"), encoding="utf-8")
+
+    real_project_wiki = service_module.project_wiki
+    project_calls = 0
+
+    def counting_project_wiki(*args: Any, **kwargs: Any) -> Any:
+        nonlocal project_calls
+        project_calls += 1
+        return real_project_wiki(*args, **kwargs)
+
+    monkeypatch.setattr(service_module, "project_wiki", counting_project_wiki)
+
+    service = LlmWikiService(
+        root,
+        projection_store=InMemoryProjectionStore(),
+        cache_namespace="pytest",
+        source_id="store-miss-fixture",
+    )
+    assert "Version one body AAAA" in service.read("topic")["text"]
+    assert project_calls == 1
+
+    topic.write_text(topic_content("Version two body BBBB"), encoding="utf-8")
+
+    rebuilt = service.read("topic")
+    diagnostics = service.projection_store_diagnostics()
+
+    assert "Version two body BBBB" in rebuilt["text"]
+    assert project_calls == 2
+    assert diagnostics["last_refresh_check"]["event"] == "projection_store_miss_rebuild"
+    assert diagnostics["last_refresh_check"]["projection_store_access"] == "miss"
+    assert diagnostics["last_refresh_check"]["rebuilt"] is True
+
+    assert "Version two body BBBB" in service.read("topic")["text"]
+    assert project_calls == 2
+
+
 def test_projection_record_payload_excludes_absolute_root_and_hydrates_local_root(
     tmp_path: Path,
 ) -> None:
@@ -1632,8 +1846,19 @@ def test_projection_store_diagnostics_redacts_redis_url_and_local_root() -> None
 
     assert diagnostics["backend"] == "RedisProjectionStore"
     assert diagnostics["namespace"] == "pytest"
+    assert diagnostics["cache_namespace"] == "pytest"
     assert diagnostics["cache_source_id"] == "sample-packaging-llmwiki"
+    assert diagnostics["source_id"] == "sample-packaging-llmwiki"
+    assert diagnostics["refresh_interval_seconds"] == 0.0
     assert diagnostics["available"] is False
+    assert diagnostics["projection_signature"].startswith("sha256:")
+    assert diagnostics["bundle_id"].startswith("sample-packaging-llmwiki:sha256:")
+    assert diagnostics["last_refresh_check"]["event"] == "projection_store_miss_rebuild"
+    assert diagnostics["last_refresh_check"]["projection_store_access"] == "miss"
+    assert diagnostics["last_refresh_check"]["rebuilt"] is True
+    assert diagnostics["last_refresh_check"]["signature_checked"] is True
+    assert diagnostics["signature_scan_count"] >= 1
+    assert diagnostics["signature_digest_count"] >= 1
     assert "secret" not in encoded
     assert "example.invalid" not in encoded
     assert str(FIXTURE) not in encoded
@@ -1956,6 +2181,9 @@ Start with [[topic]].
     assert walk_calls == 2
 
     service.index(refresh=True)
+    diagnostics = service.projection_store_diagnostics()
+    assert diagnostics["last_refresh_check"]["event"] == "explicit_refresh"
+    assert diagnostics["last_refresh_check"]["refresh_requested"] is True
     explicitly_refreshed = service.read("topic")
     assert "Version tri body CCCC" in explicitly_refreshed["text"]
     assert "Version two body BBBB" not in explicitly_refreshed["text"]
