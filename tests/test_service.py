@@ -7,6 +7,7 @@ import shutil
 from pathlib import Path
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 from typer.testing import CliRunner
 
@@ -1329,17 +1330,39 @@ def test_service_reuses_search_corpus_until_projection_changes(monkeypatch) -> N
     expected = [item.model_dump() for item in raw_search(index, "required copy", limit=4)]
 
     assert service.search("required copy", limit=4) == expected
-    assert build_calls == 2
+    assert build_calls == 1
     assert service.search("requester return", limit=4)
-    assert build_calls == 2
+    assert build_calls == 1
     assert service.context("required copy", limit=4).answerable
-    assert build_calls == 2
+    assert build_calls == 1
     assert service.search("draft", limit=4, include_drafts=True)
     assert build_calls == 2
 
     service.index(refresh=True)
     assert service.search("required copy", limit=4) == expected
-    assert build_calls == 4
+    assert build_calls == 3
+
+
+def test_graph_neighbors_does_not_build_search_corpus(monkeypatch) -> None:
+    import llmwiki_serve.service as service_module
+
+    build_calls = 0
+    real_build_search_corpus = service_module.build_search_corpus
+
+    def wrapped_build_search_corpus(*args: Any, **kwargs: Any) -> Any:
+        nonlocal build_calls
+        build_calls += 1
+        return real_build_search_corpus(*args, **kwargs)
+
+    monkeypatch.setattr(service_module, "build_search_corpus", wrapped_build_search_corpus)
+
+    service = LlmWikiService(FIXTURE)
+
+    assert service.graph_neighbors(seeds=["hot"], depth=1).nodes
+    assert service.graph(limit=20)["nodes"]
+    assert build_calls == 0
+    assert service.search("required copy", limit=4)
+    assert build_calls == 1
 
 
 def test_service_signature_cache_refreshes_when_source_file_changes(
@@ -1663,6 +1686,300 @@ Start with [[topic]].
     assert "Version tri body CCCC" in explicitly_refreshed["text"]
     assert "Version two body BBBB" not in explicitly_refreshed["text"]
     assert walk_calls == 3
+
+
+def test_producer_manifest_reuses_until_marker_changes(tmp_path: Path) -> None:
+    root = tmp_path / "wiki"
+    root.mkdir()
+    manifest = root / ".llmwiki-producer-manifest.json"
+    write_markdown(
+        root / "index.md",
+        """
+---
+review_state: approved
+---
+# Index
+
+zzfirstproducerneedle.
+""",
+    )
+    manifest.write_text('{"build":1}\n', encoding="utf-8")
+
+    service = LlmWikiService(root, producer_manifest_path=manifest.name)
+
+    assert "zzfirstproducerneedle" in service.read("index")["text"]
+
+    write_markdown(
+        root / "index.md",
+        """
+---
+review_state: approved
+---
+# Index
+
+zzsecondproducerneedle.
+""",
+    )
+
+    assert "zzsecondproducerneedle" not in service.read("index")["text"]
+    assert "zzfirstproducerneedle" in service.read("index")["text"]
+
+    manifest.write_text('{"build":2}\n', encoding="utf-8")
+
+    assert "zzsecondproducerneedle" in service.read("index")["text"]
+    assert "zzfirstproducerneedle" not in service.read("index")["text"]
+
+
+def test_producer_manifest_public_identity_is_content_derived(tmp_path: Path) -> None:
+    root = tmp_path / "wiki"
+    root.mkdir()
+    manifest = root / ".llmwiki-producer-manifest.json"
+    write_markdown(
+        root / "index.md",
+        """
+---
+wiki_title: Producer Identity Wiki
+review_state: approved
+source_refs: [PRODUCER-SRC-001]
+---
+# Producer Identity Wiki
+
+zzproduceridentityfirst.
+""",
+    )
+    manifest.write_text('{"build":1}\n', encoding="utf-8")
+
+    service = LlmWikiService(root, producer_manifest_path=manifest.name)
+
+    initial = service.manifest()
+    initial_bundle = service.source_bundle()
+    strict_initial = LlmWikiService(root).manifest()
+    assert initial.projection.signature == strict_initial.projection.signature
+    assert initial.bundle_id == strict_initial.bundle_id
+    assert initial_bundle.projection.signature == initial.projection.signature
+    assert initial_bundle.bundle_id == initial.bundle_id
+
+    manifest.write_text('{"build":2}\n', encoding="utf-8")
+
+    marker_only = service.manifest()
+    marker_only_bundle = service.source_bundle()
+    assert marker_only.projection.signature == initial.projection.signature
+    assert marker_only.bundle_id == initial.bundle_id
+    assert marker_only_bundle.projection.signature == initial.projection.signature
+    assert marker_only_bundle.bundle_id == initial.bundle_id
+
+    write_markdown(
+        root / "index.md",
+        """
+---
+wiki_title: Producer Identity Wiki
+review_state: approved
+source_refs: [PRODUCER-SRC-001]
+---
+# Producer Identity Wiki
+
+zzproduceridentitysecond.
+""",
+    )
+
+    stale = service.manifest()
+    assert stale.projection.signature == initial.projection.signature
+    assert stale.bundle_id == initial.bundle_id
+    assert "zzproduceridentityfirst" in service.read("index")["text"]
+    assert "zzproduceridentitysecond" not in service.read("index")["text"]
+
+    manifest.write_text('{"build":3}\n', encoding="utf-8")
+
+    refreshed = service.manifest()
+    refreshed_bundle = service.source_bundle()
+    strict_refreshed = LlmWikiService(root).manifest()
+    assert "zzproduceridentitysecond" in service.read("index")["text"]
+    assert "zzproduceridentityfirst" not in service.read("index")["text"]
+    assert refreshed.projection.signature != initial.projection.signature
+    assert refreshed.projection.signature == strict_refreshed.projection.signature
+    assert refreshed.bundle_id == strict_refreshed.bundle_id
+    assert refreshed_bundle.projection.signature == refreshed.projection.signature
+    assert refreshed_bundle.bundle_id == refreshed.bundle_id
+
+
+def test_producer_manifest_reuses_content_signature_until_marker_changes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "wiki"
+    root.mkdir()
+    manifest = root / ".llmwiki-producer-manifest.json"
+    write_markdown(
+        root / "index.md",
+        """
+---
+wiki_title: Producer Scan Wiki
+review_state: approved
+---
+# Producer Scan Wiki
+
+zzproducerscanfirst.
+""",
+    )
+    manifest.write_text('{"build":1}\n', encoding="utf-8")
+
+    real_walk = os.walk
+    walk_calls = 0
+
+    def counting_walk(*args: Any, **kwargs: Any) -> Any:
+        nonlocal walk_calls
+        walk_calls += 1
+        return real_walk(*args, **kwargs)
+
+    monkeypatch.setattr("llmwiki_serve.service.os.walk", counting_walk)
+
+    service = LlmWikiService(root, producer_manifest_path=manifest.name)
+    assert service.manifest().page_count == 1
+    assert walk_calls == 1
+
+    assert service.manifest().approved_page_count == 1
+    assert service.source_bundle().title == "Producer Scan Wiki"
+    assert "zzproducerscanfirst" in service.read("index")["text"]
+    assert walk_calls == 1
+
+    write_markdown(
+        root / "index.md",
+        """
+---
+wiki_title: Producer Scan Wiki
+review_state: approved
+---
+# Producer Scan Wiki
+
+zzproducerscansecond.
+""",
+    )
+
+    assert "zzproducerscanfirst" in service.read("index")["text"]
+    assert "zzproducerscansecond" not in service.read("index")["text"]
+    assert walk_calls == 1
+
+    manifest.write_text('{"build":2}\n', encoding="utf-8")
+
+    assert "zzproducerscansecond" in service.read("index")["text"]
+    assert walk_calls == 2
+    assert service.manifest().page_count == 1
+    assert walk_calls == 2
+
+
+def test_missing_producer_manifest_falls_back_to_strict_source_scan(tmp_path: Path) -> None:
+    root = tmp_path / "wiki"
+    root.mkdir()
+    write_markdown(
+        root / "index.md",
+        """
+---
+review_state: approved
+---
+# Index
+
+zzfirstfallbackneedle.
+""",
+    )
+
+    service = LlmWikiService(root, producer_manifest_path=".missing-producer-manifest.json")
+
+    assert "zzfirstfallbackneedle" in service.read("index")["text"]
+
+    write_markdown(
+        root / "index.md",
+        """
+---
+review_state: approved
+---
+# Index
+
+zzsecondfallbackneedle.
+""",
+    )
+
+    assert "zzsecondfallbackneedle" in service.read("index")["text"]
+    assert "zzfirstfallbackneedle" not in service.read("index")["text"]
+
+
+def test_outside_root_producer_manifest_falls_back_to_strict_source_scan(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "wiki"
+    root.mkdir()
+    outside = tmp_path / ".llmwiki-producer-manifest.json"
+    outside.write_text('{"build":1}\n', encoding="utf-8")
+    write_markdown(
+        root / "index.md",
+        """
+---
+review_state: approved
+---
+# Index
+
+zzfirstoutsideneedle.
+""",
+    )
+
+    service = LlmWikiService(root, producer_manifest_path=outside)
+
+    assert "zzfirstoutsideneedle" in service.read("index")["text"]
+
+    write_markdown(
+        root / "index.md",
+        """
+---
+review_state: approved
+---
+# Index
+
+zzsecondoutsideneedle.
+""",
+    )
+
+    assert "zzsecondoutsideneedle" in service.read("index")["text"]
+    assert "zzfirstoutsideneedle" not in service.read("index")["text"]
+
+
+def test_symlinked_producer_manifest_falls_back_to_strict_source_scan(tmp_path: Path) -> None:
+    root = tmp_path / "wiki"
+    root.mkdir()
+    manifest_target = root / ".llmwiki-producer-manifest-target.json"
+    manifest_link = root / ".llmwiki-producer-manifest.json"
+    manifest_target.write_text('{"build":1}\n', encoding="utf-8")
+    try:
+        manifest_link.symlink_to(manifest_target)
+    except OSError as exc:
+        pytest.skip(f"symlink creation is unavailable: {exc}")
+    write_markdown(
+        root / "index.md",
+        """
+---
+review_state: approved
+---
+# Index
+
+zzfirstsymlinkneedle.
+""",
+    )
+
+    service = LlmWikiService(root, producer_manifest_path=manifest_link.name)
+
+    assert "zzfirstsymlinkneedle" in service.read("index")["text"]
+
+    write_markdown(
+        root / "index.md",
+        """
+---
+review_state: approved
+---
+# Index
+
+zzsecondsymlinkneedle.
+""",
+    )
+
+    assert "zzsecondsymlinkneedle" in service.read("index")["text"]
+    assert "zzfirstsymlinkneedle" not in service.read("index")["text"]
 
 
 def test_service_signature_cache_refreshes_when_sidecar_file_stat_is_preserved(
@@ -2088,7 +2405,7 @@ This malformed frontmatter page should still load.
     assert bad_page["frontmatter"] == {}
 
     client = TestClient(create_app(root))
-    assert client.get("/health").json() == {"status": "ok"}
+    assert client.get("/health").json()["status"] == "ok"
 
 
 def test_default_cors_scopes_to_local_dev_origins() -> None:
@@ -2149,7 +2466,7 @@ def test_app_factory_accepts_explicit_cors_origins() -> None:
 
 def test_http_health_and_query() -> None:
     client = TestClient(create_app(FIXTURE))
-    assert client.get("/health").json() == {"status": "ok"}
+    assert client.get("/health").json()["status"] == "ok"
     assert client.post("/query", json={"query": "required copy"}).json()["answerable"] is True
 
 
@@ -2222,7 +2539,7 @@ def test_mcp_tools_list_contains_context_and_graph() -> None:
 
     tool_names = {tool["name"] for tool in tools["result"]["tools"]}
     descriptions = {tool["name"]: tool["description"] for tool in tools["result"]["tools"]}
-    assert {"llmwiki_context", "llmwiki_graph"} <= tool_names
+    assert {"llmwiki_context", "llmwiki_graph", "llmwiki_graph_neighbors"} <= tool_names
     assert (
         "hot/index/overview or OpenWiki quickstart orientation first"
         in descriptions["llmwiki_context"]
@@ -2261,6 +2578,158 @@ def test_mcp_graph_matches_http_graph_and_returns_page_nodes() -> None:
 
     assert mcp_graph["result"] == http_graph
     assert any(node["id"].startswith("page:") for node in mcp_graph["result"]["nodes"])
+
+
+def test_graph_neighbors_http_mcp_and_service_contract() -> None:
+    native = Path(__file__).parent / "fixtures" / "native-wiki-root"
+    service = LlmWikiService(native)
+    client = TestClient(create_app(native))
+
+    service_neighbors = service.graph_neighbors(
+        seeds=["overview"],
+        depth=1,
+        direction="out",
+        relations=["SUPPORTS"],
+        limit=10,
+    ).model_dump()
+    http_neighbors = client.get(
+        "/graph/neighborhood",
+        params={
+            "seed": "overview",
+            "depth": "1",
+            "direction": "out",
+            "relation": "SUPPORTS",
+            "limit": "10",
+        },
+    ).json()
+    mcp_neighbors = mcp_tool_call(
+        client,
+        "llmwiki_graph_neighbors",
+        {
+            "seed": "overview",
+            "depth": 1,
+            "direction": "out",
+            "relation": "SUPPORTS",
+            "limit": 10,
+        },
+    )
+
+    assert service_neighbors == http_neighbors == mcp_neighbors
+    assert http_neighbors["seeds"] == ["page:overview"]
+    assert http_neighbors["relations"] == ["supports"]
+    assert [node["id"] for node in http_neighbors["nodes"]] == [
+        "page:overview",
+        "page:concepts/release",
+    ]
+    assert http_neighbors["edges"] == [
+        {
+            "source": "page:overview",
+            "target": "page:concepts/release",
+            "relation": "supports",
+            "metadata": {
+                "source": "graph.json",
+                "path": "graph/graph.json",
+                "confidence": 0.88,
+            },
+        }
+    ]
+
+    incoming = client.get(
+        "/graph/neighborhood",
+        params={
+            "seed": "GH-42",
+            "depth": "1",
+            "direction": "in",
+            "relation": "tracks",
+        },
+    ).json()
+    assert incoming["seeds"] == ["external:GH-42"]
+    assert {node["id"] for node in incoming["nodes"]} == {
+        "external:GH-42",
+        "page:concepts/release",
+    }
+    assert incoming["edges"][0]["relation"] == "tracks"
+
+
+def test_graph_neighbors_unknown_seed_returns_unmatched() -> None:
+    client = TestClient(create_app(FIXTURE))
+
+    neighbors = client.get(
+        "/graph/neighborhood",
+        params={"seed": "missing-dependency-chain", "depth": "2"},
+    ).json()
+
+    assert neighbors["seeds"] == []
+    assert neighbors["unmatched"] == ["missing-dependency-chain"]
+    assert neighbors["nodes"] == []
+    assert neighbors["edges"] == []
+
+
+def test_graph_neighbors_respects_draft_filtering(tmp_path: Path) -> None:
+    root = tmp_path / "wiki"
+    root.mkdir()
+    write_markdown(
+        root / "index.md",
+        """
+---
+review_state: approved
+---
+# Index
+
+Approved page.
+""",
+    )
+    write_markdown(
+        root / "draft.md",
+        """
+---
+review_state: draft
+---
+# Draft
+
+Draft-only page.
+""",
+    )
+    graph = root / "graph"
+    graph.mkdir()
+    (graph / "graph.json").write_text(
+        json.dumps(
+            {
+                "edges": [
+                    {
+                        "from": "index",
+                        "to": "draft",
+                        "type": "requires",
+                        "confidence": 0.9,
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    default_client = TestClient(create_app(root))
+    allowed_client = TestClient(create_app(root, allow_drafts=True))
+
+    default_neighbors = default_client.get(
+        "/graph/neighborhood",
+        params={"seed": "index", "depth": "1", "relation": "requires"},
+    ).json()
+    allowed_neighbors = allowed_client.get(
+        "/graph/neighborhood",
+        params={
+            "seed": "index",
+            "depth": "1",
+            "relation": "requires",
+            "include_drafts": "true",
+        },
+    ).json()
+
+    assert [node["id"] for node in default_neighbors["nodes"]] == ["page:index"]
+    assert default_neighbors["edges"] == []
+    assert "draft" not in json.dumps(default_neighbors)
+    assert "page:draft" in {node["id"] for node in allowed_neighbors["nodes"]}
+    assert allowed_neighbors["edges"][0]["relation"] == "requires"
 
 
 def test_mcp_contract_errors_use_safe_messages() -> None:
@@ -2377,13 +2846,49 @@ def test_mcp_streamable_http_tools_list_and_call_smoke() -> None:
 
     assert tools_response.status_code == 200
     tool_names = {tool["name"] for tool in tools_response.json()["result"]["tools"]}
-    assert {"llmwiki_context", "llmwiki_search", "llmwiki_read", "llmwiki_graph"} <= tool_names
+    assert {
+        "llmwiki_context",
+        "llmwiki_search",
+        "llmwiki_read",
+        "llmwiki_graph",
+        "llmwiki_graph_neighbors",
+    } <= tool_names
 
     assert call_response.status_code == 200
     call_result = call_response.json()["result"]
     assert call_result["isError"] is False
     assert call_result["structuredContent"]["answerable"] is True
     assert call_result["structuredContent"]["evidence"]
+
+    with TestClient(
+        create_app(Path(__file__).parent / "fixtures" / "native-wiki-root"),
+        base_url="http://127.0.0.1:8000",
+        follow_redirects=False,
+    ) as client:
+        neighbors_response = client.post(
+            MCP_STREAM_PATH,
+            json={
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "tools/call",
+                "params": {
+                    "name": "llmwiki_graph_neighbors",
+                    "arguments": {
+                        "seed": "overview",
+                        "depth": 1,
+                        "direction": "out",
+                        "relation": "supports",
+                    },
+                },
+            },
+            headers=headers,
+        )
+
+    assert neighbors_response.status_code == 200
+    neighbors_result = neighbors_response.json()["result"]
+    assert neighbors_result["isError"] is False
+    assert neighbors_result["structuredContent"]["seeds"] == ["page:overview"]
+    assert neighbors_result["structuredContent"]["edges"][0]["relation"] == "supports"
 
 
 def test_origin_header_is_enforced_for_browser_requests() -> None:

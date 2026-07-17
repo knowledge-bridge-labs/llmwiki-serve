@@ -82,6 +82,8 @@ versioned release or public release candidate.
 
    curl -s 'http://127.0.0.1:8765/graph?limit=120'
 
+   curl -s 'http://127.0.0.1:8765/graph/neighborhood?seed=hot&depth=1&limit=20'
+
    curl -s http://127.0.0.1:8765/mcp \
      -H 'content-type: application/json' \
      -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"llmwiki_context","arguments":{"query":"required copy release readiness","limit":4}}}'
@@ -133,9 +135,10 @@ versioned release or public release candidate.
    uv run llmwiki-serve serve "$WIKI" --host 127.0.0.1 --port 8765
    ```
 
-   Confirm `/query`, `/search`, `/read`, `/graph`, `/mcp`, and `/mcp/stream`
-   return expected data for that real wiki without exposing private content in
-   release notes, issue comments, logs, or generated artifacts. Confirm
+   Confirm `/query`, `/search`, `/read`, `/graph`, `/graph/neighborhood`,
+   `/mcp`, and `/mcp/stream` return expected data for that real wiki without
+   exposing private content in release notes, issue comments, logs, or
+   generated artifacts. Confirm
    `/message:send` returns 404 by default and works only when the server is
    started with `--enable-a2a-compat`. Keep draft-serving disabled unless
    explicitly testing `--allow-drafts`, and confirm HTTP `/manifest` does not
@@ -151,6 +154,12 @@ versioned release or public release candidate.
    the caller's actual producer output, plugin settings, and content
    conventions; it is not covered by the bundled fixtures and should not
    publish private data.
+
+   If testing `--producer-manifest`, verify it only with a non-sensitive local
+   generated wiki whose producer reliably updates the marker after every
+   ingest/compile run. Keep those results separate from the default strict
+   source-scan smoke because producer manifest freshness intentionally changes
+   the operator trust model.
 
 7. Confirm README, CONTRIBUTING, architecture docs, and issue/PR templates
    reflect new setup steps, validation expectations, compatibility limits, or

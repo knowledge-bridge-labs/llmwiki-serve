@@ -22,8 +22,9 @@ compatibility, security, documentation, or project maintenance impact. -->
 
 ## Endpoint Impact
 
-- [ ] HTTP endpoints (`/manifest`, `/query`, `/search`, `/read/{page_id}`, `/graph`)
+- [ ] HTTP endpoints (`/health`, `/manifest`, `/source-bundle`, `/source-refs`, `/query`, `/search`, `/read/{page_id}`, `/graph`, `/graph/neighborhood`)
 - [ ] MCP JSON-RPC endpoint (`/mcp`)
+- [ ] MCP Streamable HTTP endpoint (`/mcp/stream`)
 - [ ] A2A agent-card or message endpoint (`/.well-known/agent-card.json`, `/message:send`)
 - [ ] CLI-only behavior
 - [ ] Documentation-only change

@@ -9,6 +9,7 @@ PageRole = Literal["hot", "index", "overview", "topic"]
 ReviewState = Literal[
     "approved", "reviewed", "verified", "draft", "proposed", "needs_review", "unknown"
 ]
+GraphNeighborhoodDirection = Literal["out", "in", "both"]
 
 NON_SERVING_STATUSES = {
     "draft",
@@ -96,6 +97,16 @@ class ContextPack(BaseModel):
     evidence: list[SearchResult] = Field(default_factory=list)
     limitations: list[str] = Field(default_factory=list)
     graph: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
+
+
+class GraphNeighborhoodResponse(BaseModel):
+    seeds: list[str] = Field(default_factory=list)
+    unmatched: list[str] = Field(default_factory=list)
+    depth: int = 1
+    direction: GraphNeighborhoodDirection = "both"
+    relations: list[str] = Field(default_factory=list)
+    nodes: list[GraphNode] = Field(default_factory=list)
+    edges: list[GraphEdge] = Field(default_factory=list)
 
 
 class ProjectionMetadata(BaseModel):

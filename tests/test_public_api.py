@@ -3,13 +3,14 @@ from __future__ import annotations
 from pathlib import Path
 
 import llmwiki_serve
-from llmwiki_serve import LlmWikiService, create_app
+from llmwiki_serve import LlmWikiService, __version__, create_app
 
 FIXTURE = Path(__file__).parent / "fixtures" / "sample-wiki"
 
 
 def test_package_root_exports_public_api_boundary() -> None:
-    assert llmwiki_serve.__all__ == ["LlmWikiService", "create_app"]
+    assert llmwiki_serve.__all__ == ["__version__", "LlmWikiService", "create_app"]
+    assert llmwiki_serve.__version__ == __version__
     assert llmwiki_serve.LlmWikiService is LlmWikiService
     assert llmwiki_serve.create_app is create_app
 
@@ -19,6 +20,8 @@ def test_openapi_contract_covers_core_http_response_models() -> None:
     a2a_schema = create_app(FIXTURE, enable_a2a_compat=True).openapi()
 
     assert schema["openapi"] == "3.1.0"
+    assert schema["info"]["version"] == __version__
+    assert a2a_schema["info"]["version"] == __version__
     assert {
         "/health",
         "/manifest",
@@ -26,6 +29,7 @@ def test_openapi_contract_covers_core_http_response_models() -> None:
         "/search",
         "/read/{page_id}",
         "/graph",
+        "/graph/neighborhood",
         "/mcp",
     } <= set(schema["paths"])
     assert "/.well-known/agent-card.json" not in schema["paths"]
@@ -36,6 +40,7 @@ def test_openapi_contract_covers_core_http_response_models() -> None:
         "WikiManifest",
         "SearchResponse",
         "GraphResponse",
+        "GraphNeighborhoodResponse",
         "WikiPage",
         "ReadNotFoundResponse",
         "HttpDetailResponse",
@@ -50,9 +55,33 @@ def test_openapi_contract_covers_core_http_response_models() -> None:
     graph_response = schema["paths"]["/graph"]["get"]["responses"]["200"]["content"][
         "application/json"
     ]["schema"]
+    graph_neighborhood_response = schema["paths"]["/graph/neighborhood"]["get"]["responses"]["200"][
+        "content"
+    ]["application/json"]["schema"]
+    health_schema = schema["components"]["schemas"]["HealthResponse"]
+    health_endpoints_schema = schema["components"]["schemas"]["HealthEndpointsResponse"]
 
     assert query_response["$ref"] == "#/components/schemas/ContextPack"
     assert graph_response["$ref"] == "#/components/schemas/GraphResponse"
+    assert graph_neighborhood_response["$ref"] == "#/components/schemas/GraphNeighborhoodResponse"
+    assert {"capabilities", "endpoints"} <= set(health_schema["required"])
+    assert {
+        "health",
+        "manifest",
+        "source_bundle",
+        "source_refs",
+        "query",
+        "search",
+        "read",
+        "graph",
+        "graph_neighborhood",
+        "mcp_jsonrpc",
+        "mcp_streamable_http",
+        "openapi",
+        "docs",
+        "a2a_agent_card",
+        "a2a_message_send",
+    } <= set(health_endpoints_schema["required"])
     assert (
         schema["paths"]["/read/{page_id}"]["get"]["responses"]["404"]["content"][
             "application/json"

@@ -4,20 +4,24 @@ import contextlib
 import re
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
 from pydantic import BaseModel, Field
 
+from . import __version__
 from .adapters import WikiRootError
 from .models import (
     ContextPack,
     GraphEdge,
+    GraphNeighborhoodDirection,
+    GraphNeighborhoodResponse,
     GraphNode,
+    ProjectionMetadata,
     SearchResult,
     SourceBundleManifest,
     SourceRefsResponse,
@@ -30,8 +34,14 @@ QUERY_LIMIT_MIN = 1
 QUERY_LIMIT_MAX = 30
 GRAPH_LIMIT_MIN = 1
 GRAPH_LIMIT_MAX = 2_000
+GRAPH_NEIGHBOR_DEPTH_MAX = 4
+GRAPH_NEIGHBOR_LIMIT_DEFAULT = 50
+GRAPH_NEIGHBOR_LIMIT_MAX = 500
+GRAPH_NEIGHBOR_SEED_QUERY = Query(default=None)
+GRAPH_NEIGHBOR_RELATION_QUERY = Query(default=None)
 LOCAL_CORS_ORIGIN_REGEX = r"^https?://(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$"
 NETWORK_MANIFEST_ROOT = ""
+API_VERSION = __version__
 MCP_UNSUPPORTED_METHOD_MESSAGE = "Unsupported MCP-style method."
 MCP_UNKNOWN_TOOL_MESSAGE = "Unknown MCP-style tool."
 MCP_INTERNAL_FAILURE_MESSAGE = "Internal MCP-style error."
@@ -65,8 +75,50 @@ class JsonRpcRequest(BaseModel):
     params: dict[str, Any] | None = Field(default_factory=dict)
 
 
+class HealthSourceResponse(BaseModel):
+    source_id: str = ""
+    bundle_id: str = ""
+    public_uri: str = ""
+    title: str = ""
+    adapter: str = ""
+    implementation: str = ""
+    page_count: int = 0
+    approved_page_count: int = 0
+    projection: ProjectionMetadata = Field(default_factory=ProjectionMetadata)
+
+
+class HealthEndpointsResponse(BaseModel):
+    health: str
+    manifest: str
+    source_bundle: str
+    source_refs: str
+    query: str
+    search: str
+    read: str
+    graph: str
+    graph_neighborhood: str
+    mcp_jsonrpc: str
+    mcp_streamable_http: str
+    openapi: str
+    docs: str
+    a2a_agent_card: str
+    a2a_message_send: str
+
+
+class HealthCorsResponse(BaseModel):
+    mode: Literal["local-dev-allowlist", "explicit-allowlist"]
+    local_dev_origins: bool
+    explicit_origin_count: int = 0
+
+
 class HealthResponse(BaseModel):
     status: Literal["ok"]
+    service: Literal["llmwiki-serve"]
+    version: str
+    source: HealthSourceResponse
+    capabilities: list[str]
+    endpoints: HealthEndpointsResponse
+    cors: HealthCorsResponse
 
 
 class SearchResponse(BaseModel):
@@ -141,8 +193,13 @@ def create_app(
     cors_origins: Sequence[str] | None = None,
     enable_a2a_compat: bool = False,
     refresh_interval_seconds: float = 0.0,
+    producer_manifest_path: Path | str | None = None,
 ) -> FastAPI:
-    service = LlmWikiService(root, refresh_interval_seconds=refresh_interval_seconds)
+    service = LlmWikiService(
+        root,
+        refresh_interval_seconds=refresh_interval_seconds,
+        producer_manifest_path=producer_manifest_path,
+    )
     mcp_stream = create_mcp_stream_server(
         service,
         allow_drafts=allow_drafts,
@@ -158,7 +215,7 @@ def create_app(
 
     app = FastAPI(
         title="LLMWiki Serve",
-        version="0.1.0",
+        version=API_VERSION,
         description=(
             "Read-only HTTP, MCP-style JSON-RPC, MCP Streamable HTTP, and optional "
             "A2A-style message surface "
@@ -200,9 +257,27 @@ def create_app(
         )
 
     @app.get("/health", response_model=HealthResponse)
-    def health() -> dict[str, str]:
-        service.index()
-        return {"status": "ok"}
+    def health() -> dict[str, Any]:
+        manifest_data = service.manifest(enable_a2a_compat=enable_a2a_compat)
+        return {
+            "status": "ok",
+            "service": "llmwiki-serve",
+            "version": API_VERSION,
+            "source": {
+                "source_id": manifest_data.source_id,
+                "bundle_id": manifest_data.bundle_id,
+                "public_uri": manifest_data.public_uri,
+                "title": manifest_data.title,
+                "adapter": manifest_data.adapter,
+                "implementation": manifest_data.implementation,
+                "page_count": manifest_data.page_count,
+                "approved_page_count": manifest_data.approved_page_count,
+                "projection": manifest_data.projection.model_dump(),
+            },
+            "capabilities": manifest_data.capabilities,
+            "endpoints": health_endpoints(enable_a2a_compat).model_dump(),
+            "cors": health_cors(explicit_origins).model_dump(),
+        }
 
     @app.get("/manifest", response_model=WikiManifest)
     def manifest() -> dict[str, Any]:
@@ -262,6 +337,29 @@ def create_app(
             include_drafts=network_include_drafts(allow_drafts, include_drafts),
         )
 
+    @app.get("/graph/neighborhood", response_model=GraphNeighborhoodResponse)
+    def graph_neighborhood(
+        seed: list[str] | None = GRAPH_NEIGHBOR_SEED_QUERY,
+        depth: int = 1,
+        direction: GraphNeighborhoodDirection = "both",
+        relation: list[str] | None = GRAPH_NEIGHBOR_RELATION_QUERY,
+        limit: int = GRAPH_NEIGHBOR_LIMIT_DEFAULT,
+        include_drafts: bool = False,
+    ) -> dict[str, Any]:
+        return service.graph_neighbors(
+            seeds=seed or [],
+            depth=clamp_int(depth, default=1, minimum=0, maximum=GRAPH_NEIGHBOR_DEPTH_MAX),
+            direction=direction,
+            relations=relation or [],
+            limit=clamp_int(
+                limit,
+                default=GRAPH_NEIGHBOR_LIMIT_DEFAULT,
+                minimum=GRAPH_LIMIT_MIN,
+                maximum=GRAPH_NEIGHBOR_LIMIT_MAX,
+            ),
+            include_drafts=network_include_drafts(allow_drafts, include_drafts),
+        ).model_dump()
+
     @app.post("/mcp", response_model=JsonRpcResponse, response_model_exclude_none=True)
     def mcp(request: JsonRpcRequest) -> dict[str, Any]:
         try:
@@ -301,7 +399,7 @@ def create_app(
                 "name": manifest_data.title,
                 "description": manifest_data.description or "LLMWiki Serve A2A endpoint",
                 "url": "/message:send",
-                "version": "0.1.0",
+                "version": API_VERSION,
                 "capabilities": {"streaming": False, "pushNotifications": False},
             }
 
@@ -326,6 +424,34 @@ def create_app(
     app.mount(MCP_STREAM_MOUNT_PATH, mcp_stream_app)
 
     return app
+
+
+def health_endpoints(enable_a2a_compat: bool) -> HealthEndpointsResponse:
+    return HealthEndpointsResponse(
+        health="/health",
+        manifest="/manifest",
+        source_bundle="/source-bundle",
+        source_refs="/source-refs",
+        query="/query",
+        search="/search",
+        read="/read/{page_id}",
+        graph="/graph",
+        graph_neighborhood="/graph/neighborhood",
+        mcp_jsonrpc="/mcp",
+        mcp_streamable_http=MCP_STREAM_PATH,
+        openapi="/openapi.json",
+        docs="/docs",
+        a2a_agent_card="/.well-known/agent-card.json" if enable_a2a_compat else "",
+        a2a_message_send="/message:send" if enable_a2a_compat else "",
+    )
+
+
+def health_cors(explicit_origins: set[str]) -> HealthCorsResponse:
+    return HealthCorsResponse(
+        mode="explicit-allowlist" if explicit_origins else "local-dev-allowlist",
+        local_dev_origins=not explicit_origins,
+        explicit_origin_count=len(explicit_origins),
+    )
 
 
 def create_mcp_stream_server(
@@ -407,6 +533,40 @@ def create_mcp_stream_server(
             raise ToolError(MCP_INTERNAL_FAILURE_MESSAGE) from exc
 
     @mcp_stream.tool(
+        name="llmwiki_graph_neighbors",
+        description=(
+            "Return a bounded graph neighborhood around page, source, tag, or sidecar "
+            "graph seed nodes for dependency and lineage inspection."
+        ),
+    )
+    def llmwiki_graph_neighbors(
+        seed: str = "",
+        seeds: list[str] | None = None,
+        depth: int = 1,
+        direction: GraphNeighborhoodDirection = "both",
+        relation: str = "",
+        relations: list[str] | None = None,
+        limit: int = GRAPH_NEIGHBOR_LIMIT_DEFAULT,
+        include_drafts: bool = False,
+    ) -> dict[str, Any]:
+        try:
+            return service.graph_neighbors(
+                seeds=collect_string_args(seed, seeds),
+                depth=clamp_int(depth, default=1, minimum=0, maximum=GRAPH_NEIGHBOR_DEPTH_MAX),
+                direction=direction,
+                relations=collect_string_args(relation, relations),
+                limit=clamp_int(
+                    limit,
+                    default=GRAPH_NEIGHBOR_LIMIT_DEFAULT,
+                    minimum=GRAPH_LIMIT_MIN,
+                    maximum=GRAPH_NEIGHBOR_LIMIT_MAX,
+                ),
+                include_drafts=network_include_drafts(allow_drafts, include_drafts),
+            ).model_dump()
+        except Exception as exc:
+            raise ToolError(MCP_INTERNAL_FAILURE_MESSAGE) from exc
+
+    @mcp_stream.tool(
         name="llmwiki_source_refs",
         description="Return typed source-reference handles linked from approved pages.",
     )
@@ -464,6 +624,13 @@ def handle_mcp(
                 {"name": "llmwiki_read", "description": "Read a page by id or path."},
                 {"name": "llmwiki_graph", "description": "Return page/link/source graph."},
                 {
+                    "name": "llmwiki_graph_neighbors",
+                    "description": (
+                        "Return a bounded graph neighborhood around page, source, tag, or "
+                        "sidecar graph seed nodes for dependency and lineage inspection."
+                    ),
+                },
+                {
                     "name": "llmwiki_source_refs",
                     "description": (
                         "Return typed source-reference handles linked from approved pages."
@@ -512,6 +679,22 @@ def handle_mcp(
             ),
             include_drafts=network_include_drafts(allow_drafts, args.get("include_drafts")),
         )
+    if name == "llmwiki_graph_neighbors":
+        return service.graph_neighbors(
+            seeds=collect_string_args(args.get("seed"), args.get("seeds")),
+            depth=clamp_int(
+                args.get("depth"), default=1, minimum=0, maximum=GRAPH_NEIGHBOR_DEPTH_MAX
+            ),
+            direction=graph_direction_arg(args.get("direction")),
+            relations=collect_string_args(args.get("relation"), args.get("relations")),
+            limit=clamp_int(
+                args.get("limit"),
+                default=GRAPH_NEIGHBOR_LIMIT_DEFAULT,
+                minimum=GRAPH_LIMIT_MIN,
+                maximum=GRAPH_NEIGHBOR_LIMIT_MAX,
+            ),
+            include_drafts=network_include_drafts(allow_drafts, args.get("include_drafts")),
+        ).model_dump()
     if name == "llmwiki_source_refs":
         return service.source_refs(
             include_drafts=network_include_drafts(allow_drafts, args.get("include_drafts")),
@@ -538,6 +721,28 @@ def bool_arg(value: Any) -> bool:
     if isinstance(value, str):
         return value.strip().lower() in {"1", "true", "yes", "on"}
     return bool(value)
+
+
+def collect_string_args(*values: Any) -> list[str]:
+    result: list[str] = []
+    for value in values:
+        if isinstance(value, str):
+            candidates = [item.strip() for item in value.split(",")]
+        elif isinstance(value, list):
+            candidates = [str(item).strip() for item in value]
+        else:
+            candidates = []
+        for candidate in candidates:
+            if candidate and candidate not in result:
+                result.append(candidate)
+    return result
+
+
+def graph_direction_arg(value: Any) -> GraphNeighborhoodDirection:
+    normalized = str(value or "both").strip().lower()
+    if normalized in {"out", "in", "both"}:
+        return cast(GraphNeighborhoodDirection, normalized)
+    return "both"
 
 
 def network_include_drafts(allow_drafts: bool, requested: Any) -> bool:
