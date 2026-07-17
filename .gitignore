@@ -15,3 +15,4 @@ build/
 .env
 .DS_Store
 .runtime-logs/
+.llmwiki-work/

@@ -27,6 +27,7 @@ if str(PROJECT_ROOT / "src") not in sys.path:
 
 from fastapi.testclient import TestClient  # noqa: E402
 
+from llmwiki_serve import __version__ as PACKAGE_VERSION  # noqa: E402
 from llmwiki_serve.api import (  # noqa: E402
     MCP_INTERNAL_FAILURE_MESSAGE,
     MCP_UNKNOWN_TOOL_MESSAGE,
@@ -44,6 +45,7 @@ import sys
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+import llmwiki_serve
 import llmwiki_serve.api as api
 
 HEADERS = {
@@ -67,8 +69,26 @@ with contextlib.redirect_stdout(sys.stderr):
         base_url="http://127.0.0.1:8000",
         follow_redirects=False,
     ) as client:
+        health = response_payload(client.get("/health"))
         source_refs = response_payload(client.get("/source-refs"))
         source_bundle = response_payload(client.get("/source-bundle"))
+        graph_neighbors = response_payload(
+            client.get("/graph/neighborhood?seed=hot&depth=1&limit=20")
+        )
+        mcp_graph_neighbors = response_payload(
+            client.post(
+                "/mcp",
+                json={
+                    "jsonrpc": "2.0",
+                    "id": 4,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "llmwiki_graph_neighbors",
+                        "arguments": {"seed": "hot", "depth": 1, "limit": 20},
+                    },
+                },
+            )
+        )
         mcp_source_bundle = response_payload(
             client.post(
                 "/mcp",
@@ -105,6 +125,21 @@ with contextlib.redirect_stdout(sys.stderr):
                 headers=HEADERS,
             )
         )
+        stream_graph_neighbors = response_payload(
+            client.post(
+                "/mcp/stream",
+                json={
+                    "jsonrpc": "2.0",
+                    "id": 5,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "llmwiki_graph_neighbors",
+                        "arguments": {"seed": "hot", "depth": 1, "limit": 20},
+                    },
+                },
+                headers=HEADERS,
+            )
+        )
 
     with TestClient(api.create_app(fixture, allow_drafts=True)) as projection_client:
         projection_graph = response_payload(
@@ -113,11 +148,16 @@ with contextlib.redirect_stdout(sys.stderr):
 
 payload = {
     "api_file": str(Path(api.__file__).resolve()),
+    "package_version": llmwiki_serve.__version__,
     "projection_graph": projection_graph,
+    "health": health,
     "source_refs": source_refs,
     "source_bundle": source_bundle,
+    "graph_neighbors": graph_neighbors,
+    "mcp_graph_neighbors": mcp_graph_neighbors,
     "mcp_source_bundle": mcp_source_bundle,
     "stream_tools": stream_tools,
+    "stream_graph_neighbors": stream_graph_neighbors,
     "stream_source_bundle": stream_source_bundle,
 }
 print(json.dumps(payload))
@@ -358,7 +398,16 @@ def source_boundary_smoke(fixture: Path) -> None:
 
     client = TestClient(create_app(fixture))
     a2a_client = TestClient(create_app(fixture, enable_a2a_compat=True))
-    require(client.get("/health").json() == {"status": "ok"}, "HTTP health check failed")
+    health_response = client.get("/health")
+    require(health_response.status_code == 200, "HTTP health check failed")
+    assert_health_payload(
+        health_response.json(),
+        fixture,
+        "HTTP health",
+        manifest_cli,
+        enable_a2a_compat=False,
+    )
+    assert_no_private_root_leak(health_response.text, fixture, "HTTP health")
     assert_local_only_cors(client)
 
     manifest_http = client.get("/manifest")
@@ -415,6 +464,15 @@ def source_boundary_smoke(fixture: Path) -> None:
         all("draft" not in node["id"] for node in graph_http["nodes"]),
         "HTTP graph exposed a draft node by default",
     )
+    graph_neighbors_http = client.get("/graph/neighborhood?seed=hot&depth=1&limit=20").json()
+    require(
+        "page:hot" in {node["id"] for node in graph_neighbors_http["nodes"]},
+        "HTTP graph neighborhood did not include the seed page",
+    )
+    require(
+        graph_neighbors_http["edges"],
+        "HTTP graph neighborhood returned no edges for hot.md",
+    )
     expected_projection_graph_counts = projection_graph_counts(fixture)
 
     source_refs_response = client.get("/source-refs")
@@ -449,6 +507,29 @@ def source_boundary_smoke(fixture: Path) -> None:
     require(mcp_context["jsonrpc"] == "2.0", "MCP-style response jsonrpc mismatch")
     require(mcp_context["result"]["answerable"] is True, "MCP-style context was not answerable")
     require(mcp_context["result"]["evidence"], "MCP-style context returned no evidence")
+
+    mcp_graph_neighbors = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 9,
+            "method": "tools/call",
+            "params": {
+                "name": "llmwiki_graph_neighbors",
+                "arguments": {"seed": "hot", "depth": 1, "limit": 20},
+            },
+        },
+    ).json()
+    require("error" not in mcp_graph_neighbors, "MCP-style graph neighbors returned an error")
+    require(
+        mcp_graph_neighbors["result"] == graph_neighbors_http,
+        "MCP-style graph neighbors differed from HTTP graph neighborhood",
+    )
+    assert_no_private_root_leak(
+        mcp_graph_neighbors,
+        fixture,
+        "MCP-style graph neighbors envelope",
+    )
 
     mcp_source_bundle = client.post(
         "/mcp",
@@ -512,6 +593,16 @@ def source_boundary_smoke(fixture: Path) -> None:
         "a2a-message" in a2a_manifest["capabilities"],
         "A2A-style capability missing after opt-in",
     )
+    a2a_health_response = a2a_client.get("/health")
+    require(a2a_health_response.status_code == 200, "A2A-style health check failed")
+    assert_health_payload(
+        a2a_health_response.json(),
+        fixture,
+        "A2A-style health",
+        a2a_manifest,
+        enable_a2a_compat=True,
+    )
+    assert_no_private_root_leak(a2a_health_response.text, fixture, "A2A-style health")
 
     agent_card = a2a_client.get("/.well-known/agent-card.json").json()
     require(agent_card["url"] == "/message:send", "A2A-style agent card URL changed")
@@ -607,18 +698,27 @@ def wheel_cli_smoke(
             cwd=PROJECT_ROOT,
             expected_text="No supported wiki files were found",
         )
-        wheel_api_smoke(python, fixture, Path(temp_dir))
+        wheel_api_smoke(python, fixture, Path(temp_dir), manifest)
 
     print("wheel CLI and API smoke passed")
 
 
-def wheel_api_smoke(python: Path, fixture: Path, temp_dir: Path) -> None:
+def wheel_api_smoke(
+    python: Path,
+    fixture: Path,
+    temp_dir: Path,
+    expected_manifest: dict[str, Any],
+) -> None:
     payload = run_json(
         [str(python), "-I", "-c", WHEEL_API_SMOKE_SCRIPT, str(fixture)],
         cwd=temp_dir,
     )
     api_file = Path(str(payload["api_file"])).resolve()
     require(api_file.is_file(), "wheel API smoke could not locate installed API module")
+    require(
+        payload.get("package_version") == PACKAGE_VERSION,
+        "wheel package __version__ changed",
+    )
     require(
         not path_is_relative_to(api_file, (PROJECT_ROOT / "src").resolve()),
         "wheel API smoke imported the source checkout instead of installed package",
@@ -632,6 +732,20 @@ def wheel_api_smoke(python: Path, fixture: Path, temp_dir: Path) -> None:
     expected_projection_graph_counts = graph_counts(
         projection_graph,
         "wheel projection graph",
+    )
+
+    health_http = response_json(payload, "health", "wheel HTTP health")
+    assert_health_payload(
+        health_http,
+        fixture,
+        "wheel HTTP health",
+        expected_manifest,
+        enable_a2a_compat=False,
+    )
+    assert_no_private_root_leak(
+        response_envelope(payload, "health", "wheel HTTP health"),
+        fixture,
+        "wheel HTTP health envelope",
     )
 
     source_refs_http = response_json(payload, "source_refs", "wheel HTTP source refs")
@@ -653,6 +767,45 @@ def wheel_api_smoke(python: Path, fixture: Path, temp_dir: Path) -> None:
         response_envelope(payload, "source_bundle", "wheel HTTP source bundle"),
         fixture,
         "wheel HTTP source bundle envelope",
+    )
+
+    graph_neighbors_http = response_json(
+        payload,
+        "graph_neighbors",
+        "wheel HTTP graph neighborhood",
+    )
+    assert_graph_neighbors_payload(
+        graph_neighbors_http,
+        fixture,
+        "wheel HTTP graph neighborhood",
+    )
+    assert_no_private_root_leak(
+        response_envelope(payload, "graph_neighbors", "wheel HTTP graph neighborhood"),
+        fixture,
+        "wheel HTTP graph neighborhood envelope",
+    )
+
+    mcp_graph_neighbors = response_json(
+        payload,
+        "mcp_graph_neighbors",
+        "wheel MCP-style graph neighbors",
+    )
+    require(
+        "error" not in mcp_graph_neighbors,
+        "wheel MCP-style graph neighbors returned an error",
+    )
+    require(
+        mcp_graph_neighbors["result"] == graph_neighbors_http,
+        "wheel MCP-style graph neighbors differed from HTTP graph neighborhood",
+    )
+    assert_no_private_root_leak(
+        response_envelope(
+            payload,
+            "mcp_graph_neighbors",
+            "wheel MCP-style graph neighbors",
+        ),
+        fixture,
+        "wheel MCP-style graph neighbors envelope",
     )
 
     mcp_source_bundle = response_json(
@@ -687,8 +840,50 @@ def wheel_api_smoke(python: Path, fixture: Path, temp_dir: Path) -> None:
     )
     tool_names = {tool["name"] for tool in stream_tools["result"]["tools"]}
     require(
-        "llmwiki_source_bundle" in tool_names,
-        "wheel MCP Streamable HTTP tools/list missing source bundle",
+        {
+            "llmwiki_context",
+            "llmwiki_search",
+            "llmwiki_read",
+            "llmwiki_graph",
+            "llmwiki_graph_neighbors",
+            "llmwiki_source_refs",
+            "llmwiki_source_bundle",
+        }
+        <= tool_names,
+        "wheel MCP Streamable HTTP tools/list missing expected tool(s)",
+    )
+    assert_no_private_root_leak(
+        response_envelope(payload, "stream_tools", "wheel MCP Streamable HTTP tools/list"),
+        fixture,
+        "wheel MCP Streamable HTTP tools/list envelope",
+    )
+
+    stream_graph_neighbors = response_json(
+        payload,
+        "stream_graph_neighbors",
+        "wheel MCP Streamable HTTP graph neighbors",
+    )
+    require(
+        stream_graph_neighbors["result"]["isError"] is False,
+        "wheel MCP Streamable HTTP graph neighbors returned an error",
+    )
+    require(
+        stream_graph_neighbors["result"]["structuredContent"] == graph_neighbors_http,
+        "wheel MCP Streamable HTTP graph neighbors differed from HTTP graph neighborhood",
+    )
+    assert_graph_neighbors_payload(
+        stream_graph_neighbors["result"]["structuredContent"],
+        fixture,
+        "wheel MCP Streamable HTTP graph neighbors",
+    )
+    assert_no_private_root_leak(
+        response_envelope(
+            payload,
+            "stream_graph_neighbors",
+            "wheel MCP Streamable HTTP graph neighbors",
+        ),
+        fixture,
+        "wheel MCP Streamable HTTP graph neighbors envelope",
     )
 
     stream_source_bundle = response_json(
@@ -801,6 +996,10 @@ def assert_sdist_contents(sdist: Path) -> None:
     )
     require("Name: llmwiki-serve\n" in pkg_info, "sdist PKG-INFO package name changed")
     project_version = read_project_version(pyproject)
+    require(
+        project_version == PACKAGE_VERSION,
+        "sdist pyproject.toml version differs from package __version__",
+    )
     require(
         f"Version: {project_version}\n" in pkg_info,
         "sdist PKG-INFO package version changed",
@@ -961,6 +1160,94 @@ def assert_safe_mcp_errors(client: TestClient, fixture: Path) -> None:
     require(str(fixture) not in encoded_contract, "MCP contract error exposed path")
 
 
+def assert_health_payload(
+    payload: dict[str, Any],
+    fixture: Path,
+    surface: str,
+    expected_manifest: dict[str, Any],
+    *,
+    enable_a2a_compat: bool,
+) -> None:
+    require(isinstance(payload, dict), f"{surface} returned non-object payload")
+    require(payload["status"] == "ok", f"{surface} status changed")
+    require(payload["service"] == "llmwiki-serve", f"{surface} service changed")
+    require(payload["version"] == PACKAGE_VERSION, f"{surface} version changed")
+    require(
+        payload["source"]
+        == {
+            "source_id": expected_manifest["source_id"],
+            "bundle_id": expected_manifest["bundle_id"],
+            "public_uri": expected_manifest["public_uri"],
+            "title": expected_manifest["title"],
+            "adapter": expected_manifest["adapter"],
+            "implementation": expected_manifest["implementation"],
+            "page_count": expected_manifest["page_count"],
+            "approved_page_count": expected_manifest["approved_page_count"],
+            "projection": expected_manifest["projection"],
+        },
+        f"{surface} source metadata differed from manifest",
+    )
+
+    capabilities = set(payload["capabilities"])
+    require(
+        capabilities == set(expected_manifest["capabilities"]),
+        f"{surface} capabilities differed from manifest",
+    )
+    require(
+        {
+            "llmwiki_source_bundle",
+            "llmwiki_context",
+            "llmwiki_search",
+            "llmwiki_read",
+            "llmwiki_graph",
+            "llmwiki_graph_neighbors",
+            "llmwiki_source_refs",
+            "mcp-jsonrpc",
+            "mcp-streamable-http",
+        }
+        <= capabilities,
+        f"{surface} missing required capabilities",
+    )
+    require(
+        ("a2a-message" in capabilities) is enable_a2a_compat,
+        f"{surface} A2A capability did not match opt-in state",
+    )
+    require(
+        payload["endpoints"] == expected_health_endpoints(enable_a2a_compat),
+        f"{surface} endpoints changed",
+    )
+    require(
+        payload["cors"]
+        == {
+            "mode": "local-dev-allowlist",
+            "local_dev_origins": True,
+            "explicit_origin_count": 0,
+        },
+        f"{surface} CORS discovery changed",
+    )
+    assert_no_private_root_leak(payload, fixture, surface)
+
+
+def expected_health_endpoints(enable_a2a_compat: bool) -> dict[str, str]:
+    return {
+        "health": "/health",
+        "manifest": "/manifest",
+        "source_bundle": "/source-bundle",
+        "source_refs": "/source-refs",
+        "query": "/query",
+        "search": "/search",
+        "read": "/read/{page_id}",
+        "graph": "/graph",
+        "graph_neighborhood": "/graph/neighborhood",
+        "mcp_jsonrpc": "/mcp",
+        "mcp_streamable_http": "/mcp/stream",
+        "openapi": "/openapi.json",
+        "docs": "/docs",
+        "a2a_agent_card": "/.well-known/agent-card.json" if enable_a2a_compat else "",
+        "a2a_message_send": "/message:send" if enable_a2a_compat else "",
+    }
+
+
 def assert_source_bundle_payload(
     payload: dict[str, Any],
     fixture: Path,
@@ -1014,6 +1301,10 @@ def assert_source_bundle_payload(
         "llmwiki_source_refs" in payload["capabilities"],
         f"{surface} missing source-refs capability",
     )
+    require(
+        "llmwiki_graph_neighbors" in payload["capabilities"],
+        f"{surface} missing graph-neighborhood capability",
+    )
     assert_source_refs_payload(
         {
             "source_id": payload["source_id"],
@@ -1023,6 +1314,45 @@ def assert_source_bundle_payload(
         fixture,
         f"{surface} embedded source refs",
     )
+    assert_no_private_root_leak(payload, fixture, surface)
+
+
+def assert_graph_neighbors_payload(payload: dict[str, Any], fixture: Path, surface: str) -> None:
+    require(isinstance(payload, dict), f"{surface} returned non-object payload")
+    require(payload["seeds"] == ["page:hot"], f"{surface} did not resolve hot seed")
+    require(payload["unmatched"] == [], f"{surface} unexpectedly reported unmatched seed")
+    require(payload["depth"] == 1, f"{surface} depth changed")
+    require(payload["direction"] == "both", f"{surface} direction changed")
+    require(payload["relations"] == [], f"{surface} relation filters changed")
+
+    nodes = payload["nodes"]
+    edges = payload["edges"]
+    require(isinstance(nodes, list), f"{surface} nodes were not a list")
+    require(isinstance(edges, list), f"{surface} edges were not a list")
+    require("page:hot" in {node.get("id") for node in nodes}, f"{surface} omitted seed page")
+    require(edges, f"{surface} returned no edges for hot.md")
+
+    for node in nodes:
+        require(isinstance(node, dict), f"{surface} node was not an object")
+        node_id = node.get("id", "")
+        path = node.get("path", "")
+        require(isinstance(node_id, str), f"{surface} node id was not text")
+        require("draft" not in node_id.lower(), f"{surface} exposed a draft node")
+        if path:
+            require(isinstance(path, str), f"{surface} node path was not text")
+            require(
+                not Path(path).is_absolute() and not PurePosixPath(path).is_absolute(),
+                f"{surface} node path exposed an absolute path",
+            )
+            require("draft" not in path.lower(), f"{surface} node path exposed a draft")
+
+    for edge in edges:
+        require(isinstance(edge, dict), f"{surface} edge was not an object")
+        for key in ("source", "target", "relation"):
+            value = edge.get(key, "")
+            require(isinstance(value, str) and value, f"{surface} edge {key} missing")
+            require("draft" not in value.lower(), f"{surface} edge exposed a draft")
+
     assert_no_private_root_leak(payload, fixture, surface)
 
 
@@ -1155,9 +1485,26 @@ def assert_mcp_streamable_http(fixture: Path) -> None:
             },
             headers=headers,
         ).json()
+        graph_neighbors = client.post(
+            "/mcp/stream",
+            json={
+                "jsonrpc": "2.0",
+                "id": 9,
+                "method": "tools/call",
+                "params": {
+                    "name": "llmwiki_graph_neighbors",
+                    "arguments": {"seed": "hot", "depth": 1, "limit": 20},
+                },
+            },
+            headers=headers,
+        ).json()
 
     tool_names = {tool["name"] for tool in tools["result"]["tools"]}
     require("llmwiki_context" in tool_names, "MCP Streamable HTTP tools/list missing context")
+    require(
+        "llmwiki_graph_neighbors" in tool_names,
+        "MCP Streamable HTTP tools/list missing graph neighbors",
+    )
     require(
         "llmwiki_source_bundle" in tool_names,
         "MCP Streamable HTTP tools/list missing source bundle",
@@ -1173,6 +1520,15 @@ def assert_mcp_streamable_http(fixture: Path) -> None:
     require(
         source_bundle["result"]["isError"] is False,
         "MCP Streamable HTTP source bundle returned an error",
+    )
+    require(
+        graph_neighbors["result"]["isError"] is False,
+        "MCP Streamable HTTP graph neighbors returned an error",
+    )
+    require(
+        "page:hot"
+        in {node["id"] for node in graph_neighbors["result"]["structuredContent"]["nodes"]},
+        "MCP Streamable HTTP graph neighbors omitted seed page",
     )
     assert_source_bundle_payload(
         source_bundle["result"]["structuredContent"],

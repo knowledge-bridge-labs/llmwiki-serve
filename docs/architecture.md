@@ -15,7 +15,7 @@ generators to change their output format.
 | Projection | Builds the canonical in-memory graph/index from loaded page facts and adapter-loaded sidecar graph facts. This layer produces page, heading, source-reference, tag, and unresolved placeholder nodes plus `contains`, `links_to`, `cites`, `tagged`, hierarchy, and sidecar graph edges. |
 | Source bundle | Describes one served knowledge source with a stable source id, portable projection signature, visible source refs, and metadata-only raw-origin hints for host RAG or bridge orchestration. |
 | Search/context | Ranks approved pages, adds hot/index/overview orientation, withholds drafts by default, and returns context packs for agents. |
-| Graph output | Returns projected nodes and edges through `/graph`, MCP `llmwiki_graph`, source-bundle source refs, and context pack graph fields. |
+| Graph output | Returns projected nodes and edges through `/graph`, bounded neighborhoods through `/graph/neighborhood`, MCP graph tools, source-bundle source refs, and context pack graph fields. |
 
 Protocol scope: the current serving surface is HTTP plus MCP-style JSON-RPC, MCP
 Streamable HTTP, and opt-in A2A-style message shapes. Streamable HTTP is served
@@ -93,6 +93,28 @@ External compiler or ingest jobs are reflected when they write compatible files
 into the served folder. `llmwiki-serve` detects those outputs and rebuilds its
 projection, but it does not run ingestion, compilation, migration, or authoring
 jobs itself.
+
+### Producer Manifest Freshness
+
+Generated wiki operators can opt into a producer manifest freshness marker for
+long-running servers. When `--producer-manifest <path>` or
+`create_app(..., producer_manifest_path=...)` points to a non-symlink file
+inside the served root, the service checks that marker instead of digesting
+every projection-affecting source file on each request.
+
+This is a performance contract between the producer and the operator. The
+producer must update or atomically replace the marker after every completed
+ingest/compile operation that changes served output. If Markdown or
+`graph/graph.json` files change but the producer manifest does not, the cached
+projection may remain in use. If the manifest is missing or unsafe, the service
+falls back to normal strict source scanning.
+
+Producer manifest mode does not make the marker the public projection identity.
+The marker is only the freshness trust boundary. On initial load and whenever
+the marker changes, the service computes the content-derived projection
+signature from projection-affecting source files and uses that signature for
+`projection.signature` and `bundle_id`. While the marker is unchanged, the
+service reuses the cached projection and cached content identity.
 
 ## Compatible Output Targets
 
@@ -234,6 +256,25 @@ present it must be numeric; boolean or string confidence values are ignored.
 The graph is intentionally derived, not authoritative. The source folder remains
 the system of record, with Markdown pages and optional sidecar facts loaded by
 adapters.
+
+## Graph Neighborhood Lookup
+
+`GET /graph/neighborhood` and MCP `llmwiki_graph_neighbors` expose a bounded
+subgraph around one or more seed values. Seeds resolve to graph node ids first,
+then page ids, paths, labels, and slugs. Callers can choose outgoing, incoming,
+or bidirectional traversal, cap depth and result size, and filter relation
+types.
+
+This operation is intended for CKG-like graph-guided retrieval by host agents:
+use `/query` or `llmwiki_context` for orientation, then use graph neighborhood
+lookup when the question depends on relationships such as prerequisites,
+dependencies, source lineage, ownership, or policy. It does not claim
+compatibility with any external CKG standard and does not replace search or
+exact page reads.
+
+Neighborhood lookup uses the same graph visibility boundary as `/graph`. Draft
+and unapproved page nodes are hidden unless the server is explicitly configured
+to allow draft access and the request opts into `include_drafts=true`.
 
 When a wiki is served from a nested source root such as `wiki/`, sidecar
 endpoints may use either source-root-relative paths such as `concepts/release`

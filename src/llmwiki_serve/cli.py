@@ -46,6 +46,17 @@ RefreshIntervalOption: TypeAlias = Annotated[
         ),
     ),
 ]
+ProducerManifestOption: TypeAlias = Annotated[
+    Path | None,
+    typer.Option(
+        "--producer-manifest",
+        help=(
+            "Root-relative or absolute producer freshness marker. When present "
+            "inside the served root, strict refresh checks use this marker "
+            "instead of rescanning all source files."
+        ),
+    ),
+]
 
 
 @app.command()
@@ -111,12 +122,17 @@ def serve(
         ),
     ] = False,
     refresh_interval_seconds: RefreshIntervalOption = 0.0,
+    producer_manifest: ProducerManifestOption = None,
 ) -> None:
     """Run the HTTP, MCP-style JSON-RPC, and MCP Streamable HTTP server."""
     import uvicorn
 
     try:
-        LlmWikiService(root, refresh_interval_seconds=refresh_interval_seconds).index()
+        LlmWikiService(
+            root,
+            refresh_interval_seconds=refresh_interval_seconds,
+            producer_manifest_path=producer_manifest,
+        ).index()
     except FileNotFoundError as exc:
         exit_with_error(str(exc))
 
@@ -127,6 +143,7 @@ def serve(
             cors_origins=cors_origin,
             enable_a2a_compat=enable_a2a_compat,
             refresh_interval_seconds=refresh_interval_seconds,
+            producer_manifest_path=producer_manifest,
         ),
         host=host,
         port=port,

@@ -12,6 +12,8 @@ from .adapters import load_wiki
 from .models import (
     ContextPack,
     GraphEdge,
+    GraphNeighborhoodDirection,
+    GraphNeighborhoodResponse,
     GraphNode,
     ProjectionMetadata,
     RawOriginsMetadata,
@@ -21,7 +23,7 @@ from .models import (
     WikiIndex,
     WikiManifest,
 )
-from .projection import project_wiki, slug
+from .projection import canonical_relation, normalize_key, project_wiki, slug
 from .search import SearchCorpus, build_search_corpus, context_orientation, search_corpus
 
 SourceSignature = tuple[tuple[str, int, int], ...]
@@ -47,6 +49,7 @@ class LlmWikiService:
         root: Path | str,
         *,
         refresh_interval_seconds: float = 0.0,
+        producer_manifest_path: Path | str | None = None,
         clock: Callable[[], float] | None = None,
     ) -> None:
         if refresh_interval_seconds < 0:
@@ -59,7 +62,15 @@ class LlmWikiService:
         self._views: _IndexViews | None = None
         self._signature: SourceSignature | None = None
         self._projection_signature: _ProjectionSignature | None = None
-        self._signature_cache = _SourceSignatureCache(self.root)
+        self._freshness_signature: _ProjectionSignature | None = None
+        self._signature_cache: _SourceSignatureCache | _ProducerManifestSignatureCache
+        if producer_manifest_path is None:
+            self._signature_cache = _SourceSignatureCache(self.root)
+        else:
+            self._signature_cache = _ProducerManifestSignatureCache(
+                self.root,
+                Path(producer_manifest_path),
+            )
 
     def index(self, *, refresh: bool = False) -> WikiIndex:
         if self._can_reuse_cached_index(refresh=refresh):
@@ -72,11 +83,13 @@ class LlmWikiService:
             or refresh
             or snapshot.signature != self._signature
             or snapshot.projection_signature != self._projection_signature
+            or snapshot.freshness_signature != self._freshness_signature
         ):
             self._index = project_wiki(load_wiki(self.root))
             self._views = None
             self._signature = snapshot.signature
             self._projection_signature = snapshot.projection_signature
+            self._freshness_signature = snapshot.freshness_signature
         self._last_refresh_check = self._clock() if self.refresh_interval_seconds > 0 else None
         return self._index
 
@@ -101,6 +114,7 @@ class LlmWikiService:
             "llmwiki_search",
             "llmwiki_read",
             "llmwiki_graph",
+            "llmwiki_graph_neighbors",
             "llmwiki_source_refs",
             "mcp-jsonrpc",
             "mcp-streamable-http",
@@ -159,7 +173,7 @@ class LlmWikiService:
             orientation=orientation,
             evidence=evidence,
             limitations=limitations,
-            graph=self.graph(limit=120, include_drafts=include_drafts),
+            graph=views.graph_view(include_drafts).payload(120),
         )
 
     def search(
@@ -239,51 +253,256 @@ class LlmWikiService:
     def graph(
         self, *, limit: int = 500, include_drafts: bool = False
     ) -> dict[str, list[dict[str, Any]]]:
-        index = self.index()
-        if include_drafts:
-            return closed_graph_payload(index.nodes, index.edges, limit)
-        approved_pages = {f"page:{page.id}" for page in index.pages if page.approved_for_serving}
-        approved_paths = {page.path for page in index.pages if page.approved_for_serving}
-        unapproved_paths = {page.path for page in index.pages if not page.approved_for_serving}
-        approved_adjacent_nodes = adjacent_non_page_nodes(index.edges, approved_pages)
-        approved_adjacent_paths = adjacent_non_page_paths(index, approved_pages)
-        visible_nodes = {
-            node.id
-            for node in index.nodes
-            if node.id in approved_pages
-            or (node.path and node.path in approved_paths)
-            or node.id in approved_adjacent_nodes
-        }
-        nodes = [
-            approved_graph_node(node, approved_adjacent_paths, unapproved_paths)
-            for node in index.nodes
-            if node.id in visible_nodes
-        ]
-        edges = [
-            edge
-            for edge in index.edges
-            if edge.source in visible_nodes and edge.target in visible_nodes
-        ]
-        return closed_graph_payload(nodes, edges, limit)
+        return self._index_views().graph_view(include_drafts).payload(limit)
+
+    def graph_neighbors(
+        self,
+        *,
+        seeds: list[str] | None = None,
+        depth: int = 1,
+        direction: GraphNeighborhoodDirection = "both",
+        relations: list[str] | None = None,
+        limit: int = 50,
+        include_drafts: bool = False,
+    ) -> GraphNeighborhoodResponse:
+        graph = self._index_views().graph_view(include_drafts)
+        normalized_seeds = [item.strip() for item in seeds or [] if item.strip()]
+        normalized_relations = normalize_relations(relations or [])
+        resolved_seeds, unmatched = graph.resolve_seeds(normalized_seeds)
+        neighborhood = graph.neighborhood(
+            resolved_seeds,
+            depth=max(0, depth),
+            direction=direction,
+            relations=normalized_relations,
+            limit=max(1, limit),
+        )
+        return GraphNeighborhoodResponse(
+            seeds=resolved_seeds,
+            unmatched=unmatched,
+            depth=max(0, depth),
+            direction=direction,
+            relations=normalized_relations,
+            nodes=neighborhood.nodes,
+            edges=neighborhood.edges,
+        )
 
 
-@dataclass(frozen=True)
+@dataclass
 class _IndexViews:
     index: WikiIndex
-    approved_search: SearchCorpus
-    all_search: SearchCorpus
+    approved_search: SearchCorpus | None = None
+    all_search: SearchCorpus | None = None
+    approved_graph: _GraphView | None = None
+    all_graph: _GraphView | None = None
 
     @classmethod
     def build(cls, index: WikiIndex) -> _IndexViews:
-        approved_pages = [page for page in index.pages if page.approved_for_serving]
-        return cls(
-            index=index,
-            approved_search=build_search_corpus(approved_pages),
-            all_search=build_search_corpus(index.pages),
-        )
+        return cls(index=index)
 
     def search_corpus(self, include_drafts: bool) -> SearchCorpus:
-        return self.all_search if include_drafts else self.approved_search
+        if include_drafts:
+            if self.all_search is None:
+                self.all_search = build_search_corpus(self.index.pages)
+            return self.all_search
+        if self.approved_search is None:
+            approved_pages = [page for page in self.index.pages if page.approved_for_serving]
+            self.approved_search = build_search_corpus(approved_pages)
+        return self.approved_search
+
+    def graph_view(self, include_drafts: bool) -> _GraphView:
+        if include_drafts:
+            if self.all_graph is None:
+                self.all_graph = _GraphView.build(self.index.nodes, self.index.edges)
+            return self.all_graph
+        if self.approved_graph is None:
+            self.approved_graph = approved_graph_view(self.index)
+        return self.approved_graph
+
+
+@dataclass(frozen=True)
+class _NeighborhoodResult:
+    nodes: list[GraphNode]
+    edges: list[GraphEdge]
+
+
+@dataclass(frozen=True)
+class _GraphView:
+    nodes: tuple[GraphNode, ...]
+    edges: tuple[GraphEdge, ...]
+    nodes_by_id: dict[str, GraphNode]
+    outgoing: dict[str, tuple[GraphEdge, ...]]
+    incoming: dict[str, tuple[GraphEdge, ...]]
+
+    @classmethod
+    def build(cls, nodes: list[GraphNode], edges: list[GraphEdge]) -> _GraphView:
+        node_ids = {node.id for node in nodes}
+        visible_edges = [
+            edge for edge in edges if edge.source in node_ids and edge.target in node_ids
+        ]
+        outgoing: dict[str, list[GraphEdge]] = {}
+        incoming: dict[str, list[GraphEdge]] = {}
+        for edge in visible_edges:
+            outgoing.setdefault(edge.source, []).append(edge)
+            incoming.setdefault(edge.target, []).append(edge)
+        return cls(
+            nodes=tuple(nodes),
+            edges=tuple(visible_edges),
+            nodes_by_id={node.id: node for node in nodes},
+            outgoing={key: tuple(value) for key, value in outgoing.items()},
+            incoming={key: tuple(value) for key, value in incoming.items()},
+        )
+
+    def payload(self, limit: int) -> dict[str, list[dict[str, Any]]]:
+        return closed_graph_payload(list(self.nodes), list(self.edges), limit)
+
+    def resolve_seeds(self, seeds: list[str]) -> tuple[list[str], list[str]]:
+        resolved: list[str] = []
+        unmatched: list[str] = []
+        for seed in seeds:
+            matches = self._resolve_seed(seed)
+            if not matches:
+                unmatched.append(seed)
+                continue
+            for match in matches:
+                if match not in resolved:
+                    resolved.append(match)
+        return resolved, unmatched
+
+    def _resolve_seed(self, seed: str) -> list[str]:
+        if seed in self.nodes_by_id:
+            return [seed]
+        page_candidate = f"page:{seed}"
+        if page_candidate in self.nodes_by_id:
+            return [page_candidate]
+        slugged_page = f"page:{slug(seed)}"
+        if slugged_page in self.nodes_by_id:
+            return [slugged_page]
+
+        key = normalize_graph_lookup(seed)
+        matches = [
+            node.id
+            for node in self.nodes
+            if key
+            and key
+            in {
+                normalize_graph_lookup(node.id),
+                normalize_graph_lookup(node.id.removeprefix("page:")),
+                normalize_graph_lookup(node.label),
+                normalize_graph_lookup(node.path),
+                normalize_graph_lookup(Path(node.path).stem if node.path else ""),
+            }
+        ]
+        return matches[:10]
+
+    def neighborhood(
+        self,
+        seeds: list[str],
+        *,
+        depth: int,
+        direction: GraphNeighborhoodDirection,
+        relations: list[str],
+        limit: int,
+    ) -> _NeighborhoodResult:
+        if not seeds:
+            return _NeighborhoodResult(nodes=[], edges=[])
+        relation_set = set(relations)
+        visited: list[str] = []
+        visited_set: set[str] = set()
+        frontier = [seed for seed in seeds if seed in self.nodes_by_id]
+        traversed_edges: list[GraphEdge] = []
+        traversed_edge_keys: set[tuple[str, str, str]] = set()
+
+        for seed in frontier:
+            if seed not in visited_set:
+                visited_set.add(seed)
+                visited.append(seed)
+        for _step in range(depth):
+            if len(visited) >= limit:
+                break
+            next_frontier: list[str] = []
+            for node_id in frontier:
+                for edge, adjacent in self.iter_edges(
+                    node_id, direction=direction, relation_set=relation_set
+                ):
+                    edge_key = (edge.source, edge.target, edge.relation)
+                    if edge_key not in traversed_edge_keys:
+                        traversed_edge_keys.add(edge_key)
+                        traversed_edges.append(edge)
+                    if adjacent not in visited_set and adjacent in self.nodes_by_id:
+                        visited_set.add(adjacent)
+                        visited.append(adjacent)
+                        next_frontier.append(adjacent)
+                    if len(visited) >= limit:
+                        break
+                if len(visited) >= limit:
+                    break
+            if not next_frontier:
+                break
+            frontier = next_frontier
+
+        returned_ids = set(visited[:limit])
+        nodes = [self.nodes_by_id[node_id] for node_id in visited[:limit]]
+        edges = [
+            edge
+            for edge in traversed_edges
+            if edge.source in returned_ids and edge.target in returned_ids
+        ][:limit]
+        return _NeighborhoodResult(nodes=nodes, edges=edges)
+
+    def iter_edges(
+        self,
+        node_id: str,
+        *,
+        direction: GraphNeighborhoodDirection,
+        relation_set: set[str],
+    ) -> list[tuple[GraphEdge, str]]:
+        result: list[tuple[GraphEdge, str]] = []
+        if direction in {"out", "both"}:
+            result.extend((edge, edge.target) for edge in self.outgoing.get(node_id, ()))
+        if direction in {"in", "both"}:
+            result.extend((edge, edge.source) for edge in self.incoming.get(node_id, ()))
+        if relation_set:
+            return [(edge, adjacent) for edge, adjacent in result if edge.relation in relation_set]
+        return result
+
+
+def approved_graph_view(index: WikiIndex) -> _GraphView:
+    approved_pages = {f"page:{page.id}" for page in index.pages if page.approved_for_serving}
+    approved_paths = {page.path for page in index.pages if page.approved_for_serving}
+    unapproved_paths = {page.path for page in index.pages if not page.approved_for_serving}
+    approved_adjacent_nodes = adjacent_non_page_nodes(index.edges, approved_pages)
+    approved_adjacent_paths = adjacent_non_page_paths(index, approved_pages)
+    visible_nodes = {
+        node.id
+        for node in index.nodes
+        if node.id in approved_pages
+        or (node.path and node.path in approved_paths)
+        or node.id in approved_adjacent_nodes
+    }
+    nodes = [
+        approved_graph_node(node, approved_adjacent_paths, unapproved_paths)
+        for node in index.nodes
+        if node.id in visible_nodes
+    ]
+    edges = [
+        edge
+        for edge in index.edges
+        if edge.source in visible_nodes and edge.target in visible_nodes
+    ]
+    return _GraphView.build(nodes, edges)
+
+
+def normalize_relations(relations: list[str]) -> list[str]:
+    normalized: list[str] = []
+    for relation in relations:
+        canonical = canonical_relation(relation)
+        if canonical and canonical not in normalized:
+            normalized.append(canonical)
+    return normalized
+
+
+def normalize_graph_lookup(value: str) -> str:
+    return normalize_key(value).casefold()
 
 
 def closed_graph_payload(
@@ -441,6 +660,7 @@ class _SourceSignatureSnapshot:
     signature: SourceSignature
     projection_signature: _ProjectionSignature
     paths: tuple[_PathState, ...]
+    freshness_signature: _ProjectionSignature = ()
 
 
 class _SourceSignatureCache:
@@ -460,8 +680,84 @@ class _SourceSignatureCache:
         return all(_current_path_state(self.root, state) == state for state in snapshot.paths)
 
 
+class _ProducerManifestSignatureCache:
+    def __init__(self, root: Path, manifest_path: Path) -> None:
+        self.root = root
+        self.manifest_path = manifest_path
+        self._snapshot: _SourceSignatureSnapshot | None = None
+        self._fallback = _SourceSignatureCache(root)
+
+    def current(self, *, refresh: bool = False) -> SourceSignature:
+        return self.current_snapshot(refresh=refresh).signature
+
+    def current_snapshot(self, *, refresh: bool = False) -> _SourceSignatureSnapshot:
+        marker_snapshot = producer_manifest_signature_snapshot(self.root, self.manifest_path)
+        if marker_snapshot is None:
+            self._snapshot = None
+            return self._fallback.current_snapshot(refresh=refresh)
+        if refresh or self._snapshot is None or not self._marker_matches(marker_snapshot):
+            content_snapshot = _source_signature_snapshot(self.root)
+            self._snapshot = _SourceSignatureSnapshot(
+                signature=marker_snapshot.signature,
+                projection_signature=content_snapshot.projection_signature,
+                paths=marker_snapshot.paths,
+                freshness_signature=marker_snapshot.freshness_signature,
+            )
+        return self._snapshot
+
+    def _marker_matches(self, marker_snapshot: _SourceSignatureSnapshot) -> bool:
+        if self._snapshot is None:
+            return False
+        return (
+            self._snapshot.signature == marker_snapshot.signature
+            and self._snapshot.freshness_signature == marker_snapshot.freshness_signature
+        )
+
+
 def source_signature(root: Path) -> SourceSignature:
     return _source_signature_snapshot(root).signature
+
+
+def producer_manifest_signature_snapshot(
+    root: Path, manifest_path: Path
+) -> _SourceSignatureSnapshot | None:
+    manifest_file = safe_producer_manifest_file(root, manifest_path)
+    if manifest_file is None:
+        return None
+    try:
+        root_resolved = root.expanduser().resolve()
+        relative = manifest_file.relative_to(root_resolved).as_posix()
+    except (OSError, ValueError):
+        return None
+    state = _path_state(manifest_file, relative, "file")
+    if state is None:
+        return None
+    return _SourceSignatureSnapshot(
+        signature=((state.relative_path, state.mtime_ns, state.size),),
+        projection_signature=(),
+        paths=(state,),
+        freshness_signature=(state,),
+    )
+
+
+def safe_producer_manifest_file(root: Path, manifest_path: Path) -> Path | None:
+    try:
+        root_resolved = root.expanduser().resolve()
+    except OSError:
+        return None
+    candidate = (
+        manifest_path.expanduser() if manifest_path.is_absolute() else root_resolved / manifest_path
+    )
+    try:
+        if candidate.is_symlink():
+            return None
+        resolved = candidate.resolve()
+        resolved.relative_to(root_resolved)
+    except (OSError, ValueError):
+        return None
+    if not resolved.is_file():
+        return None
+    return resolved
 
 
 def _source_signature_snapshot(root: Path) -> _SourceSignatureSnapshot:

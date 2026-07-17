@@ -5,8 +5,13 @@ All notable changes to LLMWiki Serve will be documented here.
 This project follows a lightweight changelog format until versioned releases
 begin. Dates use `YYYY-MM-DD`.
 
-## Unreleased
+## 0.2.0 - 2026-07-17
 
+- Added bounded graph-neighborhood lookup through `GET /graph/neighborhood` and
+  MCP `llmwiki_graph_neighbors` for CKG-like graph-guided agent inspection.
+- Added an opt-in `--producer-manifest` freshness marker contract for generated
+  wiki operators that can update a manifest after every ingest/compile run;
+  source changes remain stale until that marker changes.
 - Added CODEOWNERS for the planned Knowledge Bridge Labs maintainer team and
   hardened the automated PR review guide's changed-file rendering.
 - Added a usage-question issue form so public support routing works while blank

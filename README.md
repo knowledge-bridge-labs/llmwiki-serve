@@ -92,6 +92,22 @@ uv run llmwiki-serve query /path/to/wiki-folder "what should an agent know?"
 uv run llmwiki-serve serve /path/to/wiki-folder --host 127.0.0.1 --port 8765
 ```
 
+Generated wiki producers that can atomically update a build marker after
+ingest/compile may opt into marker-based freshness checks for long-running
+servers:
+
+```bash
+uv run llmwiki-serve serve /path/to/wiki-folder \
+  --host 127.0.0.1 \
+  --port 8765 \
+  --producer-manifest .llmwiki-producer-manifest.json
+```
+
+Use this only when the producer reliably updates the manifest after every
+source-changing build. Without that contract, keep the default strict source
+scan or use `--refresh-interval-seconds` when a short visibility delay is
+acceptable.
+
 After the first package release is published, install the CLI with one of:
 
 ```bash
@@ -157,8 +173,8 @@ export LLMWIKI_SERVE_URL=http://127.0.0.1:8765
 Then instruct Codex, Claude Code, Copilot, or another local client to:
 
 1. Call `POST /query` first for the task-specific context pack.
-2. Use `/search`, `/read/{page_id}`, `/graph`, `/mcp`, or `/mcp/stream` only
-   for follow-up inspection.
+2. Use `/search`, `/read/{page_id}`, `/graph`, `/graph/neighborhood`, `/mcp`,
+   or `/mcp/stream` only for follow-up inspection.
 3. Treat returned pages as source evidence, not as generated final answers.
 
 Do not hard-code private hosts, ports, credentials, or bearer tokens in
@@ -180,10 +196,16 @@ All entry points use the same read-only service behavior.
 | Surface | Shape |
 | --- | --- |
 | CLI | `manifest`, `query`, `source-refs`, `source-bundle`, and `serve`. |
-| HTTP | `GET /health`, `GET /manifest`, `GET /source-bundle`, `GET /source-refs`, `POST /query`, `POST /search`, `GET /read/{page_id}`, `GET /graph`. |
-| MCP-style JSON-RPC | `POST /mcp` with `tools/list` and `tools/call` for `llmwiki_context`, `llmwiki_search`, `llmwiki_read`, `llmwiki_graph`, `llmwiki_source_refs`, and `llmwiki_source_bundle`. |
-| MCP Streamable HTTP | `POST /mcp/stream` using the official MCP Python SDK FastMCP Streamable HTTP transport for the same six tools. |
+| HTTP | `GET /health`, `GET /manifest`, `GET /source-bundle`, `GET /source-refs`, `POST /query`, `POST /search`, `GET /read/{page_id}`, `GET /graph`, `GET /graph/neighborhood`. |
+| MCP-style JSON-RPC | `POST /mcp` with `tools/list` and `tools/call` for `llmwiki_context`, `llmwiki_search`, `llmwiki_read`, `llmwiki_graph`, `llmwiki_graph_neighbors`, `llmwiki_source_refs`, and `llmwiki_source_bundle`. |
+| MCP Streamable HTTP | `POST /mcp/stream` using the official MCP Python SDK FastMCP Streamable HTTP transport for the same seven tools. |
 | A2A-style compatibility | Off by default. Enable `GET /.well-known/agent-card.json` and `POST /message:send` with `llmwiki-serve serve --enable-a2a-compat` or `create_app(..., enable_a2a_compat=True)`. |
+
+`GET /health` is the lightweight readiness and discovery document for
+connection setup. It identifies the service as `llmwiki-serve`, reports the
+current source id, bundle id, projection counts, protocol endpoints,
+capabilities, and CORS mode without exposing the local source root or literal
+configured CORS origin values.
 
 Agents should call `llmwiki_context` first for a single grounded question.
 Agents that coordinate host-owned RAG or multi-source orchestration should also
@@ -191,6 +213,13 @@ inspect `llmwiki_source_bundle` to discover the stable source identity,
 projection signature, raw-origin metadata, and opaque source references.
 Search, read, graph, and source-ref tools are follow-up tools for focused
 inspection.
+
+For CKG-like graph-guided retrieval, agents can call `GET /graph/neighborhood`
+or MCP `llmwiki_graph_neighbors` after `/query` or `llmwiki_context` points to a
+relevant page, source reference, tag, or sidecar graph node. Neighborhood lookup
+returns a bounded subgraph around supplied seed values with optional direction,
+depth, and relation filters. It is a compact inspection primitive, not a CKG
+standard conformance claim and not a replacement for search or exact reads.
 
 The generated FastAPI OpenAPI contract is committed at
 [docs/openapi.json](docs/openapi.json). It covers the default HTTP and
@@ -256,6 +285,16 @@ details unless documented here.
   `--refresh-interval-seconds <seconds>` to reuse the current in-memory
   projection between checks for larger local graphs where a short visibility
   delay is acceptable.
+- Long-running `serve` instances can use `--producer-manifest <path>` as an
+  explicit freshness contract for generated wiki outputs. When the configured
+  non-symlink manifest file exists inside the served root, the server checks
+  that marker instead of digesting every source file on each request. If source
+  files change but the producer manifest does not, the cached projection may be
+  reused. If the manifest is missing or unsafe, the server falls back to normal
+  source scanning. The marker is not the public projection identity:
+  `projection.signature` and `bundle_id` remain content-derived from
+  projection-affecting source files and are recomputed on initial load and
+  marker changes.
 - Draft and unpublished pages are withheld by default from read, search,
   context, and graph responses. Visibility blocks explicit non-serving markers:
   `draft: true`, `published: false`, `publish: false`,

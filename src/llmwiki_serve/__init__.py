@@ -1,4 +1,6 @@
+__version__ = "0.2.0"
+
 from .api import create_app
 from .service import LlmWikiService
 
-__all__ = ["LlmWikiService", "create_app"]
+__all__ = ["__version__", "LlmWikiService", "create_app"]

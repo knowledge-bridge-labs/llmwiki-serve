@@ -109,6 +109,62 @@
         "title": "GraphEdge",
         "type": "object"
       },
+      "GraphNeighborhoodResponse": {
+        "properties": {
+          "depth": {
+            "default": 1,
+            "title": "Depth",
+            "type": "integer"
+          },
+          "direction": {
+            "default": "both",
+            "enum": [
+              "out",
+              "in",
+              "both"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "edges": {
+            "items": {
+              "$ref": "#/components/schemas/GraphEdge"
+            },
+            "title": "Edges",
+            "type": "array"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/GraphNode"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "relations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Relations",
+            "type": "array"
+          },
+          "seeds": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Seeds",
+            "type": "array"
+          },
+          "unmatched": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unmatched",
+            "type": "array"
+          }
+        },
+        "title": "GraphNeighborhoodResponse",
+        "type": "object"
+      },
       "GraphNode": {
         "properties": {
           "id": {
@@ -175,18 +231,208 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
-      "HealthResponse": {
+      "HealthCorsResponse": {
         "properties": {
-          "status": {
-            "const": "ok",
-            "title": "Status",
+          "explicit_origin_count": {
+            "default": 0,
+            "title": "Explicit Origin Count",
+            "type": "integer"
+          },
+          "local_dev_origins": {
+            "title": "Local Dev Origins",
+            "type": "boolean"
+          },
+          "mode": {
+            "enum": [
+              "local-dev-allowlist",
+              "explicit-allowlist"
+            ],
+            "title": "Mode",
             "type": "string"
           }
         },
         "required": [
-          "status"
+          "mode",
+          "local_dev_origins"
+        ],
+        "title": "HealthCorsResponse",
+        "type": "object"
+      },
+      "HealthEndpointsResponse": {
+        "properties": {
+          "a2a_agent_card": {
+            "title": "A2A Agent Card",
+            "type": "string"
+          },
+          "a2a_message_send": {
+            "title": "A2A Message Send",
+            "type": "string"
+          },
+          "docs": {
+            "title": "Docs",
+            "type": "string"
+          },
+          "graph": {
+            "title": "Graph",
+            "type": "string"
+          },
+          "graph_neighborhood": {
+            "title": "Graph Neighborhood",
+            "type": "string"
+          },
+          "health": {
+            "title": "Health",
+            "type": "string"
+          },
+          "manifest": {
+            "title": "Manifest",
+            "type": "string"
+          },
+          "mcp_jsonrpc": {
+            "title": "Mcp Jsonrpc",
+            "type": "string"
+          },
+          "mcp_streamable_http": {
+            "title": "Mcp Streamable Http",
+            "type": "string"
+          },
+          "openapi": {
+            "title": "Openapi",
+            "type": "string"
+          },
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "read": {
+            "title": "Read",
+            "type": "string"
+          },
+          "search": {
+            "title": "Search",
+            "type": "string"
+          },
+          "source_bundle": {
+            "title": "Source Bundle",
+            "type": "string"
+          },
+          "source_refs": {
+            "title": "Source Refs",
+            "type": "string"
+          }
+        },
+        "required": [
+          "health",
+          "manifest",
+          "source_bundle",
+          "source_refs",
+          "query",
+          "search",
+          "read",
+          "graph",
+          "graph_neighborhood",
+          "mcp_jsonrpc",
+          "mcp_streamable_http",
+          "openapi",
+          "docs",
+          "a2a_agent_card",
+          "a2a_message_send"
+        ],
+        "title": "HealthEndpointsResponse",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "properties": {
+          "capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "cors": {
+            "$ref": "#/components/schemas/HealthCorsResponse"
+          },
+          "endpoints": {
+            "$ref": "#/components/schemas/HealthEndpointsResponse"
+          },
+          "service": {
+            "const": "llmwiki-serve",
+            "title": "Service",
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/HealthSourceResponse"
+          },
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "service",
+          "version",
+          "source",
+          "capabilities",
+          "endpoints",
+          "cors"
         ],
         "title": "HealthResponse",
+        "type": "object"
+      },
+      "HealthSourceResponse": {
+        "properties": {
+          "adapter": {
+            "default": "",
+            "title": "Adapter",
+            "type": "string"
+          },
+          "approved_page_count": {
+            "default": 0,
+            "title": "Approved Page Count",
+            "type": "integer"
+          },
+          "bundle_id": {
+            "default": "",
+            "title": "Bundle Id",
+            "type": "string"
+          },
+          "implementation": {
+            "default": "",
+            "title": "Implementation",
+            "type": "string"
+          },
+          "page_count": {
+            "default": 0,
+            "title": "Page Count",
+            "type": "integer"
+          },
+          "projection": {
+            "$ref": "#/components/schemas/ProjectionMetadata"
+          },
+          "public_uri": {
+            "default": "",
+            "title": "Public Uri",
+            "type": "string"
+          },
+          "source_id": {
+            "default": "",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "title": {
+            "default": "",
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "title": "HealthSourceResponse",
         "type": "object"
       },
       "HttpDetailResponse": {
@@ -834,7 +1080,7 @@
   "info": {
     "description": "Read-only HTTP, MCP-style JSON-RPC, MCP Streamable HTTP, and optional A2A-style message surface for LLMWiki Markdown folders.",
     "title": "LLMWiki Serve",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -886,6 +1132,119 @@
           }
         },
         "summary": "Graph"
+      }
+    },
+    "/graph/neighborhood": {
+      "get": {
+        "operationId": "graph_neighborhood_graph_neighborhood_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "seed",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Seed"
+            }
+          },
+          {
+            "in": "query",
+            "name": "depth",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "title": "Depth",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "direction",
+            "required": false,
+            "schema": {
+              "default": "both",
+              "enum": [
+                "out",
+                "in",
+                "both"
+              ],
+              "title": "Direction",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "relation",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Relation"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_drafts",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Drafts",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GraphNeighborhoodResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Graph Neighborhood"
       }
     },
     "/health": {
