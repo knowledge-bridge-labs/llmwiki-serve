@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 
 from . import __version__
 from .adapters import WikiRootError
+from .io_logging import IoLoggingMiddleware, JsonlIoLogSink, resolve_io_log_path
 from .models import (
     ContextPack,
     GraphEdge,
@@ -194,6 +195,7 @@ def create_app(
     enable_a2a_compat: bool = False,
     refresh_interval_seconds: float = 0.0,
     producer_manifest_path: Path | str | None = None,
+    io_log: Path | str | bool | None = None,
 ) -> FastAPI:
     service = LlmWikiService(
         root,
@@ -422,6 +424,13 @@ def create_app(
             }
 
     app.mount(MCP_STREAM_MOUNT_PATH, mcp_stream_app)
+
+    io_log_path = resolve_io_log_path(io_log)
+    if io_log_path is not None:
+        app.add_middleware(
+            IoLoggingMiddleware,
+            sink=JsonlIoLogSink(io_log_path, local_roots=[service.root]),
+        )
 
     return app
 
