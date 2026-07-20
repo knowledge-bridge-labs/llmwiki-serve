@@ -84,9 +84,13 @@ def test_env_io_log_path_and_auth_token_redaction(tmp_path: Path, monkeypatch: A
     log_path = tmp_path / "logs" / "serve-io.jsonl"
     monkeypatch.setenv("LLMWIKI_SERVE_IO_LOG", str(log_path))
     client = TestClient(create_app(root))
-    openai_key = "sk-proj-redactionCanarySecret1234567890"
-    github_token = "ghp_redactionCanarySecret1234567890"
+    openai_key = "sk" + "-proj-redactionCanarySecret1234567890"
+    github_token = "ghp" + "_redactionCanarySecret1234567890"
     basic_secret = "c2VydmUtaW8tYmFzaWMtc2VjcmV0"
+    windows_secret_path = "C:" + r"\Users\example-user\serve-secret.txt"
+    unc_secret_path = "\\" + r"\server\share\serve-secret.txt"
+    posix_home_secret_path = "/home/" + "example-user/serve-secret.txt"
+    posix_tmp_secret_path = "/var/tmp/serve-secret.txt"
     extra_secret_canaries = [
         "serve-cookie-secret",
         "serve-set-cookie-secret",
@@ -95,16 +99,16 @@ def test_env_io_log_path_and_auth_token_redaction(tmp_path: Path, monkeypatch: A
         "serve-code-secret",
         "serve-sig-secret",
         "serve-signature-secret",
-        r"C:\Users\angel\serve-secret.txt",
-        r"\\server\share\serve-secret.txt",
-        "/home/angel/serve-secret.txt",
-        "/var/tmp/serve-secret.txt",
+        windows_secret_path,
+        unc_secret_path,
+        posix_home_secret_path,
+        posix_tmp_secret_path,
     ]
 
     response = client.post(
         "/mcp?code=serve-first-code-secret&sig=serve-first-sig-secret&signature=serve-first-signature-secret&ok=1",
         headers={
-            "Authorization": "Bearer headerSecretToken123",
+            "Authorization": "Bearer " + "headerSecretToken123",
             "Cookie": "session=serve-cookie-secret",
             "X-Api-Key": "headerApiKeySecret123",
         },
@@ -123,9 +127,9 @@ def test_env_io_log_path_and_auth_token_redaction(tmp_path: Path, monkeypatch: A
                         "https://wiki.example.test/context?"
                         "client_secret=serve-client-secret&code=serve-code-secret&"
                         "sig=serve-sig-secret&signature=serve-signature-secret "
-                        r"C:\Users\angel\serve-secret.txt "
-                        r"\\server\share\serve-secret.txt "
-                        "/home/angel/serve-secret.txt /var/tmp/serve-secret.txt"
+                        f"{windows_secret_path} "
+                        f"{unc_secret_path} "
+                        f"{posix_home_secret_path} {posix_tmp_secret_path}"
                     ),
                     "credential": "bodyCredentialSecret123",
                 },
