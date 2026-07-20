@@ -37,8 +37,8 @@ vector store, run a model, synthesize final answers, or mutate your wiki.
 | [Support](SUPPORT.md)
 | [Changelog](CHANGELOG.md)
 
-> Public-preview note: source-checkout usage is the supported first-run path.
-> Package-install commands apply after the first PyPI release is published.
+> Public-preview note: PyPI install is available for `llmwiki-serve==0.2.0`.
+> Source checkout remains supported for local development and release smoke tests.
 
 ## Demo
 
@@ -347,10 +347,10 @@ report expectations.
 knowledge folders. It is Apache-2.0 licensed and is not an official project from
 Andrej Karpathy or any upstream producer named in compatibility examples.
 
-This repository is in public source-checkout preview. Source-checkout usage is
-the supported path today. Package-install commands apply after the first PyPI
-release is published. Use the hosted docs and Release Status & Compatibility
-matrix for the current package and protocol posture.
+This repository is in public preview. PyPI install is available for
+`llmwiki-serve==0.2.0`, and source checkout remains supported for local
+development and release smoke tests. Use the hosted docs and Release Status &
+Compatibility matrix for the current package and protocol posture.
 
 The current protocol surface is HTTP plus MCP-style JSON-RPC, MCP Streamable
 HTTP, and opt-in A2A-style message shapes. The Streamable HTTP endpoint uses the
