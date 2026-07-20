@@ -7,6 +7,10 @@ begin. Dates use `YYYY-MM-DD`.
 
 ## 0.2.0 - 2026-07-17
 
+- Added default-on local serve I/O JSONL logging for HTTP, MCP-style,
+  MCP Streamable HTTP, and opt-in A2A-style request/response debugging, with
+  `--io-log off` / `LLMWIKI_SERVE_IO_LOG=off` opt-out and credential/header/root
+  redaction.
 - Added bounded graph-neighborhood lookup through `GET /graph/neighborhood` and
   MCP `llmwiki_graph_neighbors` for CKG-like graph-guided agent inspection.
 - Added an opt-in `--producer-manifest` freshness marker contract for generated

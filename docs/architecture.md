@@ -16,6 +16,7 @@ generators to change their output format.
 | Source bundle | Describes one served knowledge source with a stable source id, portable projection signature, visible source refs, and metadata-only raw-origin hints for host RAG or bridge orchestration. |
 | Search/context | Ranks approved pages, adds hot/index/overview orientation, withholds drafts by default, and returns context packs for agents. |
 | Graph output | Returns projected nodes and edges through `/graph`, bounded neighborhoods through `/graph/neighborhood`, MCP graph tools, source-bundle source refs, and context pack graph fields. |
+| Serve I/O logging | Writes local JSONL request/response events for HTTP, MCP-style, MCP Streamable HTTP, and opt-in A2A-style flows with credential/header/local-root redaction. |
 
 Protocol scope: the current serving surface is HTTP plus MCP-style JSON-RPC, MCP
 Streamable HTTP, and opt-in A2A-style message shapes. Streamable HTTP is served
@@ -33,6 +34,16 @@ Network HTTP and MCP tool calls with `include_drafts=true` are ignored
 unless the app is created with `allow_drafts=True` or the CLI server is started
 with `--allow-drafts`. Network manifest responses omit the local source root path;
 the CLI manifest remains local operator output and includes the root.
+
+Long-running serve apps write best-effort local I/O debugging events by default
+to `.runtime-logs/llmwiki-serve-io.jsonl`. `--io-log off` or
+`LLMWIKI_SERVE_IO_LOG=off` disables the sink, and a CLI option or environment
+path can choose a different JSONL file. Events capture request metadata,
+selected JSON request bodies for `/query`, `/mcp`, `/mcp/stream`, and
+`/message:send`, and bounded response bodies. The logging boundary redacts
+Authorization, cookies, tokens, credentials, API keys, common secret strings,
+and the served local root before writing. The log is local operator output, not
+remote telemetry or a stable public API.
 
 ## Source Bundle Boundary
 

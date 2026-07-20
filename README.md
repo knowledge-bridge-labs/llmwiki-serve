@@ -69,6 +69,11 @@ uv run llmwiki-serve query ./examples/sample-wiki "release readiness"
 uv run llmwiki-serve serve ./examples/sample-wiki --host 127.0.0.1 --port 8765
 ```
 
+By default, `serve` writes local request/response debugging events to
+`.runtime-logs/llmwiki-serve-io.jsonl`. Use `--io-log off` or
+`LLMWIKI_SERVE_IO_LOG=off` to disable it, or pass `--io-log <path>` /
+`LLMWIKI_SERVE_IO_LOG=<path>` to choose a different JSONL file.
+
 In another terminal, query the local server:
 
 ```bash
@@ -308,6 +313,12 @@ details unless documented here.
   approved-only context.
 - Network manifest responses omit the local wiki root path. The CLI manifest is
   local operator output and includes the root path.
+- Long-running `serve` instances write local I/O debugging events by default to
+  `.runtime-logs/llmwiki-serve-io.jsonl`. Events include method, path, status,
+  duration, selected request bodies for `/query`, `/mcp`, `/mcp/stream`, and
+  `/message:send`, and bounded response bodies. Authorization, cookies, tokens,
+  credentials, API keys, common secret shapes, and the served local root are
+  redacted. Use `--io-log off` or `LLMWIKI_SERVE_IO_LOG=off` to opt out.
 - The default HTTP CORS policy allows local browser origins on `localhost`,
   `127.0.0.1`, and IPv6 localhost `[::1]`; it is not a wildcard. Explicit
   `--cors-origin` values replace the default local allowlist.

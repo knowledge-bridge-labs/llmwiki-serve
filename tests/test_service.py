@@ -2260,11 +2260,18 @@ Content under a parent directory named build still participates in refresh.
     ignored_dir = build_parent / "node_modules"
     ignored_dir.mkdir()
     (ignored_dir / "ignored.md").write_text("# Ignored\n", encoding="utf-8")
+    runtime_logs = build_parent / ".runtime-logs"
+    runtime_logs.mkdir()
+    (runtime_logs / "llmwiki-serve-io.jsonl").write_text(
+        '{"event":"serve_io","body":"ignored runtime log"}\n',
+        encoding="utf-8",
+    )
 
     signature = source_signature(build_parent)
 
     assert any(relative == "index.md" for relative, _mtime, _size in signature)
     assert all(not relative.startswith("node_modules/") for relative, _mtime, _size in signature)
+    assert all(not relative.startswith(".runtime-logs/") for relative, _mtime, _size in signature)
 
 
 def test_source_signature_ignores_vscode_markdown_but_keeps_extension_marker(
