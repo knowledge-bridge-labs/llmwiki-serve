@@ -15,6 +15,7 @@ versioned release or public release candidate.
    PYTHONDONTWRITEBYTECODE=1 uv run pytest -p no:cacheprovider
    uv build
    uv run python scripts/release_smoke.py --wheel dist/*.whl --sdist dist/*.tar.gz
+   uvx twine check dist/*
    ```
 
    On Windows PowerShell, set `PYTHONDONTWRITEBYTECODE` before the pytest gate:
@@ -23,6 +24,17 @@ versioned release or public release candidate.
    $env:PYTHONDONTWRITEBYTECODE = "1"
    uv run pytest -p no:cacheprovider
    Remove-Item Env:\PYTHONDONTWRITEBYTECODE
+   ```
+
+   PowerShell does not expand `dist/*.whl` and `dist/*.tar.gz` for Python
+   scripts. Select the artifacts explicitly:
+
+   ```powershell
+   uv build
+   $wheel = Get-ChildItem dist -Filter *.whl | Sort-Object LastWriteTime | Select-Object -Last 1
+   $sdist = Get-ChildItem dist -Filter *.tar.gz | Sort-Object LastWriteTime | Select-Object -Last 1
+   uv run python scripts\release_smoke.py --wheel $wheel.FullName --sdist $sdist.FullName
+   uvx twine check $wheel.FullName $sdist.FullName
    ```
 
    The release smoke verifies the bundled fixture from the source checkout
@@ -174,11 +186,22 @@ versioned release or public release candidate.
    root.
 9. Confirm package metadata still lists the repository, issue tracker, homepage,
    Python baseline, and runtime dependencies accurately.
-10. Treat publishing as a maintainer-owner gate. Do not add or enable PyPI
-    publishing automation until the repository owner and PyPI project owner have
-    configured the target project, release permissions, and trusted publishing
-    or another approved upload path. Keep PyPI tokens and release credentials
-    out of CI, logs, commits, and generated artifacts.
+10. Treat publishing as a maintainer-owner gate. The repository includes a
+    Trusted Publishing workflow at `.github/workflows/publish.yml`, but do not
+    run it until the repository owner and PyPI project owner have configured the
+    `llmwiki-serve` PyPI project or pending publisher, release permissions, and
+    the GitHub `pypi` environment. Keep PyPI tokens and release credentials out
+    of CI, logs, commits, and generated artifacts.
+
+    The PyPI Trusted Publisher configuration should match:
+
+    ```text
+    PyPI project name: llmwiki-serve
+    Owner: knowledge-bridge-labs
+    Repository: llmwiki-serve
+    Workflow file: publish.yml
+    Environment: pypi
+    ```
 
 Before publishing to PyPI, run the central package-publication gate documented
 in the sibling `llmwiki-docs` repository and confirm the toolchain release
