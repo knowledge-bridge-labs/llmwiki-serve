@@ -37,8 +37,8 @@ vector store, run a model, synthesize final answers, or mutate your wiki.
 | [Support](SUPPORT.md)
 | [Changelog](CHANGELOG.md)
 
-> Public-preview note: source-checkout usage is the supported first-run path.
-> Package-install commands apply after the first PyPI release is published.
+> Public-preview note: PyPI install is available for `llmwiki-serve==0.2.0`.
+> Source checkout remains supported for local development and release smoke tests.
 
 ## Demo
 
@@ -68,6 +68,11 @@ uv run llmwiki-serve manifest ./examples/sample-wiki
 uv run llmwiki-serve query ./examples/sample-wiki "release readiness"
 uv run llmwiki-serve serve ./examples/sample-wiki --host 127.0.0.1 --port 8765
 ```
+
+By default, `serve` writes local request/response debugging events to
+`.runtime-logs/llmwiki-serve-io.jsonl`. Use `--io-log off` or
+`LLMWIKI_SERVE_IO_LOG=off` to disable it, or pass `--io-log <path>` /
+`LLMWIKI_SERVE_IO_LOG=<path>` to choose a different JSONL file.
 
 In another terminal, query the local server:
 
@@ -108,13 +113,16 @@ source-changing build. Without that contract, keep the default strict source
 scan or use `--refresh-interval-seconds` when a short visibility delay is
 acceptable.
 
-After the first package release is published, install the CLI with one of:
+Install the current public-preview CLI from PyPI with one of:
 
 ```bash
 uv tool install llmwiki-serve
 # or
 pipx install llmwiki-serve
 ```
+
+Pin `llmwiki-serve==0.2.0` when you need to reproduce this public-preview
+release exactly.
 
 ## What It Serves
 
@@ -308,6 +316,12 @@ details unless documented here.
   approved-only context.
 - Network manifest responses omit the local wiki root path. The CLI manifest is
   local operator output and includes the root path.
+- Long-running `serve` instances write local I/O debugging events by default to
+  `.runtime-logs/llmwiki-serve-io.jsonl`. Events include method, path, status,
+  duration, selected request bodies for `/query`, `/mcp`, `/mcp/stream`, and
+  `/message:send`, and bounded response bodies. Authorization, cookies, tokens,
+  credentials, API keys, common secret shapes, and the served local root are
+  redacted. Use `--io-log off` or `LLMWIKI_SERVE_IO_LOG=off` to opt out.
 - The default HTTP CORS policy allows local browser origins on `localhost`,
   `127.0.0.1`, and IPv6 localhost `[::1]`; it is not a wildcard. Explicit
   `--cors-origin` values replace the default local allowlist.
@@ -336,10 +350,10 @@ report expectations.
 knowledge folders. It is Apache-2.0 licensed and is not an official project from
 Andrej Karpathy or any upstream producer named in compatibility examples.
 
-This repository is in public source-checkout preview. Source-checkout usage is
-the supported path today. Package-install commands apply after the first PyPI
-release is published. Use the hosted docs and Release Status & Compatibility
-matrix for the current package and protocol posture.
+This repository is in public preview. PyPI install is available for
+`llmwiki-serve==0.2.0`, and source checkout remains supported for local
+development and release smoke tests. Use the hosted docs and Release Status &
+Compatibility matrix for the current package and protocol posture.
 
 The current protocol surface is HTTP plus MCP-style JSON-RPC, MCP Streamable
 HTTP, and opt-in A2A-style message shapes. The Streamable HTTP endpoint uses the
