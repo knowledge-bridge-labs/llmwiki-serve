@@ -113,13 +113,16 @@ source-changing build. Without that contract, keep the default strict source
 scan or use `--refresh-interval-seconds` when a short visibility delay is
 acceptable.
 
-After the first package release is published, install the CLI with one of:
+Install the current public-preview CLI from PyPI with one of:
 
 ```bash
 uv tool install llmwiki-serve
 # or
 pipx install llmwiki-serve
 ```
+
+Pin `llmwiki-serve==0.2.0` when you need to reproduce this public-preview
+release exactly.
 
 ## What It Serves
 
