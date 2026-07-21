@@ -2,8 +2,8 @@
 
 All notable changes to LLMWiki Serve will be documented here.
 
-This project follows a lightweight changelog format until versioned releases
-begin. Dates use `YYYY-MM-DD`.
+This project follows a lightweight public-preview changelog format. Dates use
+`YYYY-MM-DD`.
 
 ## 0.2.0 - 2026-07-17
 
