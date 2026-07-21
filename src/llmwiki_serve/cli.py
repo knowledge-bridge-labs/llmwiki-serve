@@ -57,6 +57,17 @@ ProducerManifestOption: TypeAlias = Annotated[
         ),
     ),
 ]
+IoLogOption: TypeAlias = Annotated[
+    str | None,
+    typer.Option(
+        "--io-log",
+        help=(
+            "Serve I/O JSONL log path, or 'off' to disable. Defaults to "
+            ".runtime-logs/llmwiki-serve-io.jsonl; env LLMWIKI_SERVE_IO_LOG "
+            "can also be 'off' or a path."
+        ),
+    ),
+]
 
 
 @app.command()
@@ -123,6 +134,7 @@ def serve(
     ] = False,
     refresh_interval_seconds: RefreshIntervalOption = 0.0,
     producer_manifest: ProducerManifestOption = None,
+    io_log: IoLogOption = None,
 ) -> None:
     """Run the HTTP, MCP-style JSON-RPC, and MCP Streamable HTTP server."""
     import uvicorn
@@ -144,6 +156,7 @@ def serve(
             enable_a2a_compat=enable_a2a_compat,
             refresh_interval_seconds=refresh_interval_seconds,
             producer_manifest_path=producer_manifest,
+            io_log=io_log,
         ),
         host=host,
         port=port,

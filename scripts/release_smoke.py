@@ -168,6 +168,7 @@ EXPECTED_WHEEL_FILES = frozenset(
         "llmwiki_serve/adapters.py",
         "llmwiki_serve/api.py",
         "llmwiki_serve/cli.py",
+        "llmwiki_serve/io_logging.py",
         "llmwiki_serve/models.py",
         "llmwiki_serve/parser.py",
         "llmwiki_serve/projection.py",
@@ -256,6 +257,13 @@ FORBIDDEN_SDIST_SUFFIXES = (
     ".so",
     ".sqlite",
     ".sqlite3",
+)
+FORBIDDEN_SDIST_CONTENT_CANARIES = (
+    ("legacy OpenAI redaction canary", b"sk" + b"-proj-redactionCanarySecret1234567890"),
+    ("legacy GitHub redaction canary", b"ghp" + b"_redactionCanarySecret1234567890"),
+    ("legacy bearer redaction canary", b"Bearer " + b"headerSecretToken123"),
+    ("local Windows user path canary", b"C:" + rb"\Users\angel\serve-secret.txt"),
+    ("local POSIX user path canary", b"/home/" + b"angel/serve-secret.txt"),
 )
 
 
@@ -982,6 +990,7 @@ def assert_sdist_contents(sdist: Path) -> None:
             for name in names
             if (reason := forbidden_sdist_path_reason(name)) is not None
         )
+        forbidden_content = sorted(scan_sdist_content_canaries(archive, root))
         pkg_info = read_sdist_text(archive, root, "PKG-INFO")
         pyproject = read_sdist_text(archive, root, "pyproject.toml")
 
@@ -993,6 +1002,11 @@ def assert_sdist_contents(sdist: Path) -> None:
         not forbidden,
         "sdist included forbidden file(s): "
         + ", ".join(f"{name} ({reason})" for name, reason in forbidden[:8]),
+    )
+    require(
+        not forbidden_content,
+        "sdist included forbidden content canary/canaries: "
+        + ", ".join(f"{name} ({reason})" for name, reason in forbidden_content[:8]),
     )
     require("Name: llmwiki-serve\n" in pkg_info, "sdist PKG-INFO package name changed")
     project_version = read_project_version(pyproject)
@@ -1037,6 +1051,24 @@ def read_sdist_text(archive: tarfile.TarFile, root: str, relative_path: str) -> 
     file = archive.extractfile(f"{root}/{relative_path}")
     require(file is not None, f"sdist missing readable file: {relative_path}")
     return file.read().decode("utf-8").replace("\r\n", "\n")
+
+
+def scan_sdist_content_canaries(archive: tarfile.TarFile, root: str) -> list[tuple[str, str]]:
+    hits: list[tuple[str, str]] = []
+    for member in archive.getmembers():
+        if not member.isfile():
+            continue
+        path = PurePosixPath(member.name)
+        if not path.parts or path.parts[0] != root or len(path.parts) < 2:
+            continue
+        relative_name = PurePosixPath(*path.parts[1:]).as_posix()
+        file = archive.extractfile(member)
+        require(file is not None, f"sdist missing readable file: {relative_name}")
+        data = file.read()
+        for reason, canary in FORBIDDEN_SDIST_CONTENT_CANARIES:
+            if canary in data:
+                hits.append((relative_name, reason))
+    return hits
 
 
 def read_project_version(pyproject: str) -> str:

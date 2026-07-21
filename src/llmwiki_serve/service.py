@@ -40,7 +40,15 @@ SIGNATURE_FILENAMES = {
 }
 SIGNATURE_MARKER_NAMES = {".foam", ".obsidian"}
 SIGNATURE_RELATIVE_FILENAMES = {".vscode/extensions.json", "logseq/config.edn"}
-IGNORED_SIGNATURE_PARTS = {".git", "node_modules", ".venv", "__pycache__", "dist", "build"}
+IGNORED_SIGNATURE_PARTS = {
+    ".git",
+    ".runtime-logs",
+    "node_modules",
+    ".venv",
+    "__pycache__",
+    "dist",
+    "build",
+}
 
 
 class LlmWikiService:
