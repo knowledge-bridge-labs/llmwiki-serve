@@ -8,9 +8,9 @@ Draft test-planning scaffold.
 
 `llmwiki-serve` has multiple freshness strategies with different correctness
 contracts: strict source scanning, refresh intervals, producer manifest markers,
-and future watcher or Redis-backed paths. If each strategy grows tests
-independently, regressions can hide in gaps between unit tests, HTTP/MCP smoke
-coverage, and performance probes.
+Redis-backed projection caching, and future watcher paths. If each strategy
+grows tests independently, regressions can hide in gaps between unit tests,
+HTTP/MCP smoke coverage, and performance probes.
 
 ## Goals
 
@@ -25,7 +25,8 @@ coverage, and performance probes.
 
 ## Non-Goals
 
-- Do not implement a watcher, Redis cache, or formal producer manifest schema.
+- Do not implement a watcher, Redis cache, or formal producer manifest schema in
+  this matrix.
 - Do not change production freshness behavior.
 - Do not replace existing focused service tests.
 - Do not turn Redis or watcher events into source-of-truth freshness signals.
@@ -36,15 +37,15 @@ coverage, and performance probes.
   cache path, Loop 0 must document trusted-source prior art, candidate tool
   categories, and the adoption or custom-implementation rationale.
 - `REQ-FL-001`: The matrix must cover strict scan, refresh interval, producer
-  manifest, future watcher dirty flag, and future Redis projection cache modes.
+  manifest, future watcher dirty flag, and Redis projection cache modes.
 - `REQ-FL-002`: Current modes must map to existing or planned unit tests for
   Markdown, sidecar graph, adapter marker/config, add/delete, and visibility
   changes.
 - `REQ-FL-003`: Future watcher tests must prove watcher events set dirty state
   only, and watcher errors or uncertain state fall back to strict validation.
-- `REQ-FL-004`: Future Redis tests must prove cached projections are reused only
-  after a validated source signature, producer generation, or dirty-state
-  authority check.
+- `REQ-FL-004`: Redis tests must prove cached projections are reused only after
+  a validated source signature, producer generation, or dirty-state authority
+  check.
 - `REQ-FL-005`: E2E accumulation must exercise the same freshness loop through
   CLI, HTTP, MCP-style JSON-RPC, MCP Streamable HTTP, and optional A2A-style
   surfaces where those surfaces are relevant.
@@ -82,6 +83,7 @@ freshness behavior.
 - Producer manifest ADR:
   `docs/decisions/2026-07-17-producer-manifest-freshness-boundary.md`
 - Producer manifest spec: `specs/producer-manifest-freshness/`
+- Redis projection store spec: `specs/redis-projection-store/`
 - Freshness research:
   `docs/research/2026-07-17-freshness-invalidation-core-libraries.md`
   and `docs/research/2026-07-17-hadoop-spark-freshness-patterns.md`

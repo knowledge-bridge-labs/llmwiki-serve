@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import importlib
 import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, Protocol
@@ -104,9 +106,11 @@ class RedisProjectionStore:
             return None
         try:
             payload = json.loads(raw)
-            return projection_record_from_payload(key, payload, root=root)
+            record = projection_record_from_payload(key, payload, root=root)
+            self._last_error = ""
+            return record
         except (TypeError, ValueError, KeyError) as exc:
-            self._last_error = f"{exc.__class__.__name__}: {exc}"
+            self._last_error = safe_error_message(exc)
             return None
 
     def put(self, record: ProjectionRecord) -> None:
@@ -121,6 +125,7 @@ class RedisProjectionStore:
                 redis_latest_key(record.key.namespace, record.key.source_id),
                 record.key.projection_signature,
             )
+            self._last_error = ""
         except Exception as exc:
             self._handle_failure(exc)
 
@@ -140,7 +145,7 @@ class RedisProjectionStore:
             self._handle_failure(exc)
 
     def _handle_failure(self, exc: Exception) -> None:
-        self._last_error = f"{exc.__class__.__name__}: {exc}"
+        self._last_error = safe_error_message(exc)
         if self.failure_policy == "fail-fast":
             raise RuntimeError(f"Redis projection store failed: {self._last_error}") from exc
         self._available = False
@@ -161,21 +166,37 @@ def create_projection_store(
 
 def redis_projection_key(key: ProjectionKey) -> str:
     return (
-        f"llmwiki:{key.namespace}:projections:"
-        f"{key.schema_version}:{key.source_id}:{safe_key_part(key.projection_signature)}"
+        f"llmwiki:{safe_key_part(key.namespace)}:projections:"
+        f"{safe_key_part(key.schema_version)}:{safe_key_part(key.source_id)}:"
+        f"{safe_key_part(key.projection_signature)}"
     )
 
 
 def redis_source_projection_key_pattern(namespace: str, source_id: str) -> str:
-    return f"llmwiki:{namespace}:projections:{PROJECTION_STORE_SCHEMA_VERSION}:{source_id}:*"
+    return (
+        f"llmwiki:{safe_key_part(namespace)}:projections:"
+        f"{safe_key_part(PROJECTION_STORE_SCHEMA_VERSION)}:{safe_key_part(source_id)}:*"
+    )
 
 
 def redis_latest_key(namespace: str, source_id: str) -> str:
-    return f"llmwiki:{namespace}:sources:{source_id}:latest"
+    return f"llmwiki:{safe_key_part(namespace)}:sources:{safe_key_part(source_id)}:latest"
 
 
 def safe_key_part(value: str) -> str:
-    return value.replace(":", "_")
+    candidate = re.sub(r"[^A-Za-z0-9._-]+", "_", value).strip("._-")
+    if not candidate:
+        candidate = "empty"
+    if candidate == value:
+        return candidate
+    digest = hashlib.sha256(value.encode("utf-8")).hexdigest()[:12]
+    return f"{candidate[:80]}-{digest}"
+
+
+def safe_error_message(exc: Exception) -> str:
+    if isinstance(exc, (TypeError, ValueError, KeyError, json.JSONDecodeError)):
+        return f"{exc.__class__.__name__}: cache payload rejected"
+    return f"{exc.__class__.__name__}: backend operation failed"
 
 
 def record_to_payload(record: ProjectionRecord) -> dict[str, Any]:

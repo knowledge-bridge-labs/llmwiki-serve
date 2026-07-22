@@ -6,6 +6,13 @@ Date: 2026-07-14
 Scope: `llmwiki-serve` production hardening
 Out of scope: mem0-backed projection storage
 
+Decision alignment as of 2026-07-22: the accepted boundary is recorded in
+`docs/decisions/2026-07-22-redis-projection-store-derived-cache-boundary.md`.
+Redis/Valkey is an optional derived projection cache only. It is not source of
+truth, not a freshness authority, and not part of the default install. Redis
+payloads are sensitive because they may include derived page text,
+frontmatter, source refs, graph metadata, and drafts.
+
 ## Summary
 
 `llmwiki-serve` should keep the current in-process memory behavior as the
@@ -327,12 +334,11 @@ Make Redis optional in practice, not just in packaging.
 
 ### Fallback Modes
 
-Proposed CLI:
+Current implemented CLI:
 
 ```powershell
 --redis-failure-policy fallback-local
 --redis-failure-policy fail-fast
---redis-failure-policy read-only-cache
 ```
 
 Default recommendation: `fallback-local`.
@@ -349,9 +355,8 @@ Policy behavior:
   - Best when operators require cache sharing and want misconfiguration to be
     visible immediately.
 
-- `read-only-cache`
-  - Redis reads are attempted, writes are skipped on failure.
-  - Useful only if implementation complexity remains low; otherwise defer.
+The earlier `read-only-cache` sketch remains deferred because the current
+operator contract only needs local fallback or fail-fast behavior.
 
 ### Observability
 
@@ -494,10 +499,9 @@ Every query must filter by:
 ## Security and Governance
 
 - Redis keys must not include absolute local paths.
-- Redis payloads must not include draft pages in a visibility-mixed artifact.
-- If full `WikiIndex` includes drafts for local admin behavior, store approved
-  and all/draft projections separately or store only the canonical projection
-  and enforce draft filtering at hydration with strong tests.
+- Redis payloads may include full derived `WikiIndex` content, including drafts;
+  treat Redis as sensitive storage and enforce draft filtering after hydration
+  with strong tests.
 - Network manifests should continue redacting local roots.
 - Redis URLs with passwords must be redacted from logs and diagnostics.
 - Production docs should mention Redis/Valkey network exposure, auth, TLS, and
@@ -547,20 +551,19 @@ Every query must filter by:
 - Keep `--search-backend lexical` default.
 - Add benchmark and quality tests before enabling in docs as recommended.
 
-## Open Questions
+## Open / Resolved Questions
 
-1. Should Redis store full `WikiIndex` including drafts, or only approved
-   serving projection by default?
-2. Should `source_id` be derived, explicit, or required when Redis is enabled?
-3. Should Redis integration tests use Docker, a fake Redis, or testcontainers?
-4. Should diagnostics be public `/diagnostics/*`, CLI-only, or local-only?
-5. Should RedisVL live in `llmwiki-serve` or in `llmwiki-agent-bridge` as an
-   aggregator-side search enhancement?
-6. How should enterprise metadata and raw-origin hints be represented in Redis
-   keys and vector metadata?
+| Question | Current answer |
+| --- | --- |
+| Should Redis store full `WikiIndex` including drafts, or only approved serving projection by default? | Current implementation stores the derived `WikiIndex`; treat Redis as sensitive because it may include draft page text/frontmatter even though network responses filter drafts by default. |
+| Should `source_id` be derived, explicit, or required when Redis is enabled? | Explicit `--source-id` is recommended for shared Redis deployments; the default remains derived for compatibility. |
+| Should Redis integration tests use Docker, a fake Redis, or testcontainers? | Unit tests use a fake Redis client; optional live integration tests run only when `LLMWIKI_REDIS_URL` is set. |
+| Should diagnostics be public `/diagnostics/*`, CLI-only, or local-only? | Current endpoint is `GET /diagnostics/projection-store` with redacted fields only. |
+| Should RedisVL live in `llmwiki-serve` or in `llmwiki-agent-bridge` as an aggregator-side search enhancement? | Still open and deferred; RedisVL needs its own ADR/spec because it changes retrieval behavior. |
+| How should enterprise metadata and raw-origin hints be represented in Redis keys and vector metadata? | Still open and deferred; current Redis projection keys use schema version, namespace, source id, and projection signature only. |
 
 ## Recommended Next Step
 
-Start with PR 1 only. It should be behavior-preserving and memory-only. Once the
-store boundary is proven by tests, Redis can be added without destabilizing the
-current local-first server.
+For the current Redis PR, finish production documentation and run the optional
+live Redis validation before a Redis-affecting release. Keep RedisVL and
+enterprise/vector metadata design separate from the projection-cache boundary.

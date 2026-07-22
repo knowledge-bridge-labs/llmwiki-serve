@@ -17,8 +17,7 @@ The matrix separates freshness authority from projection storage:
 - Producer manifest mode trusts an explicit producer marker or falls back to
   strict scan when the marker is unavailable or unsafe.
 - Future watcher mode uses events only to mark dirty state.
-- Future Redis mode stores derived projections, but never decides freshness by
-  itself.
+- Redis mode stores derived projections, but never decides freshness by itself.
 
 Candidate categories for Loop 0 include watcher providers, producer/build
 manifest patterns, projection/cache stores, graph/search or traversal libraries
@@ -40,7 +39,7 @@ meet source-boundary, safety, portability, or dependency constraints.
 - Risk: the matrix becomes stale as new strategies land.
   Mitigation: require new freshness work to update the matching `FL-*` rows.
 
-- Risk: future Redis tests accidentally treat cache hits as freshness evidence.
+- Risk: Redis tests accidentally treat cache hits as freshness evidence.
   Mitigation: keep Redis rows phrased around validated signatures or generations.
 
 - Risk: watcher tests overfit one backend.
@@ -53,5 +52,5 @@ meet source-boundary, safety, portability, or dependency constraints.
 - Current branch: document the repeatable matrix and map existing coverage.
 - Next unit-test pass: add explicit test names or comments that cite relevant
   `FL-*` IDs.
-- Future watcher/Redis branches: add implementation tests by filling the
-  deferred rows before expanding e2e smoke.
+- Future watcher branches: add implementation tests by filling the deferred rows
+  before expanding e2e smoke.

@@ -37,6 +37,8 @@ from llmwiki_serve.projection_store import (
     record_to_payload,
     redis_latest_key,
     redis_projection_key,
+    redis_source_projection_key_pattern,
+    safe_key_part,
 )
 from llmwiki_serve.search import search as raw_search
 from llmwiki_serve.service import LlmWikiService, source_signature
@@ -671,6 +673,51 @@ def test_cli_rejects_invalid_projection_store_env_without_traceback() -> None:
     assert result.exit_code == 1, result.output
     assert "LLMWIKI_PROJECTION_STORE must be 'memory' or 'redis'" in result.output
     assert "Traceback" not in result.output
+
+
+def test_cli_rejects_redis_projection_store_without_url() -> None:
+    result = CliRunner().invoke(
+        cli_app,
+        ["serve", str(FIXTURE), "--projection-store", "redis"],
+    )
+
+    assert result.exit_code == 1, result.output
+    assert "--redis-url is required when --projection-store=redis" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_cli_uses_projection_store_env_namespace_and_source_id(monkeypatch) -> None:
+    import uvicorn
+
+    captured: dict[str, Any] = {}
+
+    def fake_run(app: Any, *, host: str, port: int) -> None:
+        captured["host"] = host
+        captured["port"] = port
+        client = TestClient(app)
+        captured["diagnostics"] = client.get("/diagnostics/projection-store").json()
+
+    monkeypatch.setattr(uvicorn, "run", fake_run)
+    result = CliRunner().invoke(
+        cli_app,
+        ["serve", str(FIXTURE), "--port", "8765"],
+        env={
+            "LLMWIKI_PROJECTION_STORE": "memory",
+            "LLMWIKI_CACHE_NAMESPACE": "env-namespace",
+            "LLMWIKI_SOURCE_ID": "env-source",
+        },
+    )
+
+    assert result.exit_code == 0, result.output
+    assert captured["host"] == "127.0.0.1"
+    assert captured["port"] == 8765
+    assert captured["diagnostics"] == {
+        "backend": "InMemoryProjectionStore",
+        "namespace": "env-namespace",
+        "cache_source_id": "env-source",
+        "available": True,
+        "last_error": "",
+    }
 
 
 def test_publication_frontmatter_filters_default_surfaces(tmp_path: Path) -> None:
@@ -1428,6 +1475,37 @@ def test_memory_projection_store_matches_default_http_payloads() -> None:
     assert store_client.get("/graph").json() == default_client.get("/graph").json()
 
 
+def test_redis_projection_store_matches_default_http_and_mcp_payloads() -> None:
+    default_client = TestClient(create_app(FIXTURE))
+    redis_client = TestClient(
+        create_app(
+            FIXTURE,
+            projection_store=RedisProjectionStore(
+                url="redis://example.invalid/0",
+                client=FakeRedisClient(),
+            ),
+            cache_namespace="pytest",
+            source_id="sample-packaging-llmwiki",
+        )
+    )
+
+    assert redis_client.get("/manifest").json() == default_client.get("/manifest").json()
+    assert redis_client.get("/source-bundle").json() == default_client.get("/source-bundle").json()
+    assert redis_client.post("/query", json={"query": "required copy"}).json() == (
+        default_client.post("/query", json={"query": "required copy"}).json()
+    )
+    assert redis_client.post("/search", json={"query": "required copy"}).json() == (
+        default_client.post("/search", json={"query": "required copy"}).json()
+    )
+    assert redis_client.get("/read/hot").json() == default_client.get("/read/hot").json()
+    assert redis_client.get("/graph?limit=40").json() == (
+        default_client.get("/graph?limit=40").json()
+    )
+    assert mcp_tool_call(redis_client, "llmwiki_context", {"query": "required copy"}) == (
+        mcp_tool_call(default_client, "llmwiki_context", {"query": "required copy"})
+    )
+
+
 def test_projection_store_hit_skips_wiki_builder(monkeypatch) -> None:
     import llmwiki_serve.service as service_module
 
@@ -1540,7 +1618,8 @@ def test_redis_projection_store_uses_namespaced_keys_and_round_trips_without_pat
     redis_key = redis_projection_key(key)
 
     assert redis_key == (
-        "llmwiki:pytest:projections:projection-store-v1:sample-packaging-llmwiki:sha256_test"
+        "llmwiki:pytest:projections:projection-store-v1:"
+        f"sample-packaging-llmwiki:{safe_key_part('sha256:test')}"
     )
     assert redis_key in client.values
     assert str(FIXTURE) not in client.values[redis_key]
@@ -1552,6 +1631,30 @@ def test_redis_projection_store_uses_namespaced_keys_and_round_trips_without_pat
     assert hydrated is not None
     assert hydrated.index.root == Path("/served/wiki")
     assert hydrated.index.title == index.title
+
+
+def test_redis_projection_store_sanitizes_namespace_and_source_key_parts() -> None:
+    key = ProjectionKey(
+        namespace="team:* / prod",
+        source_id="../private:wiki*",
+        projection_signature="sha256:test:value",
+    )
+
+    projection_key = redis_projection_key(key)
+    latest_key = redis_latest_key(key.namespace, key.source_id)
+    pattern = redis_source_projection_key_pattern(key.namespace, key.source_id)
+    encoded_keys = json.dumps([projection_key, latest_key, pattern])
+
+    assert "team:* / prod" not in encoded_keys
+    assert "../private:wiki*" not in encoded_keys
+    assert "sha256:test:value" not in encoded_keys
+    assert projection_key == (
+        f"llmwiki:{safe_key_part(key.namespace)}:projections:"
+        f"{safe_key_part(key.schema_version)}:{safe_key_part(key.source_id)}:"
+        f"{safe_key_part(key.projection_signature)}"
+    )
+    assert pattern.endswith(":*")
+    assert pattern.count("*") == 1
 
 
 def test_redis_projection_store_treats_corrupt_payload_as_cache_miss() -> None:
@@ -1567,6 +1670,34 @@ def test_redis_projection_store_treats_corrupt_payload_as_cache_miss() -> None:
     assert store.get(key, root=FIXTURE) is None
     assert "JSONDecodeError" in store.last_error
     assert store.available is True
+
+
+def test_redis_projection_store_corrupt_payload_is_rebuilt_by_service() -> None:
+    client = FakeRedisClient()
+    store = RedisProjectionStore(url="redis://example.invalid/0", client=client)
+    service = LlmWikiService(
+        FIXTURE,
+        projection_store=store,
+        cache_namespace="pytest",
+        source_id="sample-packaging-llmwiki",
+    )
+
+    assert service.manifest().page_count == 5
+    projection_keys = [key for key in client.values if ":projections:" in key]
+    assert len(projection_keys) == 1
+    client.values[projection_keys[0]] = "{not valid json"
+
+    fresh_service = LlmWikiService(
+        FIXTURE,
+        projection_store=store,
+        cache_namespace="pytest",
+        source_id="sample-packaging-llmwiki",
+    )
+
+    assert fresh_service.context("required copy").answerable is True
+    assert json.loads(client.values[projection_keys[0]])["source_id"] == (
+        "sample-packaging-llmwiki"
+    )
 
 
 def test_redis_projection_store_invalidates_source_projection_keys() -> None:
@@ -1619,6 +1750,71 @@ def test_redis_projection_store_falls_back_to_local_memory_after_client_failure(
     assert store.get(key, root=FIXTURE) == record
 
 
+def test_redis_projection_store_fail_fast_raises_redacted_error() -> None:
+    store = RedisProjectionStore(
+        url="redis://:secret@example.invalid/0",
+        failure_policy="fail-fast",
+        client=FakeRedisClient(
+            fail=True,
+            failure_message="redis://:secret@example.invalid/0 C:/Users/angel/private",
+        ),
+    )
+    record = ProjectionRecord(
+        key=ProjectionKey(
+            namespace="pytest",
+            source_id="sample-packaging-llmwiki",
+            projection_signature="sha256:test",
+        ),
+        index=LlmWikiService(FIXTURE).index(),
+    )
+
+    with pytest.raises(RuntimeError) as exc_info:
+        store.put(record)
+
+    error = str(exc_info.value)
+    assert "backend operation failed" in error
+    assert "secret" not in error
+    assert "example.invalid" not in error
+    assert "C:/Users/angel" not in error
+
+
+def test_redis_projection_store_http_fallback_matches_default_payloads() -> None:
+    store = RedisProjectionStore(
+        url="redis://:secret@example.invalid/0",
+        client=FakeRedisClient(
+            fail=True,
+            failure_message="redis://:secret@example.invalid/0 C:/Users/angel/private",
+        ),
+    )
+    fallback_client = TestClient(
+        create_app(
+            FIXTURE,
+            projection_store=store,
+            cache_namespace="pytest",
+            source_id="sample-packaging-llmwiki",
+        )
+    )
+    default_client = TestClient(create_app(FIXTURE))
+
+    assert fallback_client.post("/query", json={"query": "required copy"}).json() == (
+        default_client.post("/query", json={"query": "required copy"}).json()
+    )
+    assert fallback_client.post("/search", json={"query": "required copy"}).json() == (
+        default_client.post("/search", json={"query": "required copy"}).json()
+    )
+    assert fallback_client.get("/read/hot").json() == default_client.get("/read/hot").json()
+    assert fallback_client.get("/graph?limit=40").json() == (
+        default_client.get("/graph?limit=40").json()
+    )
+    diagnostics = fallback_client.get("/diagnostics/projection-store").json()
+    encoded = json.dumps(diagnostics)
+
+    assert diagnostics["available"] is False
+    assert "secret" not in encoded
+    assert "example.invalid" not in encoded
+    assert "C:/Users/angel" not in encoded
+
+
 def test_redis_projection_store_missing_extra_error_is_actionable(monkeypatch) -> None:
     real_import = builtins.__import__
 
@@ -1659,6 +1855,53 @@ def test_projection_store_diagnostics_redacts_redis_url_and_local_root() -> None
     assert "secret" not in encoded
     assert "example.invalid" not in encoded
     assert str(FIXTURE) not in encoded
+
+
+def test_projection_store_uses_new_cache_key_after_source_change(tmp_path: Path) -> None:
+    root = tmp_path / "wiki"
+    root.mkdir()
+    write_markdown(
+        root / "index.md",
+        """
+---
+wiki_title: Redis Freshness Fixture
+review_state: approved
+---
+# Redis Freshness Fixture
+
+Initial projection text.
+""",
+    )
+    store = InMemoryProjectionStore()
+    service = LlmWikiService(
+        root,
+        projection_store=store,
+        cache_namespace="pytest",
+        source_id="freshness-fixture",
+    )
+
+    assert service.context("initial projection").answerable is True
+    first_keys = set(store._records)
+
+    write_markdown(
+        root / "index.md",
+        """
+---
+wiki_title: Redis Freshness Fixture
+review_state: approved
+---
+# Redis Freshness Fixture
+
+Updated projection text with a larger body.
+""",
+    )
+
+    assert service.context("updated larger body").answerable is True
+    second_keys = set(store._records)
+
+    assert len(second_keys) == 2
+    assert first_keys < second_keys
+    assert {key.projection_signature for key in second_keys if key not in first_keys}
 
 
 def test_service_signature_cache_refreshes_when_source_file_changes(
@@ -3278,29 +3521,30 @@ def write_markdown(path: Path, content: str) -> None:
 
 
 class FakeRedisClient:
-    def __init__(self, *, fail: bool = False) -> None:
+    def __init__(self, *, fail: bool = False, failure_message: str = "redis unavailable") -> None:
         self.fail = fail
+        self.failure_message = failure_message
         self.values: dict[str, str] = {}
 
     def get(self, key: str) -> str | None:
         if self.fail:
-            raise RuntimeError("redis unavailable")
+            raise RuntimeError(self.failure_message)
         return self.values.get(key)
 
     def set(self, key: str, value: str) -> None:
         if self.fail:
-            raise RuntimeError("redis unavailable")
+            raise RuntimeError(self.failure_message)
         self.values[key] = value
 
     def delete(self, *keys: str) -> None:
         if self.fail:
-            raise RuntimeError("redis unavailable")
+            raise RuntimeError(self.failure_message)
         for key in keys:
             self.values.pop(key, None)
 
     def scan_iter(self, *, match: str) -> list[str]:
         if self.fail:
-            raise RuntimeError("redis unavailable")
+            raise RuntimeError(self.failure_message)
         prefix = match.removesuffix("*")
         return [key for key in sorted(self.values) if key.startswith(prefix)]
 

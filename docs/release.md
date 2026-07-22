@@ -54,6 +54,25 @@ versioned release or public release candidate.
    credentials, caches, generated candidate samples, private runtime output, or
    build artifacts.
 
+   For releases that change the optional Redis/Valkey projection store, also
+   run the Redis gate against a non-sensitive fixture and an isolated namespace.
+   This gate is optional for unrelated releases and must not publish Redis URLs,
+   credentials, raw keys, cached values, local paths, or private wiki snippets:
+
+   ```bash
+   uv sync --extra dev --extra redis
+   uv run pytest -q tests/test_service.py -k "projection_store or redis"
+   LLMWIKI_REDIS_URL=redis://127.0.0.1:6379/0 \
+     uv run pytest -q tests/test_redis_projection_store_integration.py
+   ```
+
+   Manual Redis smoke, if used, should start the server with explicit
+   `--cache-namespace`, `--source-id`, and `--redis-failure-policy fail-fast`,
+   then verify `/diagnostics/projection-store` redacts the Redis URL,
+   credentials, and local root path. Treat Redis as sensitive derived storage:
+   cached projections may include page text, front matter, source refs, graph
+   metadata, and draft pages even when network responses withhold drafts.
+
    On Windows, stop any `llmwiki-serve` process that is running from this
    checkout before invoking `uv run` release gates. A running console script can
    hold `.venv\Scripts\llmwiki-serve.exe` open, which prevents uv from
@@ -179,13 +198,19 @@ versioned release or public release candidate.
    If the API surface changed, run `uv run python scripts/export_openapi.py`
    and commit the refreshed `docs/openapi.json`.
 8. Confirm the release contains no credentials, token caches, private endpoint
-   URLs, private paths, raw sensitive wiki content, local environment files, or
-   generated artifacts that are not meant to ship. Confirm fixture and smoke
-   inputs do not depend on symlinked Markdown/Org files or `graph/graph.json`
-   sidecars; the server ignores those by default to keep serving inside the wiki
-   root.
+   URLs, private paths, raw sensitive wiki content, Redis/Valkey cached
+   projection payloads, local environment files, or generated artifacts that are
+   not meant to ship. Confirm fixture and smoke inputs do not depend on
+   symlinked Markdown/Org files or `graph/graph.json` sidecars; the server
+   ignores those by default to keep serving inside the wiki root.
 9. Confirm package metadata still lists the repository, issue tracker, homepage,
-   Python baseline, and runtime dependencies accurately.
+   Python baseline, runtime dependencies, and optional extras accurately. Redis
+   release notes should say that `llmwiki-serve[redis]` is optional, the default
+   install remains memory-only/no external service, Redis is a derived
+   projection cache only, and Redis may contain sensitive derived wiki content
+   including drafts. If the public deployment guide needs broader operator
+   guidance, file or make the follow-up in `llmwiki-docs` without blocking this
+   repository release checklist.
 10. Treat publishing as a maintainer-owner gate. The repository includes a
     Trusted Publishing workflow at `.github/workflows/publish.yml`, but do not
     run it until the repository owner and PyPI project owner have configured the

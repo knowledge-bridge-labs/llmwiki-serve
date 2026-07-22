@@ -22,7 +22,7 @@ cache boundary, or custom freshness mechanism.
 | `FS-INTERVAL` | Refresh interval | Current opt-in | Strict source scan only after the configured interval or explicit refresh. | Allow bounded staleness for local performance. |
 | `FS-PRODUCER` | Producer manifest marker | Current opt-in | Non-symlink marker file inside the served root, with strict fallback when missing or unsafe. | Trust producer-owned generation updates. |
 | `FS-WATCHER` | Watcher dirty flag | Future | Watcher event state is a dirty hint only; strict scan or producer validation remains the authority. | Avoid scans while clean; recover conservatively when uncertain. |
-| `FS-REDIS` | Redis projection cache | Future | Validated source signature, producer generation, or dirty-state check. | Reuse derived projections only after freshness is proven elsewhere. |
+| `FS-REDIS` | Redis projection cache | Current optional | Validated source signature, producer generation, or dirty-state check. | Reuse derived projections only after freshness is proven elsewhere. |
 
 ## Common Loop Fixture
 
@@ -51,7 +51,7 @@ The repeatable loop is:
 
 ## Unit Expectations
 
-| Scenario | `FS-STRICT` | `FS-INTERVAL` | `FS-PRODUCER` | `FS-WATCHER` future | `FS-REDIS` future |
+| Scenario | `FS-STRICT` | `FS-INTERVAL` | `FS-PRODUCER` | `FS-WATCHER` future | `FS-REDIS` optional |
 | --- | --- | --- | --- | --- | --- |
 | `FL-010` no-change reuse | May stat/check watched paths, then reuse projection. | Reuse projection until interval expires. | Check marker only, then reuse projection. | If clean, reuse projection without a full scan. | Cache hit is allowed only after the authority check succeeds. |
 | `FL-020` Markdown rewrite | Detect before next request, including same-size and preserved-mtime rewrites. | Keep stale result until interval expires or explicit refresh runs. | Keep stale result until the marker changes or explicit refresh runs. | Dirty event must bypass interval and trigger authoritative validation. | Old cached projection must not be served after a new validated signature/generation. |
@@ -90,7 +90,7 @@ Add end-to-end coverage in this order so failures stay diagnosable:
 | `FS-INTERVAL` `FL-020`, `FL-030`, `FL-040`, `FL-050`, `FL-060`, `FL-070`, `FL-080` | `tests/test_freshness_loop_matrix.py` asserts bounded staleness until interval expiry and explicit refresh bypass behavior for Markdown, sidecar graph, add/delete page, visibility, and adapter config changes. | Needs shared HTTP/MCP loop coverage. |
 | `FS-PRODUCER` `FL-020`, `FL-030`, `FL-040`, `FL-050`, `FL-060`, `FL-070`, `FL-080`, `FL-090` | `tests/test_freshness_loop_matrix.py` asserts stale-until-marker-change behavior for Markdown, sidecar graph, add/delete page, visibility, and adapter config changes, plus explicit refresh, restart behavior, and outside-root marker fallback. Existing producer tests cover missing marker and symlink marker fallback. | Add formal generation-manifest cases if this opt-in marker contract gains a schema. |
 | `FS-WATCHER` | Research/probe notes only. | Await watcher provider interface. |
-| `FS-REDIS` | Architecture/research notes only. | Await cache key and projection storage design. |
+| `FS-REDIS` `FL-010`, `FL-070`, `FL-080`, `FL-090` | `tests/test_service.py` covers projection-store hits, miss/write/hydrate behavior, explicit-refresh bypass, corrupt payload miss, Redis client fallback, and diagnostics redaction. `tests/test_redis_projection_store_integration.py` runs optional live Redis hydration/parity when `LLMWIKI_REDIS_URL` is set. `specs/redis-projection-store/` defines the cache key and storage boundary. | Add shared HTTP/MCP loop coverage if Redis behavior needs end-to-end freshness matrix accumulation beyond the current service/live Redis coverage. |
 
 ## Lightweight Checks
 
