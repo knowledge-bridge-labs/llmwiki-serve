@@ -7,9 +7,13 @@ This project follows a lightweight public-preview changelog format. Dates use
 
 ## Unreleased
 
+## 0.2.1 - 2026-07-22
+
 - Added an optional Redis/Valkey projection store extra, CLI configuration, and
   diagnostics endpoint so production deployments can reuse derived projections
   across server processes while keeping in-memory projection as the default.
+- Documented that Redis stores sensitive derived projection data, including
+  drafts, and that automatic Redis TTL/cleanup is not part of this release.
 
 ## 0.2.0 - 2026-07-17
 
