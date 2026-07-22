@@ -293,8 +293,11 @@ class LlmWikiService:
         )
 
     def projection_store_diagnostics(self) -> dict[str, Any]:
+        backend_kind = projection_store_backend_kind(self.projection_store)
         return {
             "backend": self.projection_store.__class__.__name__,
+            "backend_kind": backend_kind,
+            "endpoint": projection_store_endpoint(self.projection_store, backend_kind),
             "namespace": self.cache_namespace,
             "cache_source_id": self._cache_source_id(),
             "available": getattr(self.projection_store, "available", True),
@@ -515,6 +518,22 @@ class _GraphView:
         if relation_set:
             return [(edge, adjacent) for edge, adjacent in result if edge.relation in relation_set]
         return result
+
+
+def projection_store_backend_kind(store: ProjectionStore) -> Literal["memory", "redis"]:
+    kind = getattr(store, "backend_kind", None)
+    if kind == "redis":
+        return "redis"
+    return "memory"
+
+
+def projection_store_endpoint(
+    store: ProjectionStore, backend_kind: Literal["memory", "redis"]
+) -> str | None:
+    endpoint = getattr(store, "endpoint", None)
+    if backend_kind != "redis" or not isinstance(endpoint, str) or not endpoint:
+        return None
+    return endpoint
 
 
 def approved_graph_view(index: WikiIndex) -> _GraphView:

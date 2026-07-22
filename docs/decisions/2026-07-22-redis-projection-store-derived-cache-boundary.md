@@ -46,8 +46,10 @@ Redis payloads are sensitive derived storage. They may include derived page
 text, YAML front matter, graph facts, source refs, and draft pages. Network
 responses continue to filter drafts by default, but Redis operators who can
 inspect the database may see content that public HTTP/MCP responses withhold.
-Redis URLs, credentials, local roots, and raw payloads must not appear in
-diagnostics, logs, release notes, or public issue comments.
+Raw Redis URLs, credentials, local roots, and raw payloads must not appear in
+diagnostics, logs, release notes, or public issue comments. Diagnostics may show
+a sanitized Redis endpoint label for UI status cards, but that label strips
+userinfo, passwords, query parameters, and fragments.
 
 The supported Redis failure policies are:
 
@@ -67,8 +69,12 @@ Corrupt or mismatched Redis payloads are cache misses, not source evidence.
 - Producer manifest mode composes with Redis, but a stale producer marker can
   still authorize reuse of a stale projection because Redis is not a freshness
   oracle.
-- The diagnostics endpoint can explain cache backend health without exposing
-  sensitive connection details or local paths.
+- The diagnostics endpoint can explain cache backend health and show whether the
+  configured projection-store backend is memory or Redis. In fallback-local
+  mode, `backend_kind: "redis"` with `available: false` means the configured
+  Redis backend is unavailable and requests are using the local fallback path.
+  Redis diagnostics may expose a non-secret scheme/host/port/database label,
+  but not raw URLs, credentials, query parameters, payloads, or local paths.
 
 ## Follow-Ups
 

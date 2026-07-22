@@ -7,6 +7,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, Protocol
+from urllib.parse import urlsplit, urlunsplit
 
 from .models import WikiIndex
 
@@ -46,6 +47,9 @@ class ProjectionStore(Protocol):
 
 
 class InMemoryProjectionStore:
+    backend_kind: Literal["memory"] = "memory"
+    endpoint: str | None = None
+
     def __init__(self) -> None:
         self._records: dict[ProjectionKey, ProjectionRecord] = {}
 
@@ -64,6 +68,8 @@ class InMemoryProjectionStore:
 
 
 class RedisProjectionStore:
+    backend_kind: Literal["redis"] = "redis"
+
     def __init__(
         self,
         *,
@@ -72,6 +78,7 @@ class RedisProjectionStore:
         client: Any | None = None,
     ) -> None:
         self.url = url
+        self.endpoint = safe_redis_endpoint_label(url)
         self.failure_policy = failure_policy
         self._available = True
         self._last_error = ""
@@ -197,6 +204,24 @@ def safe_error_message(exc: Exception) -> str:
     if isinstance(exc, (TypeError, ValueError, KeyError, json.JSONDecodeError)):
         return f"{exc.__class__.__name__}: cache payload rejected"
     return f"{exc.__class__.__name__}: backend operation failed"
+
+
+def safe_redis_endpoint_label(url: str) -> str:
+    try:
+        parts = urlsplit(url)
+        scheme = parts.scheme or "redis"
+        host = parts.hostname
+        port = parts.port
+    except ValueError:
+        return "redis://<redacted>"
+
+    if not host:
+        return f"{scheme}://<redacted>"
+
+    display_host = f"[{host}]" if ":" in host and not host.startswith("[") else host
+    netloc = f"{display_host}:{port}" if port is not None else display_host
+    path = parts.path if re.fullmatch(r"/\d+", parts.path or "") else ""
+    return urlunsplit((scheme, netloc, path, "", ""))
 
 
 def record_to_payload(record: ProjectionRecord) -> dict[str, Any]:

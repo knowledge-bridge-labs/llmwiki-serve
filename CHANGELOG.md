@@ -9,9 +9,13 @@ This project follows a lightweight public-preview changelog format. Dates use
 
 ## 0.2.1 - 2026-07-22
 
-- Added an optional Redis/Valkey projection store extra, CLI configuration, and
-  diagnostics endpoint so production deployments can reuse derived projections
-  across server processes while keeping in-memory projection as the default.
+- Added an optional Redis/Valkey projection store extra and CLI/env
+  configuration so production deployments can reuse derived projections across
+  server processes while keeping in-memory projection as the default.
+- Added projection-store diagnostics fields for backend status, including
+  `backend_kind` and a sanitized Redis `endpoint`, so operators can verify
+  whether the active backend is memory or Redis without exposing credentials or
+  endpoint query details.
 - Documented that Redis stores sensitive derived projection data, including
   drafts, and that automatic Redis TTL/cleanup is not part of this release.
 

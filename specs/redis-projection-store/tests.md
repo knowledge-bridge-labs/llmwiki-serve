@@ -19,8 +19,9 @@
   failure; `fail-fast` raises a controlled error.
 - `REQ-REDIS-013`: corrupt, schema-mismatched, namespace-mismatched,
   source-id-mismatched, or signature-mismatched payloads are treated as misses.
-- `REQ-REDIS-014`: diagnostics expose backend status without Redis URL,
-  credentials, or local root paths.
+- `REQ-REDIS-014`: diagnostics expose backend status, stable `backend_kind`,
+  and a sanitized Redis `endpoint` label without raw Redis URLs, userinfo,
+  passwords, query parameters, fragments, payloads, or local root paths.
 - `REQ-REDIS-015`: Redis-backed and memory-backed services return equivalent
   manifest, query, search, read, graph, MCP, and MCP Streamable HTTP payloads
   for the same source generation.
@@ -42,7 +43,10 @@
 - `tests/test_service.py::test_redis_projection_store_fail_fast_raises_redacted_error`
 - `tests/test_service.py::test_redis_projection_store_http_fallback_matches_default_payloads`
 - `tests/test_service.py::test_redis_projection_store_missing_extra_error_is_actionable`
+- `tests/test_service.py::test_projection_store_diagnostics_memory_backend_kind_and_no_endpoint`
 - `tests/test_service.py::test_projection_store_diagnostics_redacts_redis_url_and_local_root`
+- `tests/test_service.py::test_projection_store_diagnostics_redis_backend_kind_and_safe_endpoint`
+- `tests/test_service.py::test_projection_store_diagnostics_redacts_redis_endpoint_secrets`
 - `tests/test_service.py::test_projection_store_uses_new_cache_key_after_source_change`
 - `tests/test_service.py::test_cli_rejects_redis_projection_store_without_url`
 - `tests/test_service.py::test_cli_uses_projection_store_env_namespace_and_source_id`
@@ -56,8 +60,11 @@
   required.
 - Run a live Redis/Valkey smoke with `--redis-failure-policy fail-fast`,
   `--cache-namespace`, and `--source-id` against `examples/sample-wiki`.
-- Query `/diagnostics/projection-store` and confirm no URL, credential, or local
-  path is present.
+- Query `/diagnostics/projection-store` and confirm `backend_kind` is
+  `memory` or `redis`; memory reports `endpoint: null`; Redis reports only a
+  sanitized scheme/host/port/database endpoint label. Confirm no raw URL,
+  userinfo, password, query parameter, token, local path, Redis key, or payload
+  is present.
 - Inspect Redis keys and payloads only on non-sensitive fixtures; do not paste
   raw values into public release artifacts.
 - Confirm the operator retention path is documented. The current implementation
@@ -73,15 +80,15 @@ loopback Docker Redis database. A separate manual smoke used explicit
 namespace/source-id settings and `fail-fast` policy, then checked `/manifest`,
 `/query`, and `/diagnostics/projection-store`.
 
-The gate passed. Diagnostics did not expose Redis URL details, port,
-credentials, or local source paths. The manual validation namespace was cleaned
-after the check, and the reused Docker Redis container was stopped. No raw Redis
-keys, cached payloads, private paths, or private wiki snippets are stored in
-this spec.
+The gate passed. Diagnostics did not expose raw Redis URLs, credentials, query
+parameters, tokens, or local source paths. The manual validation namespace was
+cleaned after the check, and the reused Docker Redis container was stopped. No
+raw Redis keys, cached payloads, private paths, or private wiki snippets are
+stored in this spec.
 
 ## Skipped Or Deferred
 
 - RedisVL and embedding-backed semantic search are deferred.
 - Multi-root serving is deferred to a separate source registry design.
-- Stable diagnostics schema guarantees beyond the current OpenAPI model are
-  deferred until an operator workflow depends on them.
+- Diagnostics schema guarantees beyond `backend_kind` and sanitized `endpoint`
+  are deferred until another operator workflow depends on them.
