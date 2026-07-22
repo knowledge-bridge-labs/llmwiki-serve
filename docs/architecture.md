@@ -164,9 +164,14 @@ If Redis is unavailable and `--redis-failure-policy fallback-local` is used, the
 server falls back to process memory. Use `--redis-failure-policy fail-fast` when
 operators want startup or runtime Redis failures to stop the process instead.
 
-`GET /diagnostics/projection-store` reports backend status, namespace, cache
-source id, availability, and the last backend error without exposing Redis URLs,
-credentials, or local source paths.
+`GET /diagnostics/projection-store` reports backend status, a stable
+`backend_kind` of `memory` or `redis`, namespace, cache source id,
+availability, and the last backend error. Memory diagnostics return
+`endpoint: null`. Redis diagnostics return a sanitized endpoint label containing
+only non-secret connection location details, such as scheme, host, port, and
+database path. The endpoint label strips userinfo, passwords, query parameters,
+and fragments, and diagnostics do not expose raw Redis URLs, Redis payloads, or
+local source paths.
 
 Runtime prompt, conversation history, prefix-cache, model-session caches, and
 orchestration state belong to host agents, `llmwiki-agent-bridge`,

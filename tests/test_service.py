@@ -713,11 +713,33 @@ def test_cli_uses_projection_store_env_namespace_and_source_id(monkeypatch) -> N
     assert captured["port"] == 8765
     assert captured["diagnostics"] == {
         "backend": "InMemoryProjectionStore",
+        "backend_kind": "memory",
+        "endpoint": None,
         "namespace": "env-namespace",
         "cache_source_id": "env-source",
         "available": True,
         "last_error": "",
     }
+
+
+def test_projection_store_diagnostics_memory_backend_kind_and_no_endpoint() -> None:
+    client = TestClient(
+        create_app(
+            FIXTURE,
+            projection_store=InMemoryProjectionStore(),
+            cache_namespace="pytest",
+            source_id="sample-packaging-llmwiki",
+        )
+    )
+
+    diagnostics = client.get("/diagnostics/projection-store").json()
+
+    assert diagnostics["backend"] == "InMemoryProjectionStore"
+    assert diagnostics["backend_kind"] == "memory"
+    assert diagnostics["endpoint"] is None
+    assert diagnostics["namespace"] == "pytest"
+    assert diagnostics["cache_source_id"] == "sample-packaging-llmwiki"
+    assert diagnostics["available"] is True
 
 
 def test_publication_frontmatter_filters_default_surfaces(tmp_path: Path) -> None:
@@ -1751,12 +1773,13 @@ def test_redis_projection_store_falls_back_to_local_memory_after_client_failure(
 
 
 def test_redis_projection_store_fail_fast_raises_redacted_error() -> None:
+    sensitive_path = "C:/llmwiki-fixtures/non-sensitive/projection-cache.rdb"
     store = RedisProjectionStore(
         url="redis://:secret@example.invalid/0",
         failure_policy="fail-fast",
         client=FakeRedisClient(
             fail=True,
-            failure_message="redis://:secret@example.invalid/0 C:/Users/angel/private",
+            failure_message=f"redis://:secret@example.invalid/0 {sensitive_path}",
         ),
     )
     record = ProjectionRecord(
@@ -1775,15 +1798,16 @@ def test_redis_projection_store_fail_fast_raises_redacted_error() -> None:
     assert "backend operation failed" in error
     assert "secret" not in error
     assert "example.invalid" not in error
-    assert "C:/Users/angel" not in error
+    assert sensitive_path not in error
 
 
 def test_redis_projection_store_http_fallback_matches_default_payloads() -> None:
+    sensitive_path = "C:/llmwiki-fixtures/non-sensitive/projection-cache.rdb"
     store = RedisProjectionStore(
         url="redis://:secret@example.invalid/0",
         client=FakeRedisClient(
             fail=True,
-            failure_message="redis://:secret@example.invalid/0 C:/Users/angel/private",
+            failure_message=f"redis://:secret@example.invalid/0 {sensitive_path}",
         ),
     )
     fallback_client = TestClient(
@@ -1810,9 +1834,10 @@ def test_redis_projection_store_http_fallback_matches_default_payloads() -> None
     encoded = json.dumps(diagnostics)
 
     assert diagnostics["available"] is False
+    assert diagnostics["backend_kind"] == "redis"
+    assert diagnostics["endpoint"] == "redis://example.invalid/0"
     assert "secret" not in encoded
-    assert "example.invalid" not in encoded
-    assert "C:/Users/angel" not in encoded
+    assert sensitive_path not in encoded
 
 
 def test_redis_projection_store_missing_extra_error_is_actionable(monkeypatch) -> None:
@@ -1849,12 +1874,63 @@ def test_projection_store_diagnostics_redacts_redis_url_and_local_root() -> None
     encoded = json.dumps(diagnostics)
 
     assert diagnostics["backend"] == "RedisProjectionStore"
+    assert diagnostics["backend_kind"] == "redis"
+    assert diagnostics["endpoint"] == "redis://example.invalid/0"
     assert diagnostics["namespace"] == "pytest"
     assert diagnostics["cache_source_id"] == "sample-packaging-llmwiki"
     assert diagnostics["available"] is False
     assert "secret" not in encoded
-    assert "example.invalid" not in encoded
     assert str(FIXTURE) not in encoded
+
+
+def test_projection_store_diagnostics_redis_backend_kind_and_safe_endpoint() -> None:
+    client = TestClient(
+        create_app(
+            FIXTURE,
+            projection_store=RedisProjectionStore(
+                url="redis://127.0.0.1:16379/15",
+                client=FakeRedisClient(),
+            ),
+            cache_namespace="pytest",
+            source_id="sample-packaging-llmwiki",
+        )
+    )
+
+    diagnostics = client.get("/diagnostics/projection-store").json()
+
+    assert diagnostics["backend"] == "RedisProjectionStore"
+    assert diagnostics["backend_kind"] == "redis"
+    assert diagnostics["endpoint"] == "redis://127.0.0.1:16379/15"
+    assert diagnostics["available"] is True
+
+
+def test_projection_store_diagnostics_redacts_redis_endpoint_secrets() -> None:
+    client = TestClient(
+        create_app(
+            FIXTURE,
+            projection_store=RedisProjectionStore(
+                url=(
+                    "redis://diagnostics-user:password-secret@redis.example.invalid:6380/2"
+                    "?token=query-token-secret&client_name=diagnostics-client-secret"
+                ),
+                client=FakeRedisClient(),
+            ),
+            cache_namespace="pytest",
+            source_id="sample-packaging-llmwiki",
+        )
+    )
+
+    diagnostics = client.get("/diagnostics/projection-store").json()
+    encoded = json.dumps(diagnostics)
+
+    assert diagnostics["backend_kind"] == "redis"
+    assert diagnostics["endpoint"] == "redis://redis.example.invalid:6380/2"
+    assert "diagnostics-user" not in encoded
+    assert "password-secret" not in encoded
+    assert "query-token-secret" not in encoded
+    assert "diagnostics-client-secret" not in encoded
+    assert "token" not in encoded
+    assert "client_name" not in encoded
 
 
 def test_projection_store_uses_new_cache_key_after_source_change(tmp_path: Path) -> None:

@@ -381,9 +381,12 @@ The public health endpoint can remain simple, while diagnostics can show:
 - namespace,
 - last cache hit/miss,
 - last fallback reason,
-- current source id and bundle id.
+- current source id and bundle id,
+- a sanitized Redis endpoint label for UI status cards.
 
-Avoid exposing credentials, local paths, or Redis URLs containing passwords.
+Avoid exposing credentials, local paths, raw Redis URLs, query parameters, raw
+keys, or cached payloads. Sanitized endpoint labels should strip userinfo,
+passwords, query parameters, and fragments.
 
 ### Tests
 
@@ -510,7 +513,9 @@ Every query must filter by:
   treat Redis as sensitive storage and enforce draft filtering after hydration
   with strong tests.
 - Network manifests should continue redacting local roots.
-- Redis URLs with passwords must be redacted from logs and diagnostics.
+- Raw Redis URLs and Redis URLs with passwords must be redacted from logs and
+  diagnostics. Diagnostics may expose a sanitized endpoint label for UI status
+  cards.
 - Production docs should mention Redis/Valkey network exposure, auth, TLS, and
   backup policies.
 - Redis records are not automatically expired in the current projection-store
@@ -584,8 +589,8 @@ Redis validation has been completed with sanitized details only:
 - Manual smoke covered `/manifest`, `/query`, and
   `/diagnostics/projection-store` with explicit namespace/source id and
   `--redis-failure-policy fail-fast`.
-- Diagnostics did not expose the Redis URL, port, credentials, or local root
-  path.
+- Diagnostics did not expose a raw Redis URL, credentials, query parameters, or
+  local root path.
 - Manual namespace keys were cleaned after non-sensitive inspection and the
   container was stopped.
 

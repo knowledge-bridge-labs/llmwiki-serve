@@ -12,6 +12,8 @@
 - [x] Add fallback-local and fail-fast failure policies.
 - [x] Treat corrupt or mismatched payloads as cache misses.
 - [x] Add redacted `/diagnostics/projection-store` endpoint.
+- [x] Add stable diagnostics `backend_kind` and sanitized Redis `endpoint`
+  fields for UI status cards.
 - [x] Update README and architecture docs for Redis operator posture.
 - [x] Update release checklist for optional Redis validation and PyPI notes.
 - [x] Run optional live Redis validation before a Redis-affecting release.
@@ -47,8 +49,8 @@ Redis release-candidate live validation recorded on 2026-07-22:
 - Manual smoke with explicit namespace/source id and `fail-fast` Redis policy
   covered `/manifest`, `/query`, and
   `/diagnostics/projection-store`.
-- Diagnostics redaction passed; no Redis URL, port, credential, local root, raw
-  key, cached payload, or private wiki snippet was recorded.
+- Diagnostics redaction passed; no raw Redis URL, credential, query parameter,
+  local root, raw key, cached payload, or private wiki snippet was recorded.
 - Manual namespace keys were deleted after the smoke, and the reused Docker
   Redis container was stopped.
 

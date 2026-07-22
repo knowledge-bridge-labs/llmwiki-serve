@@ -311,6 +311,10 @@ details unless documented here.
   Redis deployments collision-free. Treat Redis as sensitive storage: cached
   projections may include derived page text and front matter, including draft
   pages that are still filtered from network responses by the serving layer.
+  `GET /diagnostics/projection-store` reports a stable `backend_kind` of
+  `memory` or `redis`. Memory diagnostics return `endpoint: null`; Redis
+  diagnostics return a sanitized endpoint label with userinfo, query
+  parameters, and fragments removed.
 - Draft and unpublished pages are withheld by default from read, search,
   context, and graph responses. Visibility blocks explicit non-serving markers:
   `draft: true`, `published: false`, `publish: false`,
@@ -412,7 +416,7 @@ normal network responses still withhold. The current implementation keys
 records by projection signature and does not apply an automatic TTL. If content
 is deleted, renamed, or reclassified from draft/private to another state,
 operators should use Redis eviction/TTL policy, rotate `--cache-namespace`, or
-perform namespace cleanup during maintenance. Do not paste Redis URLs,
+perform namespace cleanup during maintenance. Do not paste raw Redis URLs,
 credentials, raw keys, cached values, or private snippets into release notes,
 issues, or diagnostics screenshots.
 
@@ -420,6 +424,13 @@ issues, or diagnostics screenshots.
 runtime prompt, history, and prefix-cache behavior. Keep those caches in the
 runtime, bridge, or workbench layer; `llmwiki-serve[redis]` only caches the
 read-only source projection.
+
+For UI status cards, `GET /diagnostics/projection-store` keeps the existing
+diagnostic fields and adds `backend_kind` plus `endpoint`. `backend_kind` is
+`memory` or `redis`; `endpoint` is `null` for memory and a sanitized Redis label
+such as `redis://127.0.0.1:6379/0` for Redis. The label never includes Redis
+userinfo, passwords, query parameters, fragments, local file paths, keys, or
+payloads.
 
 ## Repository Structure
 

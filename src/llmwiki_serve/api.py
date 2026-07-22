@@ -125,6 +125,8 @@ class HealthResponse(BaseModel):
 
 class ProjectionStoreDiagnosticsResponse(BaseModel):
     backend: str
+    backend_kind: Literal["memory", "redis"]
+    endpoint: str | None
     namespace: str
     cache_source_id: str
     available: bool

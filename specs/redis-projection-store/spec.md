@@ -36,8 +36,10 @@ storage location.
 - Do not add RedisVL, embeddings, vector ranking, or semantic search in this
   slice.
 - Do not merge multiple source roots into one served source.
-- Do not expose Redis URLs, credentials, local roots, or raw Redis payloads in
-  public responses.
+- Do not expose raw Redis URLs, credentials, local roots, or raw Redis payloads
+  in public responses. A sanitized Redis endpoint label may be exposed for
+  operator/UI diagnostics when userinfo, passwords, query parameters, and
+  fragments are stripped.
 
 ## Requirements
 
@@ -77,8 +79,12 @@ storage location.
   source-id mismatches, or projection-signature mismatches are cache misses and
   should rebuild from disk rather than serving untrusted data.
 - `REQ-REDIS-014`: `GET /diagnostics/projection-store` reports backend,
-  namespace, cache source id, availability, and last error without exposing
-  Redis URLs, credentials, or local root paths.
+  stable `backend_kind`, sanitized `endpoint`, namespace, cache source id,
+  availability, and last error. Memory diagnostics return `backend_kind:
+  "memory"` and `endpoint: null`. Redis diagnostics return `backend_kind:
+  "redis"` and a safe endpoint label such as `redis://127.0.0.1:6379/0`.
+  Diagnostics must not expose raw Redis URLs, userinfo, passwords, query
+  parameters, fragments, raw payloads, or local root paths.
 - `REQ-REDIS-015`: Redis and memory stores return equivalent public payloads for
   manifest, source bundle, query, search, read, graph, MCP, and MCP Streamable
   HTTP surfaces for the same source generation.
@@ -134,8 +140,8 @@ frontmatter values, graph metadata, and source-reference labels. Network draft
 filtering still happens after hydration, so a Redis operator who can inspect
 the database may see data that default HTTP/MCP responses withhold.
 
-Do not publish Redis URLs, passwords, raw keys, cached values, local root paths,
-or private wiki snippets in release notes, issue comments, diagnostics
+Do not publish raw Redis URLs, passwords, raw keys, cached values, local root
+paths, or private wiki snippets in release notes, issue comments, diagnostics
 screenshots, or generated artifacts. Use isolated namespaces per deployment and
 secure Redis/Valkey with appropriate network isolation, authentication, TLS, and
 backup retention policies.

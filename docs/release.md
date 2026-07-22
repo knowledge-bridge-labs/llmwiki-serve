@@ -56,8 +56,9 @@ versioned release or public release candidate.
 
    For releases that change the optional Redis/Valkey projection store, also
    run the Redis gate against a non-sensitive fixture and an isolated namespace.
-   This gate is optional for unrelated releases and must not publish Redis URLs,
-   credentials, raw keys, cached values, local paths, or private wiki snippets:
+   This gate is optional for unrelated releases and must not publish raw Redis
+   URLs, credentials, raw keys, cached values, local paths, or private wiki
+   snippets:
 
    ```bash
    uv sync --extra dev --extra redis
@@ -68,8 +69,9 @@ versioned release or public release candidate.
 
    Manual Redis smoke, if used, should start the server with explicit
    `--cache-namespace`, `--source-id`, and `--redis-failure-policy fail-fast`,
-   then verify `/diagnostics/projection-store` redacts the Redis URL,
-   credentials, and local root path. Treat Redis as sensitive derived storage:
+   then verify `/diagnostics/projection-store` reports `backend_kind: "redis"`
+   and only a sanitized endpoint label with userinfo, passwords, query
+   parameters, and fragments removed. Treat Redis as sensitive derived storage:
    cached projections may include page text, front matter, source refs, graph
    metadata, and draft pages even when network responses withhold drafts. Also
    confirm the operator has a retention plan: Redis keys are projection
@@ -84,8 +86,9 @@ versioned release or public release candidate.
    `tests/test_redis_projection_store_integration.py`, and a manual smoke for
    `/manifest`, `/query`, and `/diagnostics/projection-store`. Diagnostics
    redaction passed, the manual namespace keys were cleaned up, and the
-   container was stopped after the check. No Redis URL, port, credential, raw
-   key, cached payload, private path, or wiki snippet was recorded.
+   container was stopped after the check. No raw Redis URL, credential, query
+   parameter, raw key, cached payload, private path, or wiki snippet was
+   recorded.
 
    On Windows, stop any `llmwiki-serve` process that is running from this
    checkout before invoking `uv run` release gates. A running console script can

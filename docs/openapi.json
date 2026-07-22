@@ -595,9 +595,28 @@
             "title": "Backend",
             "type": "string"
           },
+          "backend_kind": {
+            "enum": [
+              "memory",
+              "redis"
+            ],
+            "title": "Backend Kind",
+            "type": "string"
+          },
           "cache_source_id": {
             "title": "Cache Source Id",
             "type": "string"
+          },
+          "endpoint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Endpoint"
           },
           "last_error": {
             "default": "",
@@ -611,6 +630,8 @@
         },
         "required": [
           "backend",
+          "backend_kind",
+          "endpoint",
           "namespace",
           "cache_source_id",
           "available"

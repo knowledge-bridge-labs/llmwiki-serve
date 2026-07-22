@@ -62,6 +62,7 @@ def test_openapi_contract_covers_core_http_response_models() -> None:
     ]["application/json"]["schema"]
     health_schema = schema["components"]["schemas"]["HealthResponse"]
     health_endpoints_schema = schema["components"]["schemas"]["HealthEndpointsResponse"]
+    projection_store_schema = schema["components"]["schemas"]["ProjectionStoreDiagnosticsResponse"]
 
     assert query_response["$ref"] == "#/components/schemas/ContextPack"
     assert graph_response["$ref"] == "#/components/schemas/GraphResponse"
@@ -84,6 +85,18 @@ def test_openapi_contract_covers_core_http_response_models() -> None:
         "a2a_agent_card",
         "a2a_message_send",
     } <= set(health_endpoints_schema["required"])
+    assert {"backend_kind", "endpoint"} <= set(projection_store_schema["properties"])
+    assert {
+        "backend",
+        "backend_kind",
+        "endpoint",
+        "namespace",
+        "cache_source_id",
+        "available",
+    } <= set(projection_store_schema["required"])
+    assert projection_store_schema["properties"]["backend_kind"]["enum"] == ["memory", "redis"]
+    assert {"type": "string"} in projection_store_schema["properties"]["endpoint"]["anyOf"]
+    assert {"type": "null"} in projection_store_schema["properties"]["endpoint"]["anyOf"]
     assert (
         schema["paths"]["/read/{page_id}"]["get"]["responses"]["404"]["content"][
             "application/json"
