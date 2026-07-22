@@ -24,6 +24,12 @@ from .models import (
     WikiManifest,
 )
 from .projection import canonical_relation, normalize_key, project_wiki, slug
+from .projection_store import (
+    InMemoryProjectionStore,
+    ProjectionKey,
+    ProjectionRecord,
+    ProjectionStore,
+)
 from .search import SearchCorpus, build_search_corpus, context_orientation, search_corpus
 
 SourceSignature = tuple[tuple[str, int, int], ...]
@@ -58,12 +64,18 @@ class LlmWikiService:
         *,
         refresh_interval_seconds: float = 0.0,
         producer_manifest_path: Path | str | None = None,
+        projection_store: ProjectionStore | None = None,
+        cache_namespace: str = "default",
+        source_id: str | None = None,
         clock: Callable[[], float] | None = None,
     ) -> None:
         if refresh_interval_seconds < 0:
             raise ValueError("refresh_interval_seconds must be non-negative")
         self.root = Path(root)
         self.refresh_interval_seconds = refresh_interval_seconds
+        self.projection_store = projection_store or InMemoryProjectionStore()
+        self.cache_namespace = cache_namespace
+        self.explicit_source_id = source_id
         self._clock = clock or time.monotonic
         self._last_refresh_check: float | None = None
         self._index: WikiIndex | None = None
@@ -86,6 +98,7 @@ class LlmWikiService:
             return self._index
 
         snapshot = self._signature_cache.current_snapshot(refresh=refresh)
+        projection_signature = projection_signature_digest(snapshot.projection_signature)
         if (
             self._index is None
             or refresh
@@ -93,7 +106,22 @@ class LlmWikiService:
             or snapshot.projection_signature != self._projection_signature
             or snapshot.freshness_signature != self._freshness_signature
         ):
-            self._index = project_wiki(load_wiki(self.root))
+            key = ProjectionKey(
+                namespace=self.cache_namespace,
+                source_id=self._cache_source_id(),
+                projection_signature=projection_signature,
+            )
+            record = None if refresh else self.projection_store.get(key, root=self.root)
+            if record is None:
+                index = project_wiki(load_wiki(self.root))
+                key = ProjectionKey(
+                    namespace=self.cache_namespace,
+                    source_id=self._cache_source_id(),
+                    projection_signature=projection_signature,
+                )
+                record = ProjectionRecord(key=key, index=index)
+                self.projection_store.put(record)
+            self._index = record.index
             self._views = None
             self._signature = snapshot.signature
             self._projection_signature = snapshot.projection_signature
@@ -129,7 +157,7 @@ class LlmWikiService:
         ]
         if enable_a2a_compat:
             capabilities.append("a2a-message")
-        source_id = source_id_for_index(index)
+        source_id = self._source_id_for_index(index)
         projection_signature = projection_signature_digest(self._projection_signature or ())
         bundle_id = source_bundle_id(source_id, projection_signature)
         return WikiManifest(
@@ -156,6 +184,12 @@ class LlmWikiService:
             raw_origins=raw_origins_metadata(index),
             capabilities=capabilities,
         )
+
+    def _source_id_for_index(self, index: WikiIndex) -> str:
+        return self.explicit_source_id or source_id_for_index(index)
+
+    def _cache_source_id(self) -> str:
+        return self.explicit_source_id or source_id_for_root(self.root)
 
     def context(self, query: str, *, limit: int = 8, include_drafts: bool = False) -> ContextPack:
         index = self.index()
@@ -204,7 +238,7 @@ class LlmWikiService:
             if page.id == page_id or page.path == page_id:
                 if not include_drafts and not page.approved_for_serving:
                     return {"found": False, "reason": "not approved for serving"}
-                return page.model_dump()
+                return page.model_dump(mode="json")
         return {"found": False}
 
     def source_refs(self, *, include_drafts: bool = False) -> SourceRefsResponse:
@@ -257,6 +291,15 @@ class LlmWikiService:
             capabilities=manifest.capabilities,
             source_refs=source_refs.source_refs,
         )
+
+    def projection_store_diagnostics(self) -> dict[str, Any]:
+        return {
+            "backend": self.projection_store.__class__.__name__,
+            "namespace": self.cache_namespace,
+            "cache_source_id": self._cache_source_id(),
+            "available": getattr(self.projection_store, "available", True),
+            "last_error": getattr(self.projection_store, "last_error", ""),
+        }
 
     def graph(
         self, *, limit: int = 500, include_drafts: bool = False
@@ -589,6 +632,10 @@ def references_any_path(value: Any, paths: set[str]) -> bool:
 
 def source_id_for_index(index: WikiIndex) -> str:
     return slug(index.title or index.root.name).lower()
+
+
+def source_id_for_root(root: Path) -> str:
+    return slug(root.name).lower()
 
 
 def projection_signature_digest(signature: _ProjectionSignature) -> str:

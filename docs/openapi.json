@@ -585,6 +585,39 @@
         "title": "ProjectionMetadata",
         "type": "object"
       },
+      "ProjectionStoreDiagnosticsResponse": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "backend": {
+            "title": "Backend",
+            "type": "string"
+          },
+          "cache_source_id": {
+            "title": "Cache Source Id",
+            "type": "string"
+          },
+          "last_error": {
+            "default": "",
+            "title": "Last Error",
+            "type": "string"
+          },
+          "namespace": {
+            "title": "Namespace",
+            "type": "string"
+          }
+        },
+        "required": [
+          "backend",
+          "namespace",
+          "cache_source_id",
+          "available"
+        ],
+        "title": "ProjectionStoreDiagnosticsResponse",
+        "type": "object"
+      },
       "QueryRequest": {
         "properties": {
           "include_drafts": {
@@ -1080,10 +1113,28 @@
   "info": {
     "description": "Read-only HTTP, MCP-style JSON-RPC, MCP Streamable HTTP, and optional A2A-style message surface for LLMWiki Markdown folders.",
     "title": "LLMWiki Serve",
-    "version": "0.2.0"
+    "version": "0.2.1"
   },
   "openapi": "3.1.0",
   "paths": {
+    "/diagnostics/projection-store": {
+      "get": {
+        "operationId": "projection_store_diagnostics_diagnostics_projection_store_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectionStoreDiagnosticsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Projection Store Diagnostics"
+      }
+    },
     "/graph": {
       "get": {
         "operationId": "graph_graph_get",

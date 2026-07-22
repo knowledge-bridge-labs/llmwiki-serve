@@ -13,10 +13,10 @@
   materially expanded.
 - [ ] Add a fixture helper that can run the same loop against service, HTTP, and
   MCP surfaces without copying mutation setup.
-- [ ] Refresh `PA-010` before implementing watcher, Redis, or provider
+- [ ] Refresh `PA-010` before implementing watcher or provider
   expansion when dependency, platform, or source-boundary assumptions change.
 - [ ] Fill watcher dirty-flag rows when a watcher provider interface exists.
-- [ ] Fill Redis projection cache rows when a cache key and storage boundary are
+- [x] Fill Redis projection cache rows when a cache key and storage boundary are
   implemented.
 
 ## Validation
