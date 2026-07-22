@@ -154,6 +154,11 @@ cached projections can include page text and front matter, including draft pages
 that network responses withhold unless draft access is explicitly enabled.
 Operators should secure Redis with the same care as the source wiki, isolate
 namespaces per deployment, and avoid shared or untrusted Redis instances.
+Redis records are keyed by projection signature and are not automatically
+expired by `llmwiki-serve`. If a deployment needs bounded retention after pages
+are deleted, renamed, or reclassified, configure Redis/Valkey eviction or TTL
+policy, rotate `--cache-namespace`, or delete the deployment namespace during
+maintenance.
 
 If Redis is unavailable and `--redis-failure-policy fallback-local` is used, the
 server falls back to process memory. Use `--redis-failure-policy fail-fast` when
@@ -162,6 +167,13 @@ operators want startup or runtime Redis failures to stop the process instead.
 `GET /diagnostics/projection-store` reports backend status, namespace, cache
 source id, availability, and the last backend error without exposing Redis URLs,
 credentials, or local source paths.
+
+Runtime prompt, conversation history, prefix-cache, model-session caches, and
+orchestration state belong to host agents, `llmwiki-agent-bridge`,
+`llmwiki-chat`, Hermes, DeepAgents, or another runtime/workbench layer. Redis in
+`llmwiki-serve` is only the read-only source projection cache; RedisVL,
+semantic/vector search, and cross-source orchestration require a separate
+design boundary.
 
 ## Compatible Output Targets
 

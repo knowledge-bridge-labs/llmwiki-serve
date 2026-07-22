@@ -24,6 +24,9 @@
 - `REQ-REDIS-015`: Redis-backed and memory-backed services return equivalent
   manifest, query, search, read, graph, MCP, and MCP Streamable HTTP payloads
   for the same source generation.
+- `REQ-REDIS-016`: README, architecture, release, and spec docs distinguish
+  Redis projection caching from runtime prompt/history/prefix caches and
+  document retention options for stale derived records.
 
 ## Unit / Integration Tests
 
@@ -57,6 +60,24 @@
   path is present.
 - Inspect Redis keys and payloads only on non-sensitive fixtures; do not paste
   raw values into public release artifacts.
+- Confirm the operator retention path is documented. The current implementation
+  does not set an automatic TTL, so release docs should mention Redis/Valkey
+  eviction or TTL policy, namespace rotation, or namespace deletion for stale
+  projection records.
+
+## Redis Release-Candidate Evidence
+
+On 2026-07-22, the Redis projection-store release candidate was validated with
+the gated live integration test against a non-sensitive sample wiki and a
+loopback Docker Redis database. A separate manual smoke used explicit
+namespace/source-id settings and `fail-fast` policy, then checked `/manifest`,
+`/query`, and `/diagnostics/projection-store`.
+
+The gate passed. Diagnostics did not expose Redis URL details, port,
+credentials, or local source paths. The manual validation namespace was cleaned
+after the check, and the reused Docker Redis container was stopped. No raw Redis
+keys, cached payloads, private paths, or private wiki snippets are stored in
+this spec.
 
 ## Skipped Or Deferred
 

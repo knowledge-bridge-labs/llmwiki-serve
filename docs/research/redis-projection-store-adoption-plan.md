@@ -1,7 +1,8 @@
 # Redis Projection Store Adoption Plan
 
 Status: implemented for optional projection-store Redis/Valkey cache; RedisVL
-semantic search remains deferred
+semantic search remains deferred; production docs and live Redis validation are
+recorded with sanitized details
 Date: 2026-07-14
 Scope: `llmwiki-serve` production hardening
 Out of scope: mem0-backed projection storage
@@ -11,7 +12,11 @@ Decision alignment as of 2026-07-22: the accepted boundary is recorded in
 Redis/Valkey is an optional derived projection cache only. It is not source of
 truth, not a freshness authority, and not part of the default install. Redis
 payloads are sensitive because they may include derived page text,
-frontmatter, source refs, graph metadata, and drafts.
+frontmatter, source refs, graph metadata, and drafts. It is not orchestration
+state, prompt/history cache, semantic/vector index, or agent memory; those
+belong in bridge/chat/runtime systems such as `llmwiki-agent-bridge`,
+`llmwiki-chat`, Hermes/DeepAgents, or the model runtime that owns conversation
+state.
 
 ## Summary
 
@@ -49,6 +54,8 @@ after the projection-store contract is stable.
 - Do not make Redis or RedisVL required for the quickstart.
 - Do not make Redis authoritative for pages, graph facts, review state, or
   source refs.
+- Do not put prompt/history memory, runtime traces, orchestration state, prefix
+  caches, or agent session state in `llmwiki-serve` Redis.
 - Do not merge multiple graphs into one graph in this work.
 - Do not change the default search ranking semantics in the first Redis PR.
 - Do not expose local filesystem paths in Redis keys or network responses.
@@ -506,6 +513,10 @@ Every query must filter by:
 - Redis URLs with passwords must be redacted from logs and diagnostics.
 - Production docs should mention Redis/Valkey network exposure, auth, TLS, and
   backup policies.
+- Redis records are not automatically expired in the current projection-store
+  release. Operators should use Redis/Valkey eviction or TTL policy, rotate
+  namespaces, or delete a deployment namespace when stale derived payload
+  retention matters.
 
 ## PR Breakdown
 
@@ -541,7 +552,7 @@ Every query must filter by:
 ### PR 5: Production Docs
 
 - Add deployment guide for memory vs Redis/Valkey.
-- Add Docker Compose sample for Redis/Valkey.
+- Add Docker/managed Redis/Valkey guidance.
 - Add operational checklist.
 
 ### PR 6: RedisVL Spike
@@ -559,11 +570,24 @@ Every query must filter by:
 | Should `source_id` be derived, explicit, or required when Redis is enabled? | Explicit `--source-id` is recommended for shared Redis deployments; the default remains derived for compatibility. |
 | Should Redis integration tests use Docker, a fake Redis, or testcontainers? | Unit tests use a fake Redis client; optional live integration tests run only when `LLMWIKI_REDIS_URL` is set. |
 | Should diagnostics be public `/diagnostics/*`, CLI-only, or local-only? | Current endpoint is `GET /diagnostics/projection-store` with redacted fields only. |
+| Should Redis projection payloads expire automatically? | No automatic TTL is implemented in this slice; eviction, retention, database cleanup, and namespace cleanup are operator-managed. |
 | Should RedisVL live in `llmwiki-serve` or in `llmwiki-agent-bridge` as an aggregator-side search enhancement? | Still open and deferred; RedisVL needs its own ADR/spec because it changes retrieval behavior. |
 | How should enterprise metadata and raw-origin hints be represented in Redis keys and vector metadata? | Still open and deferred; current Redis projection keys use schema version, namespace, source id, and projection signature only. |
 
-## Recommended Next Step
+## Release Validation
 
-For the current Redis PR, finish production documentation and run the optional
-live Redis validation before a Redis-affecting release. Keep RedisVL and
-enterprise/vector metadata design separate from the projection-cache boundary.
+For the current Redis PR, production documentation has been refreshed and live
+Redis validation has been completed with sanitized details only:
+
+- `tests/test_redis_projection_store_integration.py` passed against an isolated
+  local Docker Redis instance on a loopback database.
+- Manual smoke covered `/manifest`, `/query`, and
+  `/diagnostics/projection-store` with explicit namespace/source id and
+  `--redis-failure-policy fail-fast`.
+- Diagnostics did not expose the Redis URL, port, credentials, or local root
+  path.
+- Manual namespace keys were cleaned after non-sensitive inspection and the
+  container was stopped.
+
+Keep RedisVL and enterprise/vector metadata design separate from the
+projection-cache boundary.

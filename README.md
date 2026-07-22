@@ -341,6 +341,86 @@ Review [SECURITY.md](SECURITY.md) before exposing a wiki beyond a trusted local
 environment. Use [SUPPORT.md](SUPPORT.md) for issue routing and compatibility
 report expectations.
 
+## Optional Redis/Valkey Projection Cache
+
+Most users should start without Redis:
+
+```bash
+pip install llmwiki-serve
+llmwiki-serve serve ./wiki --host 127.0.0.1 --port 8765
+```
+
+Use Redis or Valkey only when a long-running deployment needs to reuse the same
+derived projection across worker processes, cold restarts, or repeated service
+instances. Redis does not make source queries semantically smarter, does not
+replace file freshness checks, is not the source of truth, and does not store
+conversation history, orchestration state, or model prompt caches.
+
+Install the optional extra and pass an explicit namespace and source id for
+shared deployments:
+
+```bash
+pip install "llmwiki-serve[redis]"
+llmwiki-serve serve ./wiki \
+  --projection-store redis \
+  --redis-url redis://127.0.0.1:6379/0 \
+  --cache-namespace acme-prod \
+  --source-id project-alpha \
+  --redis-failure-policy fail-fast
+```
+
+Environment variables are available for process managers and containers:
+
+```text
+LLMWIKI_PROJECTION_STORE=redis
+LLMWIKI_REDIS_URL=redis://127.0.0.1:6379/0
+LLMWIKI_CACHE_NAMESPACE=acme-prod
+LLMWIKI_SOURCE_ID=project-alpha
+```
+
+Failure policy is CLI-only, so add it to the server start command when using
+environment-based Redis configuration:
+
+```bash
+llmwiki-serve serve ./wiki --redis-failure-policy fail-fast
+```
+
+`--redis-failure-policy fallback-local` is the default and keeps serving from
+process memory after a Redis client failure. Use `fail-fast` when production
+operators require shared-cache availability and want misconfiguration or Redis
+outages to stop the server.
+
+For local Docker validation, use a non-sensitive fixture and an isolated
+namespace:
+
+```bash
+docker run -d --rm --name llmwiki-projection-cache \
+  -p 127.0.0.1:6379:6379 \
+  valkey/valkey:8
+LLMWIKI_REDIS_URL=redis://127.0.0.1:6379/0 \
+  uv run pytest -q tests/test_redis_projection_store_integration.py
+docker stop llmwiki-projection-cache
+```
+
+For managed Redis or Valkey, use network isolation, authentication, TLS where
+available, deployment secrets for URLs, and deployment-specific namespaces. Do
+not point a public or shared untrusted Redis instance at private wiki content.
+
+Redis payloads are sensitive derived storage. Cached projections can include
+page text, front matter, source refs, graph metadata, and draft pages that
+normal network responses still withhold. The current implementation keys
+records by projection signature and does not apply an automatic TTL. If content
+is deleted, renamed, or reclassified from draft/private to another state,
+operators should use Redis eviction/TTL policy, rotate `--cache-namespace`, or
+perform namespace cleanup during maintenance. Do not paste Redis URLs,
+credentials, raw keys, cached values, or private snippets into release notes,
+issues, or diagnostics screenshots.
+
+`llmwiki-agent-bridge`, `llmwiki-chat`, Hermes, DeepAgents, and host agents own
+runtime prompt, history, and prefix-cache behavior. Keep those caches in the
+runtime, bridge, or workbench layer; `llmwiki-serve[redis]` only caches the
+read-only source projection.
+
 ## Repository Structure
 
 | Path | Purpose |

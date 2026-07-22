@@ -71,7 +71,21 @@ versioned release or public release candidate.
    then verify `/diagnostics/projection-store` redacts the Redis URL,
    credentials, and local root path. Treat Redis as sensitive derived storage:
    cached projections may include page text, front matter, source refs, graph
-   metadata, and draft pages even when network responses withhold drafts.
+   metadata, and draft pages even when network responses withhold drafts. Also
+   confirm the operator has a retention plan: Redis keys are projection
+   signature based and are not automatically expired by `llmwiki-serve`, so
+   deployments should use Redis/Valkey eviction or TTL policy, rotate
+   `--cache-namespace`, or delete a deployment namespace during maintenance.
+   Record only sanitized pass/fail evidence in release notes or specs.
+
+   Redis projection-store release-candidate validation recorded on 2026-07-22
+   used a non-sensitive sample wiki, a loopback Docker Redis container, an
+   isolated namespace, the gated live integration test
+   `tests/test_redis_projection_store_integration.py`, and a manual smoke for
+   `/manifest`, `/query`, and `/diagnostics/projection-store`. Diagnostics
+   redaction passed, the manual namespace keys were cleaned up, and the
+   container was stopped after the check. No Redis URL, port, credential, raw
+   key, cached payload, private path, or wiki snippet was recorded.
 
    On Windows, stop any `llmwiki-serve` process that is running from this
    checkout before invoking `uv run` release gates. A running console script can
@@ -208,9 +222,10 @@ versioned release or public release candidate.
    release notes should say that `llmwiki-serve[redis]` is optional, the default
    install remains memory-only/no external service, Redis is a derived
    projection cache only, and Redis may contain sensitive derived wiki content
-   including drafts. If the public deployment guide needs broader operator
-   guidance, file or make the follow-up in `llmwiki-docs` without blocking this
-   repository release checklist.
+   including drafts. They should not imply automatic Redis TTL or cleanup
+   unless that behavior is implemented. If the public deployment guide needs
+   broader operator guidance, file or make the follow-up in `llmwiki-docs`
+   without blocking this repository release checklist.
 10. Treat publishing as a maintainer-owner gate. The repository includes a
     Trusted Publishing workflow at `.github/workflows/publish.yml`, but do not
     run it until the repository owner and PyPI project owner have configured the

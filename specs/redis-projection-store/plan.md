@@ -47,6 +47,11 @@ and local CLI manifest behavior remain unchanged.
   Mitigation: validate schema version, namespace, source id, and projection
   signature before hydration; treat invalid payloads as misses.
 
+- Risk: stale derived payloads outlive deleted or reclassified wiki content.
+  Mitigation: document Redis as sensitive storage and require an operator
+  retention path such as Redis/Valkey eviction or TTL policy, namespace
+  rotation, or namespace deletion. Automatic TTL is deferred.
+
 ## Rollout
 
 1. Keep memory as the default and validate no-Redis quickstart behavior.
@@ -58,6 +63,8 @@ and local CLI manifest behavior remain unchanged.
    roots and isolated namespaces.
 7. Update package release notes to call out that `[redis]` is optional and that
    Redis stores sensitive derived projection data.
+8. Keep runtime prompt/history/prefix-cache guidance in bridge/runtime docs;
+   `llmwiki-serve[redis]` is not an orchestration or session cache.
 
 ## LLMWiki Ingestion Candidates
 

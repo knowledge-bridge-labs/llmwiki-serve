@@ -29,6 +29,10 @@ storage location.
 - Do not require Redis for the quickstart or default PyPI install.
 - Do not make Redis authoritative for Markdown pages, sidecar graph facts,
   source refs, review state, source freshness, or producer freshness.
+- Do not store orchestration state, prompt/history memory, runtime traces,
+  prefix caches, or agent session state in `llmwiki-serve` Redis. Those belong
+  in the bridge, chat, Hermes/DeepAgents, or runtime layer that owns model
+  interaction.
 - Do not add RedisVL, embeddings, vector ranking, or semantic search in this
   slice.
 - Do not merge multiple source roots into one served source.
@@ -78,6 +82,10 @@ storage location.
 - `REQ-REDIS-015`: Redis and memory stores return equivalent public payloads for
   manifest, source bundle, query, search, read, graph, MCP, and MCP Streamable
   HTTP surfaces for the same source generation.
+- `REQ-REDIS-016`: User and release documentation must distinguish the Redis
+  projection cache from runtime prompt/history/prefix caches and must document
+  retention options for stale derived records because automatic TTL is not part
+  of this release.
 
 ## User / Agent Flow
 
@@ -131,6 +139,12 @@ or private wiki snippets in release notes, issue comments, diagnostics
 screenshots, or generated artifacts. Use isolated namespaces per deployment and
 secure Redis/Valkey with appropriate network isolation, authentication, TLS, and
 backup retention policies.
+
+`llmwiki-serve` does not automatically expire Redis projection records in this
+release. Operators who need bounded retention after source files are deleted,
+renamed, or reclassified should configure Redis/Valkey eviction or TTL policy,
+rotate `--cache-namespace`, or delete keys for the deployment namespace during
+maintenance.
 
 ## References
 
