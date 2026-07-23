@@ -222,6 +222,26 @@ projection signature, raw-origin metadata, and opaque source references.
 Search, read, graph, and source-ref tools are follow-up tools for focused
 inspection.
 
+MCP server metadata is scoped to the served wiki by default. The FastMCP server
+name, FastMCP instructions, and MCP tool descriptions include the manifest
+title, description, and source identity so clients can distinguish multiple
+wiki servers. Operators can override this text with `create_app(...,
+mcp_server_name=..., mcp_instructions=...,
+mcp_tool_description_prefix=...)`, `llmwiki-serve serve --mcp-title`,
+`--mcp-instructions`, `--mcp-tool-description-prefix`, or the
+`LLMWIKI_MCP_SERVER_NAME` / `LLMWIKI_MCP_TITLE`,
+`LLMWIKI_MCP_INSTRUCTIONS`, and `LLMWIKI_MCP_TOOL_DESCRIPTION_PREFIX`
+environment variables.
+
+Full-graph output is intentionally conservative when callers omit `limit`.
+`/graph`, MCP `llmwiki_graph`, and `LlmWikiService.graph()` default to 100
+nodes; explicit graph requests can still ask for up to 2,000 nodes. Operators
+can tune omitted-limit behavior with `create_app(..., graph_default_limit=...,
+context_default_limit=...)`, `llmwiki-serve serve --graph-default-limit`,
+`--context-default-limit`, or `LLMWIKI_GRAPH_DEFAULT_LIMIT` /
+`LLMWIKI_CONTEXT_DEFAULT_LIMIT`. Use graph-neighborhood tools for focused graph
+inspection before requesting a large full graph.
+
 For CKG-like graph-guided retrieval, agents can call `GET /graph/neighborhood`
 or MCP `llmwiki_graph_neighbors` after `/query` or `llmwiki_context` points to a
 relevant page, source reference, tag, or sidecar graph node. Neighborhood lookup

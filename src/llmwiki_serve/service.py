@@ -55,6 +55,7 @@ IGNORED_SIGNATURE_PARTS = {
     "dist",
     "build",
 }
+DEFAULT_GRAPH_LIMIT = 100
 
 
 class LlmWikiService:
@@ -305,7 +306,7 @@ class LlmWikiService:
         }
 
     def graph(
-        self, *, limit: int = 500, include_drafts: bool = False
+        self, *, limit: int = DEFAULT_GRAPH_LIMIT, include_drafts: bool = False
     ) -> dict[str, list[dict[str, Any]]]:
         return self._index_views().graph_view(include_drafts).payload(limit)
 
