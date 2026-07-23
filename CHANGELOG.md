@@ -7,6 +7,18 @@ This project follows a lightweight public-preview changelog format. Dates use
 
 ## Unreleased
 
+## 0.2.2 - 2026-07-23
+
+- Scoped MCP server names, instructions, and tool descriptions to the served
+  wiki manifest so multi-wiki MCP clients can distinguish sources.
+- Added MCP metadata override knobs for Python callers, CLI operators, and
+  environment-based deployments without changing tool names or response
+  contracts.
+- Lowered omitted full-graph defaults from 500 to 100 nodes while preserving
+  explicit graph requests up to the existing 2,000-node maximum.
+- Added configurable graph/context omitted-limit defaults and advertised those
+  defaults in MCP tool metadata.
+
 ## 0.2.1 - 2026-07-22
 
 - Added an optional Redis/Valkey projection store extra and CLI/env

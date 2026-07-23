@@ -1140,7 +1140,7 @@
   "info": {
     "description": "Read-only HTTP, MCP-style JSON-RPC, MCP Streamable HTTP, and optional A2A-style message surface for LLMWiki Markdown folders.",
     "title": "LLMWiki Serve",
-    "version": "0.2.1"
+    "version": "0.2.2"
   },
   "openapi": "3.1.0",
   "paths": {

@@ -37,7 +37,7 @@ vector store, run a model, synthesize final answers, or mutate your wiki.
 | [Support](SUPPORT.md)
 | [Changelog](CHANGELOG.md)
 
-> Public-preview note: PyPI install is available for `llmwiki-serve==0.2.1`.
+> Public-preview note: PyPI install is available for `llmwiki-serve==0.2.2`.
 > Source checkout remains supported for local development and release smoke tests.
 
 ## Demo
@@ -121,7 +121,7 @@ uv tool install llmwiki-serve
 pipx install llmwiki-serve
 ```
 
-Pin `llmwiki-serve==0.2.1` when you need to reproduce this public-preview
+Pin `llmwiki-serve==0.2.2` when you need to reproduce this public-preview
 release exactly.
 
 ## What It Serves
@@ -470,7 +470,7 @@ knowledge folders. It is Apache-2.0 licensed and is not an official project from
 Andrej Karpathy or any upstream producer named in compatibility examples.
 
 This repository is in public preview. PyPI install is available for
-`llmwiki-serve==0.2.1`, and source checkout remains supported for local
+`llmwiki-serve==0.2.2`, and source checkout remains supported for local
 development and release smoke tests. Use the hosted docs and Release Status &
 Compatibility matrix for the current package and protocol posture.
 
