@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import re
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, cast
 
@@ -30,10 +31,11 @@ from .models import (
     WikiPage,
 )
 from .projection_store import ProjectionStore
-from .service import LlmWikiService
+from .service import DEFAULT_GRAPH_LIMIT, LlmWikiService
 
 QUERY_LIMIT_MIN = 1
 QUERY_LIMIT_MAX = 30
+DEFAULT_CONTEXT_LIMIT = 8
 GRAPH_LIMIT_MIN = 1
 GRAPH_LIMIT_MAX = 2_000
 GRAPH_NEIGHBOR_DEPTH_MAX = 4
@@ -49,6 +51,34 @@ MCP_UNKNOWN_TOOL_MESSAGE = "Unknown MCP-style tool."
 MCP_INTERNAL_FAILURE_MESSAGE = "Internal MCP-style error."
 MCP_STREAM_PATH = "/mcp/stream"
 MCP_STREAM_MOUNT_PATH = "/mcp"
+DEFAULT_MCP_SERVER_NAME = "LLMWiki Serve"
+DEFAULT_MCP_INSTRUCTIONS = (
+    "Read approved LLMWiki context packs, search results, pages, and graph data."
+)
+MCP_TOOL_BASE_DESCRIPTIONS = {
+    "llmwiki_context": (
+        "Build a context pack with wiki metadata, hot/index/overview or OpenWiki "
+        "quickstart orientation first, then query-ranked citation evidence."
+    ),
+    "llmwiki_search": "Search approved LLMWiki pages.",
+    "llmwiki_read": "Read a page by id or path.",
+    "llmwiki_graph": "Return page/link/source graph.",
+    "llmwiki_graph_neighbors": (
+        "Return a bounded graph neighborhood around page, source, tag, or sidecar "
+        "graph seed nodes for dependency and lineage inspection."
+    ),
+    "llmwiki_source_refs": "Return typed source-reference handles linked from approved pages.",
+    "llmwiki_source_bundle": (
+        "Return the source bundle manifest with typed source-reference handles."
+    ),
+}
+
+
+@dataclass(frozen=True)
+class McpSurfaceMetadata:
+    server_name: str
+    instructions: str
+    tool_descriptions: dict[str, str]
 
 
 class UnsupportedMcpMethodError(Exception):
@@ -61,7 +91,7 @@ class UnknownMcpToolError(Exception):
 
 class QueryRequest(BaseModel):
     query: str = ""
-    limit: int = Field(default=8, ge=1, le=30)
+    limit: int | None = Field(default=None, ge=1, le=30)
     include_drafts: bool = False
 
 
@@ -210,7 +240,26 @@ def create_app(
     projection_store: ProjectionStore | None = None,
     cache_namespace: str = "default",
     source_id: str | None = None,
+    graph_default_limit: int | None = None,
+    context_default_limit: int | None = None,
+    mcp_server_name: str | None = None,
+    mcp_instructions: str | None = None,
+    mcp_tool_description_prefix: str | None = None,
 ) -> FastAPI:
+    resolved_graph_default_limit = validate_default_limit(
+        graph_default_limit,
+        name="graph_default_limit",
+        default=DEFAULT_GRAPH_LIMIT,
+        minimum=GRAPH_LIMIT_MIN,
+        maximum=GRAPH_LIMIT_MAX,
+    )
+    resolved_context_default_limit = validate_default_limit(
+        context_default_limit,
+        name="context_default_limit",
+        default=DEFAULT_CONTEXT_LIMIT,
+        minimum=QUERY_LIMIT_MIN,
+        maximum=QUERY_LIMIT_MAX,
+    )
     service = LlmWikiService(
         root,
         refresh_interval_seconds=refresh_interval_seconds,
@@ -223,6 +272,11 @@ def create_app(
         service,
         allow_drafts=allow_drafts,
         enable_a2a_compat=enable_a2a_compat,
+        graph_default_limit=resolved_graph_default_limit,
+        context_default_limit=resolved_context_default_limit,
+        mcp_server_name=mcp_server_name,
+        mcp_instructions=mcp_instructions,
+        mcp_tool_description_prefix=mcp_tool_description_prefix,
     )
     mcp_stream_app = mcp_stream.streamable_http_app()
     explicit_origins = set(cors_origins or [])
@@ -328,7 +382,12 @@ def create_app(
     def query(request: QueryRequest) -> dict[str, Any]:
         return service.context(
             request.query,
-            limit=request.limit,
+            limit=clamp_int(
+                request.limit,
+                default=resolved_context_default_limit,
+                minimum=QUERY_LIMIT_MIN,
+                maximum=QUERY_LIMIT_MAX,
+            ),
             include_drafts=network_include_drafts(allow_drafts, request.include_drafts),
         ).model_dump()
 
@@ -337,7 +396,12 @@ def create_app(
         return {
             "results": service.search(
                 request.query,
-                limit=request.limit,
+                limit=clamp_int(
+                    request.limit,
+                    default=resolved_context_default_limit,
+                    minimum=QUERY_LIMIT_MIN,
+                    maximum=QUERY_LIMIT_MAX,
+                ),
                 include_drafts=network_include_drafts(allow_drafts, request.include_drafts),
             )
         }
@@ -357,9 +421,24 @@ def create_app(
         return result
 
     @app.get("/graph", response_model=GraphResponse)
-    def graph(limit: int = 500, include_drafts: bool = False) -> dict[str, Any]:
+    def graph(
+        limit: int | None = Query(
+            default=None,
+            description=(
+                "Maximum graph nodes. Omitting this value uses the server-configured "
+                f"default of {resolved_graph_default_limit}. Explicit numeric values are "
+                f"clamped to {GRAPH_LIMIT_MIN}..{GRAPH_LIMIT_MAX}."
+            ),
+        ),
+        include_drafts: bool = False,
+    ) -> dict[str, Any]:
         return service.graph(
-            limit=clamp_int(limit, minimum=GRAPH_LIMIT_MIN, maximum=GRAPH_LIMIT_MAX),
+            limit=clamp_int(
+                limit,
+                default=resolved_graph_default_limit,
+                minimum=GRAPH_LIMIT_MIN,
+                maximum=GRAPH_LIMIT_MAX,
+            ),
             include_drafts=network_include_drafts(allow_drafts, include_drafts),
         )
 
@@ -395,6 +474,11 @@ def create_app(
                 request.params,
                 allow_drafts=allow_drafts,
                 enable_a2a_compat=enable_a2a_compat,
+                graph_default_limit=resolved_graph_default_limit,
+                context_default_limit=resolved_context_default_limit,
+                mcp_server_name=mcp_server_name,
+                mcp_instructions=mcp_instructions,
+                mcp_tool_description_prefix=mcp_tool_description_prefix,
             )
             return {"jsonrpc": "2.0", "id": request.id, "result": result}
         except UnsupportedMcpMethodError:
@@ -432,7 +516,7 @@ def create_app(
         @app.post("/message:send", response_model=A2AResponse, response_model_exclude_none=True)
         def message_send(payload: dict[str, Any]) -> dict[str, Any]:
             query_text = extract_a2a_query(payload)
-            context = service.context(query_text, limit=8)
+            context = service.context(query_text, limit=resolved_context_default_limit)
             return {
                 "status": "completed",
                 "message": {
@@ -487,17 +571,230 @@ def health_cors(explicit_origins: set[str]) -> HealthCorsResponse:
     )
 
 
+def mcp_surface_metadata(
+    service: LlmWikiService,
+    *,
+    enable_a2a_compat: bool = False,
+    graph_default_limit: int | None = None,
+    context_default_limit: int | None = None,
+    mcp_server_name: str | None = None,
+    mcp_instructions: str | None = None,
+    mcp_tool_description_prefix: str | None = None,
+) -> McpSurfaceMetadata:
+    resolved_graph_default_limit = validate_default_limit(
+        graph_default_limit,
+        name="graph_default_limit",
+        default=DEFAULT_GRAPH_LIMIT,
+        minimum=GRAPH_LIMIT_MIN,
+        maximum=GRAPH_LIMIT_MAX,
+    )
+    resolved_context_default_limit = validate_default_limit(
+        context_default_limit,
+        name="context_default_limit",
+        default=DEFAULT_CONTEXT_LIMIT,
+        minimum=QUERY_LIMIT_MIN,
+        maximum=QUERY_LIMIT_MAX,
+    )
+    try:
+        manifest = service.manifest(enable_a2a_compat=enable_a2a_compat)
+    except Exception:
+        manifest = None
+    server_name = resolved_mcp_server_name(manifest, mcp_server_name)
+    instructions = resolved_mcp_instructions(manifest, mcp_instructions)
+    tool_prefix = resolved_mcp_tool_description_prefix(
+        manifest,
+        server_name=server_name,
+        server_name_override=mcp_server_name,
+        override=mcp_tool_description_prefix,
+    )
+    base_descriptions = mcp_tool_descriptions(
+        context_default_limit=resolved_context_default_limit,
+        graph_default_limit=resolved_graph_default_limit,
+    )
+    tool_descriptions = {
+        name: f"{tool_prefix}{description}" for name, description in base_descriptions.items()
+    }
+    return McpSurfaceMetadata(
+        server_name=server_name,
+        instructions=instructions,
+        tool_descriptions=tool_descriptions,
+    )
+
+
+def resolved_mcp_server_name(
+    manifest: WikiManifest | None,
+    override: str | None,
+) -> str:
+    override_text = normalized_nonempty_text(override)
+    if override_text:
+        return override_text
+    if manifest is None:
+        return DEFAULT_MCP_SERVER_NAME
+    scope_title = normalized_nonempty_text(manifest.title)
+    if scope_title:
+        return f"{scope_title} - LLMWiki Serve"
+    source_id = normalized_nonempty_text(manifest.source_id)
+    if source_id:
+        return f"{source_id} - LLMWiki Serve"
+    return DEFAULT_MCP_SERVER_NAME
+
+
+def resolved_mcp_instructions(
+    manifest: WikiManifest | None,
+    override: str | None,
+) -> str:
+    override_text = normalized_nonempty_text(override)
+    if override_text:
+        return override_text
+    if manifest is None:
+        return DEFAULT_MCP_INSTRUCTIONS
+
+    title = normalized_nonempty_text(manifest.title) or "this LLMWiki source"
+    pieces = [
+        (
+            f'Use this MCP server only for the served wiki "{title}". '
+            "It provides read-only approved context packs, search, page reads, graph data, "
+            "source references, and source-bundle metadata."
+        )
+    ]
+    description = normalized_nonempty_text(manifest.description)
+    if description:
+        pieces.append(f"Wiki description: {description}.")
+    identity = mcp_source_identity(manifest)
+    if identity:
+        pieces.append(f"Source identity: {identity}.")
+    pieces.append("For unrelated questions, use another source instead of these scoped tools.")
+    return " ".join(pieces)
+
+
+def resolved_mcp_tool_description_prefix(
+    manifest: WikiManifest | None,
+    *,
+    server_name: str,
+    server_name_override: str | None,
+    override: str | None,
+) -> str:
+    if override is not None:
+        override_text = normalized_inline_text(override)
+        if override_text and not override_text.endswith(" "):
+            return f"{override_text} "
+        return override_text
+
+    label = mcp_tool_scope_label(
+        manifest,
+        server_name=server_name,
+        server_name_override=server_name_override,
+    )
+    return f"[{label}] " if label else ""
+
+
+def mcp_tool_scope_label(
+    manifest: WikiManifest | None,
+    *,
+    server_name: str,
+    server_name_override: str | None,
+) -> str:
+    override_title = normalized_nonempty_text(server_name_override)
+    if manifest is None:
+        if override_title:
+            return override_title
+        if server_name != DEFAULT_MCP_SERVER_NAME:
+            return server_name
+        return ""
+
+    title = (
+        override_title
+        or normalized_nonempty_text(manifest.title)
+        or normalized_nonempty_text(server_name)
+    )
+    source_id = normalized_nonempty_text(manifest.source_id)
+    if title and source_id and source_id not in title:
+        return f"{title} | source_id: {source_id}"
+    return title or source_id or ""
+
+
+def mcp_source_identity(manifest: WikiManifest) -> str:
+    parts = []
+    for label, value in (
+        ("source_id", manifest.source_id),
+        ("public_uri", manifest.public_uri),
+        ("adapter", manifest.adapter),
+        ("implementation", manifest.implementation),
+    ):
+        text = normalized_nonempty_text(value)
+        if text:
+            parts.append(f"{label}={text}")
+    return ", ".join(parts)
+
+
+def normalized_nonempty_text(value: str | None) -> str:
+    return normalized_inline_text(value or "")
+
+
+def normalized_inline_text(value: str) -> str:
+    return " ".join(value.strip().split())
+
+
+def mcp_tool_descriptions(
+    *,
+    context_default_limit: int,
+    graph_default_limit: int,
+) -> dict[str, str]:
+    descriptions = dict(MCP_TOOL_BASE_DESCRIPTIONS)
+    descriptions["llmwiki_context"] = (
+        f"{MCP_TOOL_BASE_DESCRIPTIONS['llmwiki_context']} "
+        f"Default limit: {context_default_limit} evidence item(s); maximum {QUERY_LIMIT_MAX}."
+    )
+    descriptions["llmwiki_search"] = (
+        f"{MCP_TOOL_BASE_DESCRIPTIONS['llmwiki_search']} "
+        f"Default limit: {context_default_limit} result(s); maximum {QUERY_LIMIT_MAX}."
+    )
+    descriptions["llmwiki_graph"] = (
+        f"{MCP_TOOL_BASE_DESCRIPTIONS['llmwiki_graph']} "
+        f"Default limit: {graph_default_limit} node(s); explicit limit maximum "
+        f"{GRAPH_LIMIT_MAX}. Large full-graph payloads can be sizable; prefer "
+        "llmwiki_graph_neighbors for focused inspection."
+    )
+    return descriptions
+
+
 def create_mcp_stream_server(
     service: LlmWikiService,
     *,
     allow_drafts: bool = False,
     enable_a2a_compat: bool = False,
+    graph_default_limit: int | None = None,
+    context_default_limit: int | None = None,
+    mcp_server_name: str | None = None,
+    mcp_instructions: str | None = None,
+    mcp_tool_description_prefix: str | None = None,
 ) -> FastMCP:
+    resolved_graph_default_limit = validate_default_limit(
+        graph_default_limit,
+        name="graph_default_limit",
+        default=DEFAULT_GRAPH_LIMIT,
+        minimum=GRAPH_LIMIT_MIN,
+        maximum=GRAPH_LIMIT_MAX,
+    )
+    resolved_context_default_limit = validate_default_limit(
+        context_default_limit,
+        name="context_default_limit",
+        default=DEFAULT_CONTEXT_LIMIT,
+        minimum=QUERY_LIMIT_MIN,
+        maximum=QUERY_LIMIT_MAX,
+    )
+    metadata = mcp_surface_metadata(
+        service,
+        enable_a2a_compat=enable_a2a_compat,
+        graph_default_limit=resolved_graph_default_limit,
+        context_default_limit=resolved_context_default_limit,
+        mcp_server_name=mcp_server_name,
+        mcp_instructions=mcp_instructions,
+        mcp_tool_description_prefix=mcp_tool_description_prefix,
+    )
     mcp_stream = FastMCP(
-        "LLMWiki Serve",
-        instructions=(
-            "Read approved LLMWiki context packs, search results, pages, and graph data."
-        ),
+        metadata.server_name,
+        instructions=metadata.instructions,
         stateless_http=True,
         json_response=True,
         streamable_http_path="/stream",
@@ -505,29 +802,34 @@ def create_mcp_stream_server(
 
     @mcp_stream.tool(
         name="llmwiki_context",
-        description=(
-            "Build a context pack with wiki metadata, hot/index/overview or OpenWiki "
-            "quickstart orientation first, then query-ranked citation evidence."
-        ),
+        description=metadata.tool_descriptions["llmwiki_context"],
     )
     def llmwiki_context(
         query: str = "",
-        limit: int = 8,
+        limit: int = resolved_context_default_limit,
         include_drafts: bool = False,
     ) -> dict[str, Any]:
         try:
             return service.context(
                 query,
-                limit=clamp_int(limit, default=8, minimum=QUERY_LIMIT_MIN, maximum=QUERY_LIMIT_MAX),
+                limit=clamp_int(
+                    limit,
+                    default=resolved_context_default_limit,
+                    minimum=QUERY_LIMIT_MIN,
+                    maximum=QUERY_LIMIT_MAX,
+                ),
                 include_drafts=network_include_drafts(allow_drafts, include_drafts),
             ).model_dump()
         except Exception as exc:
             raise ToolError(MCP_INTERNAL_FAILURE_MESSAGE) from exc
 
-    @mcp_stream.tool(name="llmwiki_search", description="Search approved LLMWiki pages.")
+    @mcp_stream.tool(
+        name="llmwiki_search",
+        description=metadata.tool_descriptions["llmwiki_search"],
+    )
     def llmwiki_search(
         query: str = "",
-        limit: int = 8,
+        limit: int = resolved_context_default_limit,
         include_drafts: bool = False,
     ) -> dict[str, Any]:
         try:
@@ -535,7 +837,10 @@ def create_mcp_stream_server(
                 "results": service.search(
                     query,
                     limit=clamp_int(
-                        limit, default=8, minimum=QUERY_LIMIT_MIN, maximum=QUERY_LIMIT_MAX
+                        limit,
+                        default=resolved_context_default_limit,
+                        minimum=QUERY_LIMIT_MIN,
+                        maximum=QUERY_LIMIT_MAX,
                     ),
                     include_drafts=network_include_drafts(allow_drafts, include_drafts),
                 )
@@ -543,7 +848,10 @@ def create_mcp_stream_server(
         except Exception as exc:
             raise ToolError(MCP_INTERNAL_FAILURE_MESSAGE) from exc
 
-    @mcp_stream.tool(name="llmwiki_read", description="Read a page by id or path.")
+    @mcp_stream.tool(
+        name="llmwiki_read",
+        description=metadata.tool_descriptions["llmwiki_read"],
+    )
     def llmwiki_read(page_id: str, include_drafts: bool = False) -> dict[str, Any]:
         try:
             return service.read(
@@ -553,12 +861,21 @@ def create_mcp_stream_server(
         except Exception as exc:
             raise ToolError(MCP_INTERNAL_FAILURE_MESSAGE) from exc
 
-    @mcp_stream.tool(name="llmwiki_graph", description="Return page/link/source graph.")
-    def llmwiki_graph(limit: int = 500, include_drafts: bool = False) -> dict[str, Any]:
+    @mcp_stream.tool(
+        name="llmwiki_graph",
+        description=metadata.tool_descriptions["llmwiki_graph"],
+    )
+    def llmwiki_graph(
+        limit: int = resolved_graph_default_limit,
+        include_drafts: bool = False,
+    ) -> dict[str, Any]:
         try:
             return service.graph(
                 limit=clamp_int(
-                    limit, default=500, minimum=GRAPH_LIMIT_MIN, maximum=GRAPH_LIMIT_MAX
+                    limit,
+                    default=resolved_graph_default_limit,
+                    minimum=GRAPH_LIMIT_MIN,
+                    maximum=GRAPH_LIMIT_MAX,
                 ),
                 include_drafts=network_include_drafts(allow_drafts, include_drafts),
             )
@@ -567,10 +884,7 @@ def create_mcp_stream_server(
 
     @mcp_stream.tool(
         name="llmwiki_graph_neighbors",
-        description=(
-            "Return a bounded graph neighborhood around page, source, tag, or sidecar "
-            "graph seed nodes for dependency and lineage inspection."
-        ),
+        description=metadata.tool_descriptions["llmwiki_graph_neighbors"],
     )
     def llmwiki_graph_neighbors(
         seed: str = "",
@@ -601,7 +915,7 @@ def create_mcp_stream_server(
 
     @mcp_stream.tool(
         name="llmwiki_source_refs",
-        description="Return typed source-reference handles linked from approved pages.",
+        description=metadata.tool_descriptions["llmwiki_source_refs"],
     )
     def llmwiki_source_refs(include_drafts: bool = False) -> dict[str, Any]:
         try:
@@ -613,7 +927,7 @@ def create_mcp_stream_server(
 
     @mcp_stream.tool(
         name="llmwiki_source_bundle",
-        description="Return the source bundle manifest with typed source-reference handles.",
+        description=metadata.tool_descriptions["llmwiki_source_bundle"],
     )
     def llmwiki_source_bundle(include_drafts: bool = False) -> dict[str, Any]:
         try:
@@ -640,41 +954,41 @@ def handle_mcp(
     *,
     allow_drafts: bool = False,
     enable_a2a_compat: bool = False,
+    graph_default_limit: int | None = None,
+    context_default_limit: int | None = None,
+    mcp_server_name: str | None = None,
+    mcp_instructions: str | None = None,
+    mcp_tool_description_prefix: str | None = None,
 ) -> Any:
     params = params or {}
+    resolved_graph_default_limit = validate_default_limit(
+        graph_default_limit,
+        name="graph_default_limit",
+        default=DEFAULT_GRAPH_LIMIT,
+        minimum=GRAPH_LIMIT_MIN,
+        maximum=GRAPH_LIMIT_MAX,
+    )
+    resolved_context_default_limit = validate_default_limit(
+        context_default_limit,
+        name="context_default_limit",
+        default=DEFAULT_CONTEXT_LIMIT,
+        minimum=QUERY_LIMIT_MIN,
+        maximum=QUERY_LIMIT_MAX,
+    )
     if method == "tools/list":
+        metadata = mcp_surface_metadata(
+            service,
+            enable_a2a_compat=enable_a2a_compat,
+            graph_default_limit=resolved_graph_default_limit,
+            context_default_limit=resolved_context_default_limit,
+            mcp_server_name=mcp_server_name,
+            mcp_instructions=mcp_instructions,
+            mcp_tool_description_prefix=mcp_tool_description_prefix,
+        )
         return {
             "tools": [
-                {
-                    "name": "llmwiki_context",
-                    "description": (
-                        "Build a context pack with wiki metadata, hot/index/overview or "
-                        "OpenWiki quickstart orientation first, then query-ranked citation "
-                        "evidence."
-                    ),
-                },
-                {"name": "llmwiki_search", "description": "Search approved LLMWiki pages."},
-                {"name": "llmwiki_read", "description": "Read a page by id or path."},
-                {"name": "llmwiki_graph", "description": "Return page/link/source graph."},
-                {
-                    "name": "llmwiki_graph_neighbors",
-                    "description": (
-                        "Return a bounded graph neighborhood around page, source, tag, or "
-                        "sidecar graph seed nodes for dependency and lineage inspection."
-                    ),
-                },
-                {
-                    "name": "llmwiki_source_refs",
-                    "description": (
-                        "Return typed source-reference handles linked from approved pages."
-                    ),
-                },
-                {
-                    "name": "llmwiki_source_bundle",
-                    "description": (
-                        "Return the source bundle manifest with typed source-reference handles."
-                    ),
-                },
+                {"name": name, "description": description}
+                for name, description in metadata.tool_descriptions.items()
             ]
         }
     if method != "tools/call":
@@ -686,7 +1000,10 @@ def handle_mcp(
         return service.context(
             str(args.get("query") or ""),
             limit=clamp_int(
-                args.get("limit"), default=8, minimum=QUERY_LIMIT_MIN, maximum=QUERY_LIMIT_MAX
+                args.get("limit"),
+                default=resolved_context_default_limit,
+                minimum=QUERY_LIMIT_MIN,
+                maximum=QUERY_LIMIT_MAX,
             ),
             include_drafts=network_include_drafts(allow_drafts, args.get("include_drafts")),
         ).model_dump()
@@ -695,7 +1012,10 @@ def handle_mcp(
             "results": service.search(
                 str(args.get("query") or ""),
                 limit=clamp_int(
-                    args.get("limit"), default=8, minimum=QUERY_LIMIT_MIN, maximum=QUERY_LIMIT_MAX
+                    args.get("limit"),
+                    default=resolved_context_default_limit,
+                    minimum=QUERY_LIMIT_MIN,
+                    maximum=QUERY_LIMIT_MAX,
                 ),
                 include_drafts=network_include_drafts(allow_drafts, args.get("include_drafts")),
             )
@@ -708,7 +1028,10 @@ def handle_mcp(
     if name == "llmwiki_graph":
         return service.graph(
             limit=clamp_int(
-                args.get("limit"), default=500, minimum=GRAPH_LIMIT_MIN, maximum=GRAPH_LIMIT_MAX
+                args.get("limit"),
+                default=resolved_graph_default_limit,
+                minimum=GRAPH_LIMIT_MIN,
+                maximum=GRAPH_LIMIT_MAX,
             ),
             include_drafts=network_include_drafts(allow_drafts, args.get("include_drafts")),
         )
@@ -746,6 +1069,25 @@ def clamp_int(value: Any, *, default: int = 0, minimum: int, maximum: int) -> in
     except (TypeError, ValueError):
         parsed = default
     return max(minimum, min(parsed, maximum))
+
+
+def validate_default_limit(
+    value: Any,
+    *,
+    name: str,
+    default: int,
+    minimum: int,
+    maximum: int,
+) -> int:
+    if value is None:
+        return default
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{name} must be an integer") from exc
+    if parsed < minimum or parsed > maximum:
+        raise ValueError(f"{name} must be between {minimum} and {maximum}")
+    return parsed
 
 
 def bool_arg(value: Any) -> bool:

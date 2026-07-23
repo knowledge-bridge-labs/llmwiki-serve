@@ -25,6 +25,7 @@ from llmwiki_serve.api import (
     MCP_UNSUPPORTED_METHOD_MESSAGE,
     NETWORK_MANIFEST_ROOT,
     create_app,
+    create_mcp_stream_server,
 )
 from llmwiki_serve.cli import app as cli_app
 from llmwiki_serve.projection_store import (
@@ -720,6 +721,118 @@ def test_cli_uses_projection_store_env_namespace_and_source_id(monkeypatch) -> N
         "available": True,
         "last_error": "",
     }
+
+
+def test_cli_resolves_graph_and_context_default_limit_options_and_env(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    import uvicorn
+
+    root = tmp_path / "wiki"
+    create_many_page_wiki(root, page_count=16)
+    captured: list[dict[str, Any]] = []
+
+    def fake_run(app: Any, *, host: str, port: int) -> None:
+        client = TestClient(app)
+        tools = client.post(
+            "/mcp",
+            json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
+        ).json()
+        descriptions = {tool["name"]: tool["description"] for tool in tools["result"]["tools"]}
+        captured.append(
+            {
+                "graph_node_count": len(client.get("/graph").json()["nodes"]),
+                "context_evidence_count": len(
+                    client.post("/query", json={"query": "sharedneedle"}).json()["evidence"]
+                ),
+                "graph_description": descriptions["llmwiki_graph"],
+                "context_description": descriptions["llmwiki_context"],
+            }
+        )
+
+    monkeypatch.setattr(uvicorn, "run", fake_run)
+
+    flag_result = CliRunner().invoke(
+        cli_app,
+        [
+            "serve",
+            str(root),
+            "--graph-default-limit",
+            "3",
+            "--context-default-limit",
+            "2",
+        ],
+    )
+    env_result = CliRunner().invoke(
+        cli_app,
+        ["serve", str(root)],
+        env={
+            "LLMWIKI_GRAPH_DEFAULT_LIMIT": "4",
+            "LLMWIKI_CONTEXT_DEFAULT_LIMIT": "1",
+        },
+    )
+
+    assert flag_result.exit_code == 0, flag_result.output
+    assert env_result.exit_code == 0, env_result.output
+    assert captured[0]["graph_node_count"] == 3
+    assert captured[0]["context_evidence_count"] == 2
+    assert "Default limit: 3 node(s)" in captured[0]["graph_description"]
+    assert "Default limit: 2 evidence item(s)" in captured[0]["context_description"]
+    assert captured[1]["graph_node_count"] == 4
+    assert captured[1]["context_evidence_count"] == 1
+
+
+def test_cli_invalid_default_limit_env_fails_without_traceback(monkeypatch) -> None:
+    import uvicorn
+
+    monkeypatch.setattr(uvicorn, "run", lambda app, *, host, port: None)
+    result = CliRunner().invoke(
+        cli_app,
+        ["serve", str(FIXTURE)],
+        env={"LLMWIKI_GRAPH_DEFAULT_LIMIT": "0"},
+    )
+
+    assert result.exit_code == 1, result.output
+    assert "graph_default_limit must be between 1 and 2000" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_cli_uses_mcp_metadata_overrides(monkeypatch) -> None:
+    import uvicorn
+
+    captured_descriptions: list[dict[str, str]] = []
+
+    def fake_run(app: Any, *, host: str, port: int) -> None:
+        client = TestClient(app)
+        tools = client.post(
+            "/mcp",
+            json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
+        ).json()
+        captured_descriptions.append(
+            {tool["name"]: tool["description"] for tool in tools["result"]["tools"]}
+        )
+
+    monkeypatch.setattr(uvicorn, "run", fake_run)
+
+    flag_result = CliRunner().invoke(
+        cli_app,
+        ["serve", str(FIXTURE), "--mcp-title", "Packaging Ops MCP"],
+    )
+    env_result = CliRunner().invoke(
+        cli_app,
+        ["serve", str(FIXTURE)],
+        env={"LLMWIKI_MCP_TOOL_DESCRIPTION_PREFIX": "[Env Packaging MCP]"},
+    )
+
+    assert flag_result.exit_code == 0, flag_result.output
+    assert env_result.exit_code == 0, env_result.output
+    assert captured_descriptions[0]["llmwiki_context"].startswith(
+        "[Packaging Ops MCP | source_id: sample-packaging-llmwiki] "
+    )
+    assert captured_descriptions[1]["llmwiki_context"].startswith(
+        "[Env Packaging MCP] Build a context pack"
+    )
 
 
 def test_projection_store_diagnostics_memory_backend_kind_and_no_endpoint() -> None:
@@ -3162,11 +3275,119 @@ def test_mcp_tools_list_contains_context_and_graph() -> None:
     tool_names = {tool["name"] for tool in tools["result"]["tools"]}
     descriptions = {tool["name"]: tool["description"] for tool in tools["result"]["tools"]}
     assert {"llmwiki_context", "llmwiki_graph", "llmwiki_graph_neighbors"} <= tool_names
+    assert descriptions["llmwiki_context"].startswith(
+        "[Sample Packaging LLMWiki | source_id: sample-packaging-llmwiki] "
+    )
+    assert "Sample Packaging LLMWiki" in descriptions["llmwiki_graph"]
+    assert "source_id: sample-packaging-llmwiki" in descriptions["llmwiki_graph_neighbors"]
     assert (
         "hot/index/overview or OpenWiki quickstart orientation first"
         in descriptions["llmwiki_context"]
     )
     assert "query-ranked citation evidence" in descriptions["llmwiki_context"]
+
+
+def test_mcp_tools_list_accepts_metadata_overrides() -> None:
+    client = TestClient(
+        create_app(
+            FIXTURE,
+            mcp_server_name="Packaging Ops MCP",
+            mcp_instructions="Only use the packaging operations wiki.",
+            mcp_tool_description_prefix="[Packaging Ops MCP]",
+        )
+    )
+
+    tools = client.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"}).json()
+    descriptions = {tool["name"]: tool["description"] for tool in tools["result"]["tools"]}
+
+    assert descriptions["llmwiki_search"].startswith(
+        "[Packaging Ops MCP] Search approved LLMWiki pages."
+    )
+    assert "Sample Packaging LLMWiki" not in descriptions["llmwiki_search"]
+
+
+def test_http_graph_default_limit_is_conservative_configurable_and_preserves_explicit_max(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "wiki"
+    create_many_page_wiki(root, page_count=140)
+
+    service_graph = LlmWikiService(root).graph()
+    default_client = TestClient(create_app(root))
+    configured_client = TestClient(create_app(root, graph_default_limit=7))
+
+    assert len(service_graph["nodes"]) == 100
+    assert len(default_client.get("/graph").json()["nodes"]) == 100
+    assert len(configured_client.get("/graph").json()["nodes"]) == 7
+    assert len(configured_client.get("/graph?limit=120").json()["nodes"]) == 120
+    full_graph_node_count = len(configured_client.get("/graph?limit=2000").json()["nodes"])
+    assert (
+        len(configured_client.get("/graph?limit=999999").json()["nodes"]) == full_graph_node_count
+    )
+    assert len(configured_client.get("/graph?limit=0").json()["nodes"]) == 1
+    assert len(mcp_tool_call(configured_client, "llmwiki_graph", {})["nodes"]) == 7
+
+
+def test_context_default_limit_is_configurable_across_http_and_mcp(tmp_path: Path) -> None:
+    root = tmp_path / "wiki"
+    create_many_page_wiki(root, page_count=12)
+    client = TestClient(create_app(root, context_default_limit=2))
+
+    assert len(client.post("/query", json={"query": "sharedneedle"}).json()["evidence"]) == 2
+    assert len(client.post("/search", json={"query": "sharedneedle"}).json()["results"]) == 2
+    assert len(mcp_tool_call(client, "llmwiki_context", {"query": "sharedneedle"})["evidence"]) == 2
+    assert len(mcp_tool_call(client, "llmwiki_search", {"query": "sharedneedle"})["results"]) == 2
+    assert (
+        len(
+            client.post(
+                "/query",
+                json={"query": "sharedneedle", "limit": 4},
+            ).json()["evidence"]
+        )
+        == 4
+    )
+
+
+def test_invalid_default_limits_fail_early() -> None:
+    with pytest.raises(ValueError, match="graph_default_limit must be between 1 and 2000"):
+        create_app(FIXTURE, graph_default_limit=0)
+    with pytest.raises(ValueError, match="context_default_limit must be between 1 and 30"):
+        create_app(FIXTURE, context_default_limit=31)
+
+
+def test_fastmcp_metadata_uses_manifest_scope_and_overrides() -> None:
+    mcp_stream = create_mcp_stream_server(LlmWikiService(FIXTURE))
+    descriptions = {tool.name: tool.description for tool in mcp_stream._tool_manager.list_tools()}
+
+    assert mcp_stream.name == "Sample Packaging LLMWiki - LLMWiki Serve"
+    assert "Sample Packaging LLMWiki" in mcp_stream.instructions
+    assert "Synthetic packaging operations knowledge base." in mcp_stream.instructions
+    assert "source_id=sample-packaging-llmwiki" in mcp_stream.instructions
+    assert descriptions["llmwiki_context"].startswith(
+        "[Sample Packaging LLMWiki | source_id: sample-packaging-llmwiki] "
+    )
+    assert "Default limit: 8 evidence item(s)" in descriptions["llmwiki_context"]
+    assert "Default limit: 100 node(s)" in descriptions["llmwiki_graph"]
+
+    override_stream = create_mcp_stream_server(
+        LlmWikiService(FIXTURE),
+        graph_default_limit=9,
+        context_default_limit=3,
+        mcp_server_name="Packaging Ops MCP",
+        mcp_instructions="Only use the packaging operations wiki.",
+        mcp_tool_description_prefix="[Packaging Ops MCP]",
+    )
+    override_descriptions = {
+        tool.name: tool.description for tool in override_stream._tool_manager.list_tools()
+    }
+
+    assert override_stream.name == "Packaging Ops MCP"
+    assert override_stream.instructions == "Only use the packaging operations wiki."
+    assert override_descriptions["llmwiki_read"].startswith(
+        "[Packaging Ops MCP] Read a page by id or path."
+    )
+    assert "Default limit: 9 node(s)" in override_descriptions["llmwiki_graph"]
+    assert "Default limit: 3 evidence item(s)" in override_descriptions["llmwiki_context"]
 
 
 def test_mcp_context_matches_http_query_shape() -> None:
@@ -3594,6 +3815,37 @@ def test_quickstart_a2a_request_body_smoke() -> None:
 
 def write_markdown(path: Path, content: str) -> None:
     path.write_text(content.strip() + "\n", encoding="utf-8")
+
+
+def create_many_page_wiki(root: Path, *, page_count: int) -> None:
+    root.mkdir()
+    write_markdown(
+        root / "index.md",
+        """
+---
+wiki_title: Many Page LLMWiki
+description: Synthetic many-page fixture for default limit testing.
+review_state: approved
+---
+# Many Page LLMWiki
+
+sharedneedle index orientation page linking to [[page-000]].
+""",
+    )
+    for index in range(page_count):
+        next_link = f"[[page-{index + 1:03d}]]" if index + 1 < page_count else ""
+        write_markdown(
+            root / f"page-{index:03d}.md",
+            f"""
+---
+title: Page {index:03d}
+review_state: approved
+---
+# Page {index:03d}
+
+sharedneedle evidence page {index:03d}. {next_link}
+""",
+        )
 
 
 class FakeRedisClient:

@@ -24,6 +24,20 @@ through the official MCP Python SDK FastMCP transport; the compatibility
 surfaces are not a claim of A2A protocol certification, exhaustive runtime
 feature completeness, or upstream integration support.
 
+MCP-facing metadata is scoped to the served source. The Streamable HTTP server
+name and instructions, plus both MCP tool-list surfaces, derive from the current
+manifest title, description, source id, public URI, adapter, and implementation
+when available. Operators can override server name, instructions, and tool
+description prefix without changing tool names or call contracts.
+
+Default omitted-limit behavior is part of the serving contract. Full-graph
+surfaces default to 100 nodes and preserve the explicit 2,000-node maximum.
+Context/search surfaces default to 8 evidence/results unless operators set
+`context_default_limit` or `LLMWIKI_CONTEXT_DEFAULT_LIMIT`. These defaults are
+resolved at app startup, advertised in MCP tool descriptions, and applied only
+when callers omit `limit`; explicit request limits keep the existing validation
+and clamp boundaries.
+
 The HTTP API installs CORS middleware for local browser development only by
 default: `localhost`, `127.0.0.1`, and IPv6 localhost `[::1]` origins on any
 port are allowed through a regex, and wildcard origins are not enabled.

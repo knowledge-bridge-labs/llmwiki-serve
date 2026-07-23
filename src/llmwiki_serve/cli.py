@@ -6,7 +6,13 @@ from typing import Annotated, NoReturn, TypeAlias
 
 import typer
 
-from .api import QUERY_LIMIT_MAX, QUERY_LIMIT_MIN, create_app
+from .api import (
+    GRAPH_LIMIT_MAX,
+    GRAPH_LIMIT_MIN,
+    QUERY_LIMIT_MAX,
+    QUERY_LIMIT_MIN,
+    create_app,
+)
 from .projection_store import (
     ProjectionStoreBackend,
     RedisFailurePolicy,
@@ -86,6 +92,58 @@ RedisFailurePolicyOption: TypeAlias = Annotated[
     typer.Option(
         "--redis-failure-policy",
         help="Redis outage behavior. fallback-local keeps serving from process memory.",
+    ),
+]
+GraphDefaultLimitOption: TypeAlias = Annotated[
+    int | None,
+    typer.Option(
+        "--graph-default-limit",
+        min=GRAPH_LIMIT_MIN,
+        max=GRAPH_LIMIT_MAX,
+        help=(
+            "Default /graph and llmwiki_graph node limit when clients omit limit. "
+            "Env: LLMWIKI_GRAPH_DEFAULT_LIMIT."
+        ),
+    ),
+]
+ContextDefaultLimitOption: TypeAlias = Annotated[
+    int | None,
+    typer.Option(
+        "--context-default-limit",
+        min=QUERY_LIMIT_MIN,
+        max=QUERY_LIMIT_MAX,
+        help=(
+            "Default query/search and llmwiki_context evidence limit when clients omit "
+            "limit. Env: LLMWIKI_CONTEXT_DEFAULT_LIMIT."
+        ),
+    ),
+]
+McpServerNameOption: TypeAlias = Annotated[
+    str | None,
+    typer.Option(
+        "--mcp-server-name",
+        "--mcp-title",
+        help=(
+            "Override the MCP Streamable HTTP server name and default JSON-RPC tool "
+            "scope label. Env: LLMWIKI_MCP_SERVER_NAME or LLMWIKI_MCP_TITLE."
+        ),
+    ),
+]
+McpInstructionsOption: TypeAlias = Annotated[
+    str | None,
+    typer.Option(
+        "--mcp-instructions",
+        help=("Override MCP Streamable HTTP server instructions. Env: LLMWIKI_MCP_INSTRUCTIONS."),
+    ),
+]
+McpToolDescriptionPrefixOption: TypeAlias = Annotated[
+    str | None,
+    typer.Option(
+        "--mcp-tool-description-prefix",
+        help=(
+            "Override the prefix added to MCP JSON-RPC and Streamable HTTP tool "
+            "descriptions. Env: LLMWIKI_MCP_TOOL_DESCRIPTION_PREFIX."
+        ),
     ),
 ]
 
@@ -181,6 +239,11 @@ def serve(
             ),
         ),
     ] = None,
+    graph_default_limit: GraphDefaultLimitOption = None,
+    context_default_limit: ContextDefaultLimitOption = None,
+    mcp_server_name: McpServerNameOption = None,
+    mcp_instructions: McpInstructionsOption = None,
+    mcp_tool_description_prefix: McpToolDescriptionPrefixOption = None,
 ) -> None:
     """Run the HTTP, MCP-style JSON-RPC, and MCP Streamable HTTP server."""
     import uvicorn
@@ -190,6 +253,23 @@ def serve(
         resolved_redis_url = redis_url or os.getenv("LLMWIKI_REDIS_URL")
         resolved_namespace = cache_namespace or os.getenv("LLMWIKI_CACHE_NAMESPACE") or "default"
         resolved_source_id = source_id or os.getenv("LLMWIKI_SOURCE_ID")
+        resolved_graph_default_limit = resolve_int_option_env(
+            graph_default_limit,
+            "LLMWIKI_GRAPH_DEFAULT_LIMIT",
+        )
+        resolved_context_default_limit = resolve_int_option_env(
+            context_default_limit,
+            "LLMWIKI_CONTEXT_DEFAULT_LIMIT",
+        )
+        resolved_mcp_server_name = (
+            mcp_server_name
+            or os.getenv("LLMWIKI_MCP_SERVER_NAME")
+            or os.getenv("LLMWIKI_MCP_TITLE")
+        )
+        resolved_mcp_instructions = mcp_instructions or os.getenv("LLMWIKI_MCP_INSTRUCTIONS")
+        resolved_mcp_tool_description_prefix = mcp_tool_description_prefix or os.getenv(
+            "LLMWIKI_MCP_TOOL_DESCRIPTION_PREFIX"
+        )
         projection_store = create_projection_store(
             projection_backend,
             redis_url=resolved_redis_url,
@@ -203,13 +283,7 @@ def serve(
             cache_namespace=resolved_namespace,
             source_id=resolved_source_id,
         ).index()
-    except FileNotFoundError as exc:
-        exit_with_error(str(exc))
-    except (RuntimeError, ValueError) as exc:
-        exit_with_error(str(exc))
-
-    uvicorn.run(
-        create_app(
+        fastapi_app = create_app(
             root,
             allow_drafts=allow_drafts,
             cors_origins=cors_origin,
@@ -220,7 +294,19 @@ def serve(
             projection_store=projection_store,
             cache_namespace=resolved_namespace,
             source_id=resolved_source_id,
-        ),
+            graph_default_limit=resolved_graph_default_limit,
+            context_default_limit=resolved_context_default_limit,
+            mcp_server_name=resolved_mcp_server_name,
+            mcp_instructions=resolved_mcp_instructions,
+            mcp_tool_description_prefix=resolved_mcp_tool_description_prefix,
+        )
+    except FileNotFoundError as exc:
+        exit_with_error(str(exc))
+    except (RuntimeError, ValueError) as exc:
+        exit_with_error(str(exc))
+
+    uvicorn.run(
+        fastapi_app,
         host=host,
         port=port,
     )
@@ -239,6 +325,18 @@ def resolve_projection_store_backend(
     if env_value:
         raise ValueError("LLMWIKI_PROJECTION_STORE must be 'memory' or 'redis'")
     return "memory"
+
+
+def resolve_int_option_env(value: int | None, env_name: str) -> int | None:
+    if value is not None:
+        return value
+    env_value = os.getenv(env_name)
+    if not env_value:
+        return None
+    try:
+        return int(env_value)
+    except ValueError as exc:
+        raise ValueError(f"{env_name} must be an integer") from exc
 
 
 def exit_with_error(message: str) -> NoReturn:

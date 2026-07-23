@@ -647,11 +647,17 @@
             "type": "boolean"
           },
           "limit": {
-            "default": 8,
-            "maximum": 30.0,
-            "minimum": 1.0,
-            "title": "Limit",
-            "type": "integer"
+            "anyOf": [
+              {
+                "maximum": 30.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit"
           },
           "query": {
             "default": "",
@@ -1134,7 +1140,7 @@
   "info": {
     "description": "Read-only HTTP, MCP-style JSON-RPC, MCP Streamable HTTP, and optional A2A-style message surface for LLMWiki Markdown folders.",
     "title": "LLMWiki Serve",
-    "version": "0.2.1"
+    "version": "0.2.2"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -1161,13 +1167,21 @@
         "operationId": "graph_graph_get",
         "parameters": [
           {
+            "description": "Maximum graph nodes. Omitting this value uses the server-configured default of 100. Explicit numeric values are clamped to 1..2000.",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
-              "default": 500,
-              "title": "Limit",
-              "type": "integer"
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Maximum graph nodes. Omitting this value uses the server-configured default of 100. Explicit numeric values are clamped to 1..2000.",
+              "title": "Limit"
             }
           },
           {
