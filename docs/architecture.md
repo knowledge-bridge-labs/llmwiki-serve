@@ -39,6 +39,11 @@ resolved at app startup, advertised in MCP tool descriptions, and applied only
 when callers omit `limit`; explicit request limits keep the existing validation
 and clamp boundaries.
 
+Search/query callers can keep retrieval payloads small with optional literal
+substring mode, snippet character limits, result field projection, minimum score
+filtering, and already-seen page exclusions. Read callers can request selected
+page fields when they do not need the full page body.
+
 The HTTP API installs CORS middleware for local browser development only by
 default: `localhost`, `127.0.0.1`, and IPv6 localhost `[::1]` origins on any
 port are allowed through a regex, and wildcard origins are not enabled.

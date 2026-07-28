@@ -14,11 +14,14 @@
 
 ## Follow-Up Tasks
 
-- [ ] Design literal grep/find tool and API/MCP contract.
-- [ ] Design search payload field projection and snippet controls.
-- [ ] Design read payload projection to avoid redundant fields.
-- [ ] Consider `min_score`, confidence metadata, role filters, and
-  `exclude_page_ids`.
+- [x] Add API/MCP/CLI-compatible literal search mode for exact substring checks.
+- [x] Add search/query payload field projection and snippet controls.
+- [x] Add read payload projection to avoid redundant fields when requested.
+- [x] Add `min_score` and `exclude_page_ids` controls.
+- [x] Keep role filters deferred until there is concrete caller evidence.
+- [x] Keep broader CJK recall deferred beyond the existing conservative bigram
+  support until there is a failing corpus.
+- [x] Run final validation after OpenAPI regeneration.
 
 ## LLMWiki Ingestion Candidates
 

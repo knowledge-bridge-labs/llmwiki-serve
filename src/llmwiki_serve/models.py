@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, TypeAlias
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -10,6 +10,7 @@ ReviewState = Literal[
     "approved", "reviewed", "verified", "draft", "proposed", "needs_review", "unknown"
 ]
 GraphNeighborhoodDirection = Literal["out", "in", "both"]
+SearchMode = Literal["lexical", "literal"]
 
 NON_SERVING_STATUSES = {
     "draft",
@@ -84,6 +85,37 @@ class SearchResult(BaseModel):
     route: str = ""
 
 
+class SearchResultProjection(BaseModel):
+    page_id: str = ""
+    title: str = ""
+    path: str = ""
+    score: float = 0.0
+    snippet: str = ""
+    role: str = ""
+    source_refs: list[str] = Field(default_factory=list)
+    route: str = ""
+
+
+class WikiPageProjection(BaseModel):
+    id: str = ""
+    title: str = ""
+    path: str = ""
+    role: str = ""
+    text: str = ""
+    summary: str = ""
+    frontmatter: dict[str, Any] = Field(default_factory=dict)
+    review_state: str = ""
+    status: str = ""
+    source_refs: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+    links: list[str] = Field(default_factory=list)
+    headings: list[str] = Field(default_factory=list)
+    updated_at: str = ""
+
+
+ContextSearchResult: TypeAlias = SearchResult | SearchResultProjection
+
+
 class ContextPack(BaseModel):
     query: str
     wiki_title: str
@@ -93,8 +125,8 @@ class ContextPack(BaseModel):
     page_count: int = 0
     approved_page_count: int = 0
     answerable: bool
-    orientation: list[SearchResult] = Field(default_factory=list)
-    evidence: list[SearchResult] = Field(default_factory=list)
+    orientation: list[ContextSearchResult] = Field(default_factory=list)
+    evidence: list[ContextSearchResult] = Field(default_factory=list)
     limitations: list[str] = Field(default_factory=list)
     graph: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
 

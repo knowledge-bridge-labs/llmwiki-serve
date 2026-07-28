@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from . import __version__
 from .adapters import WikiRootError
@@ -24,11 +24,14 @@ from .models import (
     GraphNeighborhoodResponse,
     GraphNode,
     ProjectionMetadata,
+    SearchMode,
     SearchResult,
+    SearchResultProjection,
     SourceBundleManifest,
     SourceRefsResponse,
     WikiManifest,
     WikiPage,
+    WikiPageProjection,
 )
 from .projection_store import ProjectionStore
 from .service import DEFAULT_GRAPH_LIMIT, LlmWikiService
@@ -36,6 +39,7 @@ from .service import DEFAULT_GRAPH_LIMIT, LlmWikiService
 QUERY_LIMIT_MIN = 1
 QUERY_LIMIT_MAX = 30
 DEFAULT_CONTEXT_LIMIT = 8
+SNIPPET_CHARS_MAX = 2_000
 GRAPH_LIMIT_MIN = 1
 GRAPH_LIMIT_MAX = 2_000
 GRAPH_NEIGHBOR_DEPTH_MAX = 4
@@ -93,11 +97,38 @@ class QueryRequest(BaseModel):
     query: str = ""
     limit: int | None = Field(default=None, ge=1, le=30)
     include_drafts: bool = False
+    mode: SearchMode = "lexical"
+    fields: list[str] | None = Field(
+        default=None,
+        description=(
+            "Optional SearchResult fields to return, comma-separated or as a JSON list. "
+            "page_id is always included when projection is requested."
+        ),
+    )
+    snippet_chars: int | None = Field(default=None, ge=0, le=SNIPPET_CHARS_MAX)
+    min_score: float | None = Field(default=None, ge=0)
+    exclude_page_ids: list[str] = Field(default_factory=list)
+
+    @field_validator("fields", mode="before")
+    @classmethod
+    def parse_fields(cls, value: Any) -> list[str] | None:
+        return parse_optional_string_list(value)
+
+    @field_validator("exclude_page_ids", mode="before")
+    @classmethod
+    def parse_exclude_page_ids(cls, value: Any) -> list[str]:
+        return parse_optional_string_list(value) or []
 
 
 class ReadRequest(BaseModel):
     page_id: str
     include_drafts: bool = False
+    fields: list[str] | None = None
+
+    @field_validator("fields", mode="before")
+    @classmethod
+    def parse_fields(cls, value: Any) -> list[str] | None:
+        return parse_optional_string_list(value)
 
 
 class JsonRpcRequest(BaseModel):
@@ -164,7 +195,7 @@ class ProjectionStoreDiagnosticsResponse(BaseModel):
 
 
 class SearchResponse(BaseModel):
-    results: list[SearchResult] = Field(default_factory=list)
+    results: list[SearchResult | SearchResultProjection] = Field(default_factory=list)
 
 
 class GraphResponse(BaseModel):
@@ -378,7 +409,7 @@ def create_app(
             enable_a2a_compat=enable_a2a_compat,
         ).model_dump()
 
-    @app.post("/query", response_model=ContextPack)
+    @app.post("/query", response_model=ContextPack, response_model_exclude_unset=True)
     def query(request: QueryRequest) -> dict[str, Any]:
         return service.context(
             request.query,
@@ -389,9 +420,14 @@ def create_app(
                 maximum=QUERY_LIMIT_MAX,
             ),
             include_drafts=network_include_drafts(allow_drafts, request.include_drafts),
-        ).model_dump()
+            mode=request.mode,
+            fields=request.fields,
+            snippet_chars=request.snippet_chars,
+            min_score=request.min_score,
+            exclude_page_ids=request.exclude_page_ids,
+        ).model_dump(exclude_unset=request.fields is not None)
 
-    @app.post("/search", response_model=SearchResponse)
+    @app.post("/search", response_model=SearchResponse, response_model_exclude_unset=True)
     def search(request: QueryRequest) -> dict[str, Any]:
         return {
             "results": service.search(
@@ -403,18 +439,32 @@ def create_app(
                     maximum=QUERY_LIMIT_MAX,
                 ),
                 include_drafts=network_include_drafts(allow_drafts, request.include_drafts),
+                mode=request.mode,
+                fields=request.fields,
+                snippet_chars=request.snippet_chars,
+                min_score=request.min_score,
+                exclude_page_ids=request.exclude_page_ids,
             )
         }
 
     @app.get(
         "/read/{page_id:path}",
-        response_model=WikiPage | ReadNotFoundResponse,
+        response_model=WikiPage | WikiPageProjection | ReadNotFoundResponse,
+        response_model_exclude_unset=True,
         responses={404: {"model": HttpDetailResponse}},
     )
-    def read(page_id: str, include_drafts: bool = False) -> dict[str, Any]:
+    def read(
+        page_id: str,
+        include_drafts: bool = False,
+        fields: str | None = Query(
+            default=None,
+            description="Optional comma-separated WikiPage fields to return.",
+        ),
+    ) -> dict[str, Any]:
         result = service.read(
             page_id,
             include_drafts=network_include_drafts(allow_drafts, include_drafts),
+            fields=collect_string_args(fields) if fields is not None else None,
         )
         if not result.get("found", True) and result.get("reason") != "not approved for serving":
             raise HTTPException(status_code=404, detail="page not found")
@@ -747,7 +797,13 @@ def mcp_tool_descriptions(
     )
     descriptions["llmwiki_search"] = (
         f"{MCP_TOOL_BASE_DESCRIPTIONS['llmwiki_search']} "
-        f"Default limit: {context_default_limit} result(s); maximum {QUERY_LIMIT_MAX}."
+        f"Default limit: {context_default_limit} result(s); maximum {QUERY_LIMIT_MAX}. "
+        "Optional controls include mode=literal, fields, snippet_chars, min_score, "
+        "and exclude_page_ids."
+    )
+    descriptions["llmwiki_read"] = (
+        f"{MCP_TOOL_BASE_DESCRIPTIONS['llmwiki_read']} "
+        "Optional fields projection can omit text, summary, headings, or metadata."
     )
     descriptions["llmwiki_graph"] = (
         f"{MCP_TOOL_BASE_DESCRIPTIONS['llmwiki_graph']} "
@@ -808,8 +864,14 @@ def create_mcp_stream_server(
         query: str = "",
         limit: int = resolved_context_default_limit,
         include_drafts: bool = False,
+        mode: SearchMode = "lexical",
+        fields: list[str] | str | None = None,
+        snippet_chars: int | None = None,
+        min_score: float | None = None,
+        exclude_page_ids: list[str] | str | None = None,
     ) -> dict[str, Any]:
         try:
+            result_fields = optional_string_args(fields)
             return service.context(
                 query,
                 limit=clamp_int(
@@ -819,7 +881,16 @@ def create_mcp_stream_server(
                     maximum=QUERY_LIMIT_MAX,
                 ),
                 include_drafts=network_include_drafts(allow_drafts, include_drafts),
-            ).model_dump()
+                mode=search_mode_arg(mode),
+                fields=result_fields,
+                snippet_chars=optional_clamped_int(
+                    snippet_chars,
+                    minimum=0,
+                    maximum=SNIPPET_CHARS_MAX,
+                ),
+                min_score=optional_nonnegative_float(min_score),
+                exclude_page_ids=optional_string_args(exclude_page_ids) or [],
+            ).model_dump(exclude_unset=result_fields is not None)
         except Exception as exc:
             raise ToolError(MCP_INTERNAL_FAILURE_MESSAGE) from exc
 
@@ -831,8 +902,14 @@ def create_mcp_stream_server(
         query: str = "",
         limit: int = resolved_context_default_limit,
         include_drafts: bool = False,
+        mode: SearchMode = "lexical",
+        fields: list[str] | str | None = None,
+        snippet_chars: int | None = None,
+        min_score: float | None = None,
+        exclude_page_ids: list[str] | str | None = None,
     ) -> dict[str, Any]:
         try:
+            result_fields = optional_string_args(fields)
             return {
                 "results": service.search(
                     query,
@@ -843,6 +920,15 @@ def create_mcp_stream_server(
                         maximum=QUERY_LIMIT_MAX,
                     ),
                     include_drafts=network_include_drafts(allow_drafts, include_drafts),
+                    mode=search_mode_arg(mode),
+                    fields=result_fields,
+                    snippet_chars=optional_clamped_int(
+                        snippet_chars,
+                        minimum=0,
+                        maximum=SNIPPET_CHARS_MAX,
+                    ),
+                    min_score=optional_nonnegative_float(min_score),
+                    exclude_page_ids=optional_string_args(exclude_page_ids) or [],
                 )
             }
         except Exception as exc:
@@ -852,11 +938,16 @@ def create_mcp_stream_server(
         name="llmwiki_read",
         description=metadata.tool_descriptions["llmwiki_read"],
     )
-    def llmwiki_read(page_id: str, include_drafts: bool = False) -> dict[str, Any]:
+    def llmwiki_read(
+        page_id: str,
+        include_drafts: bool = False,
+        fields: list[str] | str | None = None,
+    ) -> dict[str, Any]:
         try:
             return service.read(
                 page_id,
                 include_drafts=network_include_drafts(allow_drafts, include_drafts),
+                fields=optional_string_args(fields),
             )
         except Exception as exc:
             raise ToolError(MCP_INTERNAL_FAILURE_MESSAGE) from exc
@@ -997,6 +1088,7 @@ def handle_mcp(
     raw_args = params.get("arguments")
     args = raw_args if isinstance(raw_args, dict) else {}
     if name == "llmwiki_context":
+        result_fields = optional_string_args(args.get("fields"))
         return service.context(
             str(args.get("query") or ""),
             limit=clamp_int(
@@ -1006,7 +1098,19 @@ def handle_mcp(
                 maximum=QUERY_LIMIT_MAX,
             ),
             include_drafts=network_include_drafts(allow_drafts, args.get("include_drafts")),
-        ).model_dump()
+            mode=search_mode_arg(args.get("mode")),
+            fields=result_fields,
+            snippet_chars=optional_clamped_int(
+                args.get("snippet_chars"),
+                minimum=0,
+                maximum=SNIPPET_CHARS_MAX,
+            ),
+            min_score=optional_nonnegative_float(args.get("min_score")),
+            exclude_page_ids=collect_string_args(
+                args.get("exclude_page_id"),
+                args.get("exclude_page_ids"),
+            ),
+        ).model_dump(exclude_unset=result_fields is not None)
     if name == "llmwiki_search":
         return {
             "results": service.search(
@@ -1018,12 +1122,25 @@ def handle_mcp(
                     maximum=QUERY_LIMIT_MAX,
                 ),
                 include_drafts=network_include_drafts(allow_drafts, args.get("include_drafts")),
+                mode=search_mode_arg(args.get("mode")),
+                fields=optional_string_args(args.get("fields")),
+                snippet_chars=optional_clamped_int(
+                    args.get("snippet_chars"),
+                    minimum=0,
+                    maximum=SNIPPET_CHARS_MAX,
+                ),
+                min_score=optional_nonnegative_float(args.get("min_score")),
+                exclude_page_ids=collect_string_args(
+                    args.get("exclude_page_id"),
+                    args.get("exclude_page_ids"),
+                ),
             )
         }
     if name == "llmwiki_read":
         return service.read(
             str(args.get("page_id") or args.get("id") or ""),
             include_drafts=network_include_drafts(allow_drafts, args.get("include_drafts")),
+            fields=optional_string_args(args.get("fields")),
         )
     if name == "llmwiki_graph":
         return service.graph(
@@ -1098,6 +1215,39 @@ def bool_arg(value: Any) -> bool:
     return bool(value)
 
 
+def parse_optional_string_list(value: Any) -> list[str] | None:
+    if value is None:
+        return None
+    result = collect_string_args(value)
+    return result if result or value == [] else []
+
+
+def optional_string_args(value: Any) -> list[str] | None:
+    if value is None:
+        return None
+    return collect_string_args(value)
+
+
+def optional_clamped_int(value: Any, *, minimum: int, maximum: int) -> int | None:
+    if value is None or value == "":
+        return None
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    return max(minimum, min(parsed, maximum))
+
+
+def optional_nonnegative_float(value: Any) -> float | None:
+    if value is None or value == "":
+        return None
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    return max(0.0, parsed)
+
+
 def collect_string_args(*values: Any) -> list[str]:
     result: list[str] = []
     for value in values:
@@ -1111,6 +1261,13 @@ def collect_string_args(*values: Any) -> list[str]:
             if candidate and candidate not in result:
                 result.append(candidate)
     return result
+
+
+def search_mode_arg(value: Any) -> SearchMode:
+    normalized = str(value or "lexical").strip().lower()
+    if normalized in {"literal", "exact"}:
+        return "literal"
+    return "lexical"
 
 
 def graph_direction_arg(value: Any) -> GraphNeighborhoodDirection:

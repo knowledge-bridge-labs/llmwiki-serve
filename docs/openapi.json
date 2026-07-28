@@ -24,7 +24,14 @@
           },
           "evidence": {
             "items": {
-              "$ref": "#/components/schemas/SearchResult"
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/SearchResult"
+                },
+                {
+                  "$ref": "#/components/schemas/SearchResultProjection"
+                }
+              ]
             },
             "title": "Evidence",
             "type": "array"
@@ -54,7 +61,14 @@
           },
           "orientation": {
             "items": {
-              "$ref": "#/components/schemas/SearchResult"
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/SearchResult"
+                },
+                {
+                  "$ref": "#/components/schemas/SearchResultProjection"
+                }
+              ]
             },
             "title": "Orientation",
             "type": "array"
@@ -641,6 +655,28 @@
       },
       "QueryRequest": {
         "properties": {
+          "exclude_page_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Exclude Page Ids",
+            "type": "array"
+          },
+          "fields": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional SearchResult fields to return, comma-separated or as a JSON list. page_id is always included when projection is requested.",
+            "title": "Fields"
+          },
           "include_drafts": {
             "default": false,
             "title": "Include Drafts",
@@ -659,10 +695,44 @@
             ],
             "title": "Limit"
           },
+          "min_score": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Score"
+          },
+          "mode": {
+            "default": "lexical",
+            "enum": [
+              "lexical",
+              "literal"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
           "query": {
             "default": "",
             "title": "Query",
             "type": "string"
+          },
+          "snippet_chars": {
+            "anyOf": [
+              {
+                "maximum": 2000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snippet Chars"
           }
         },
         "title": "QueryRequest",
@@ -714,7 +784,14 @@
         "properties": {
           "results": {
             "items": {
-              "$ref": "#/components/schemas/SearchResult"
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/SearchResult"
+                },
+                {
+                  "$ref": "#/components/schemas/SearchResultProjection"
+                }
+              ]
             },
             "title": "Results",
             "type": "array"
@@ -771,6 +848,54 @@
           "role"
         ],
         "title": "SearchResult",
+        "type": "object"
+      },
+      "SearchResultProjection": {
+        "properties": {
+          "page_id": {
+            "default": "",
+            "title": "Page Id",
+            "type": "string"
+          },
+          "path": {
+            "default": "",
+            "title": "Path",
+            "type": "string"
+          },
+          "role": {
+            "default": "",
+            "title": "Role",
+            "type": "string"
+          },
+          "route": {
+            "default": "",
+            "title": "Route",
+            "type": "string"
+          },
+          "score": {
+            "default": 0.0,
+            "title": "Score",
+            "type": "number"
+          },
+          "snippet": {
+            "default": "",
+            "title": "Snippet",
+            "type": "string"
+          },
+          "source_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Refs",
+            "type": "array"
+          },
+          "title": {
+            "default": "",
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "title": "SearchResultProjection",
         "type": "object"
       },
       "SourceBundleManifest": {
@@ -1134,13 +1259,97 @@
         ],
         "title": "WikiPage",
         "type": "object"
+      },
+      "WikiPageProjection": {
+        "properties": {
+          "frontmatter": {
+            "additionalProperties": true,
+            "title": "Frontmatter",
+            "type": "object"
+          },
+          "headings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Headings",
+            "type": "array"
+          },
+          "id": {
+            "default": "",
+            "title": "Id",
+            "type": "string"
+          },
+          "links": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Links",
+            "type": "array"
+          },
+          "path": {
+            "default": "",
+            "title": "Path",
+            "type": "string"
+          },
+          "review_state": {
+            "default": "",
+            "title": "Review State",
+            "type": "string"
+          },
+          "role": {
+            "default": "",
+            "title": "Role",
+            "type": "string"
+          },
+          "source_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Refs",
+            "type": "array"
+          },
+          "status": {
+            "default": "",
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "default": "",
+            "title": "Summary",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "text": {
+            "default": "",
+            "title": "Text",
+            "type": "string"
+          },
+          "title": {
+            "default": "",
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "default": "",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "title": "WikiPageProjection",
+        "type": "object"
       }
     }
   },
   "info": {
     "description": "Read-only HTTP, MCP-style JSON-RPC, MCP Streamable HTTP, and optional A2A-style message surface for LLMWiki Markdown folders.",
     "title": "LLMWiki Serve",
-    "version": "0.2.3"
+    "version": "0.2.4"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -1467,6 +1676,24 @@
               "title": "Include Drafts",
               "type": "boolean"
             }
+          },
+          {
+            "description": "Optional comma-separated WikiPage fields to return.",
+            "in": "query",
+            "name": "fields",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional comma-separated WikiPage fields to return.",
+              "title": "Fields"
+            }
           }
         ],
         "responses": {
@@ -1477,6 +1704,9 @@
                   "anyOf": [
                     {
                       "$ref": "#/components/schemas/WikiPage"
+                    },
+                    {
+                      "$ref": "#/components/schemas/WikiPageProjection"
                     },
                     {
                       "$ref": "#/components/schemas/ReadNotFoundResponse"

@@ -251,42 +251,78 @@ def test_korean_numeric_search_ranks_focused_contract_page_over_long_index(
     tmp_path: Path,
 ) -> None:
     root = tmp_path / "wiki"
-    topics = root / "topics"
-    topics.mkdir(parents=True)
-    long_index_noise = " ".join(["3"] * 180 + ["계약"] * 12)
-    write_markdown(
-        root / "index.md",
-        f"""
----
-wiki_title: Korean Contract Fixture
-review_state: approved
----
-# INDEX
-
-Aggregate operational index. {long_index_noise}
-
-The index mentions 3차 계약 once while cataloging many unrelated records.
-""",
-    )
-    write_markdown(
-        topics / "contract-and-estimate.md",
-        """
----
-title: Contract And Estimate
-review_state: approved
----
-# Contract And Estimate
-
-행복ICT 3차 계약 조건과 증원 데이터PM 레이블러 계약 범위를 정리한다.
-3차 계약 변경점, 견적 승인, 계약 일정, 계약 담당자를 함께 추적한다.
-""",
-    )
+    create_korean_contract_fixture(root)
     service = LlmWikiService(root)
 
     results = service.search("3차 계약", limit=4)
 
     assert results[0]["page_id"] == "topics/contract-and-estimate"
     assert [item["page_id"] for item in results].index("index") > 0
+
+
+def test_literal_search_retrieves_korean_exact_phrase(tmp_path: Path) -> None:
+    root = tmp_path / "wiki"
+    create_korean_contract_fixture(root)
+    service = LlmWikiService(root)
+
+    results = service.search(
+        "3차 계약",
+        mode="literal",
+        limit=4,
+        fields=["page_id", "title", "snippet", "route"],
+        snippet_chars=72,
+    )
+
+    assert results[0]["page_id"] == "topics/contract-and-estimate"
+    assert results[0]["route"] == "literal"
+    assert "3차 계약" in results[0]["snippet"]
+    assert set(results[0]) == {"page_id", "title", "snippet", "route"}
+    assert service.search("4차 계약", mode="literal") == []
+
+
+def test_min_score_keeps_low_confidence_index_noise_out(tmp_path: Path) -> None:
+    root = tmp_path / "wiki"
+    create_korean_contract_fixture(root)
+    service = LlmWikiService(root)
+
+    baseline = service.search("3차 계약", limit=4)
+    threshold = (baseline[0]["score"] + baseline[1]["score"]) / 2
+    filtered = service.search("3차 계약", limit=4, min_score=threshold)
+
+    assert filtered[0]["page_id"] == "topics/contract-and-estimate"
+    assert all(item["page_id"] != "index" for item in filtered)
+
+
+def test_search_and_query_projection_reduce_payload_and_exclude_pages(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "wiki"
+    create_many_page_wiki(root, page_count=6)
+    service = LlmWikiService(root)
+
+    baseline = service.search("sharedneedle", limit=4)
+    projected = service.search(
+        "sharedneedle",
+        limit=4,
+        fields=["page_id", "title", "score", "role"],
+        snippet_chars=0,
+        exclude_page_ids=[baseline[0]["page_id"]],
+    )
+    context = service.context(
+        "sharedneedle",
+        limit=3,
+        fields=["page_id", "title"],
+        snippet_chars=0,
+        exclude_page_ids=[baseline[0]["page_id"]],
+    ).model_dump(exclude_unset=True)
+
+    assert all(item["page_id"] != baseline[0]["page_id"] for item in projected)
+    assert all(set(item) == {"page_id", "title", "score", "role"} for item in projected)
+    assert len(json.dumps(projected, ensure_ascii=False)) < len(
+        json.dumps(baseline, ensure_ascii=False)
+    )
+    assert all(set(item) == {"page_id", "title"} for item in context["evidence"])
+    assert all(item["page_id"] != baseline[0]["page_id"] for item in context["evidence"])
 
 
 def test_numeric_inline_hashtags_are_not_projected_as_tags(tmp_path: Path) -> None:
@@ -453,6 +489,17 @@ Current focus.
 
     assert page["frontmatter"]["created"] == "2026-07-10"
     assert page["frontmatter"]["updated"] == "2026-07-11"
+
+
+def test_read_projection_omits_body_and_redundant_fields() -> None:
+    service = LlmWikiService(FIXTURE)
+
+    projected = service.read("requester-return", fields=["id", "title", "summary"])
+
+    assert set(projected) == {"id", "title", "summary"}
+    assert projected["id"] == "requester-return"
+    assert "text" not in projected
+    assert "headings" not in projected
 
 
 def test_http_include_drafts_requires_app_opt_in() -> None:
@@ -652,6 +699,7 @@ def test_cli_reports_unsupported_wiki_root_without_traceback(tmp_path: Path) -> 
     for command in (
         ["manifest", str(empty_root)],
         ["query", str(empty_root), "release readiness"],
+        ["search", str(empty_root), "release readiness"],
         ["serve", str(empty_root)],
     ):
         result = CliRunner().invoke(cli_app, command)
@@ -3353,6 +3401,78 @@ def test_quickstart_http_request_body_smoke() -> None:
     assert graph["edges"]
 
 
+def test_search_projection_controls_across_http_mcp_and_cli() -> None:
+    client = TestClient(create_app(FIXTURE))
+
+    http_search = client.post(
+        "/search",
+        json={
+            "query": "requester return",
+            "mode": "literal",
+            "fields": ["page_id", "snippet", "route"],
+            "snippet_chars": 80,
+        },
+    ).json()
+    http_query = client.post(
+        "/query",
+        json={
+            "query": "requester return",
+            "fields": "page_id,title",
+            "snippet_chars": 0,
+            "exclude_page_ids": [http_search["results"][0]["page_id"]],
+        },
+    ).json()
+    mcp_search = mcp_tool_call(
+        client,
+        "llmwiki_search",
+        {
+            "query": "requester return",
+            "mode": "literal",
+            "fields": "page_id,route",
+            "snippet_chars": 0,
+        },
+    )
+    http_read = client.get("/read/requester-return?fields=id,title,summary").json()
+    mcp_read = mcp_tool_call(
+        client,
+        "llmwiki_read",
+        {"page_id": "requester-return", "fields": ["id", "title"]},
+    )
+    cli_result = CliRunner().invoke(
+        cli_app,
+        [
+            "search",
+            str(FIXTURE),
+            "requester return",
+            "--mode",
+            "literal",
+            "--fields",
+            "page_id,title,route",
+            "--snippet-chars",
+            "0",
+        ],
+    )
+
+    assert http_search["results"][0]["page_id"] == "requester-return"
+    assert http_search["results"][0]["route"] == "literal"
+    assert "requester return" in http_search["results"][0]["snippet"].lower()
+    assert set(http_search["results"][0]) == {"page_id", "snippet", "route"}
+    assert all(
+        item["page_id"] != http_search["results"][0]["page_id"] for item in http_query["evidence"]
+    )
+    assert all(set(item) == {"page_id", "title"} for item in http_query["evidence"])
+    assert set(mcp_search["results"][0]) == {"page_id", "route"}
+    assert set(http_read) == {"id", "title", "summary"}
+    assert http_read["id"] == "requester-return"
+    assert http_read["title"] == "Requester Return"
+    assert "Missing required text" in http_read["summary"]
+    assert mcp_read == {"id": "requester-return", "title": "Requester Return"}
+    assert cli_result.exit_code == 0, cli_result.output
+    cli_payload = json.loads(cli_result.output)
+    assert set(cli_payload["results"][0]) == {"page_id", "title", "route"}
+    assert cli_payload["results"][0]["route"] == "literal"
+
+
 def test_mcp_tools_list_contains_context_and_graph() -> None:
     client = TestClient(create_app(FIXTURE))
     tools = client.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"}).json()
@@ -3771,6 +3891,40 @@ def test_mcp_streamable_http_tools_list_and_call_smoke() -> None:
             },
             headers=headers,
         )
+        search_response = client.post(
+            MCP_STREAM_PATH,
+            json={
+                "jsonrpc": "2.0",
+                "id": 4,
+                "method": "tools/call",
+                "params": {
+                    "name": "llmwiki_search",
+                    "arguments": {
+                        "query": "requester return",
+                        "mode": "literal",
+                        "fields": "page_id,route",
+                        "snippet_chars": 0,
+                    },
+                },
+            },
+            headers=headers,
+        )
+        read_response = client.post(
+            MCP_STREAM_PATH,
+            json={
+                "jsonrpc": "2.0",
+                "id": 5,
+                "method": "tools/call",
+                "params": {
+                    "name": "llmwiki_read",
+                    "arguments": {
+                        "page_id": "requester-return",
+                        "fields": "id,title",
+                    },
+                },
+            },
+            headers=headers,
+        )
 
     assert tools_response.status_code == 200
     tool_names = {tool["name"] for tool in tools_response.json()["result"]["tools"]}
@@ -3787,6 +3941,20 @@ def test_mcp_streamable_http_tools_list_and_call_smoke() -> None:
     assert call_result["isError"] is False
     assert call_result["structuredContent"]["answerable"] is True
     assert call_result["structuredContent"]["evidence"]
+    assert search_response.status_code == 200
+    search_result = search_response.json()["result"]
+    assert search_result["isError"] is False
+    assert search_result["structuredContent"]["results"][0] == {
+        "page_id": "requester-return",
+        "route": "literal",
+    }
+    assert read_response.status_code == 200
+    read_result = read_response.json()["result"]
+    assert read_result["isError"] is False
+    assert read_result["structuredContent"] == {
+        "id": "requester-return",
+        "title": "Requester Return",
+    }
 
     with TestClient(
         create_app(Path(__file__).parent / "fixtures" / "native-wiki-root"),
@@ -3931,6 +4099,39 @@ review_state: approved
 sharedneedle evidence page {index:03d}. {next_link}
 """,
         )
+
+
+def create_korean_contract_fixture(root: Path) -> None:
+    topics = root / "topics"
+    topics.mkdir(parents=True)
+    long_index_noise = " ".join(["3"] * 180 + ["계약"] * 12)
+    write_markdown(
+        root / "index.md",
+        f"""
+---
+wiki_title: Korean Contract Fixture
+review_state: approved
+---
+# INDEX
+
+Aggregate operational index. {long_index_noise}
+
+The index mentions 3차 계약 once while cataloging many unrelated records.
+""",
+    )
+    write_markdown(
+        topics / "contract-and-estimate.md",
+        """
+---
+title: Contract And Estimate
+review_state: approved
+---
+# Contract And Estimate
+
+행복ICT 3차 계약 조건과 증원 데이터PM 레이블러 계약 범위를 정리한다.
+3차 계약 변경점, 견적 승인, 계약 일정, 계약 담당자를 함께 추적한다.
+""",
+    )
 
 
 class FakeRedisClient:

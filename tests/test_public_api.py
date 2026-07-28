@@ -40,9 +40,11 @@ def test_openapi_contract_covers_core_http_response_models() -> None:
         "ContextPack",
         "WikiManifest",
         "SearchResponse",
+        "SearchResultProjection",
         "GraphResponse",
         "GraphNeighborhoodResponse",
         "WikiPage",
+        "WikiPageProjection",
         "ReadNotFoundResponse",
         "HttpDetailResponse",
         "JsonRpcResponse",
@@ -63,6 +65,7 @@ def test_openapi_contract_covers_core_http_response_models() -> None:
     health_schema = schema["components"]["schemas"]["HealthResponse"]
     health_endpoints_schema = schema["components"]["schemas"]["HealthEndpointsResponse"]
     projection_store_schema = schema["components"]["schemas"]["ProjectionStoreDiagnosticsResponse"]
+    query_request_schema = schema["components"]["schemas"]["QueryRequest"]
 
     assert query_response["$ref"] == "#/components/schemas/ContextPack"
     assert graph_response["$ref"] == "#/components/schemas/GraphResponse"
@@ -97,6 +100,14 @@ def test_openapi_contract_covers_core_http_response_models() -> None:
     assert projection_store_schema["properties"]["backend_kind"]["enum"] == ["memory", "redis"]
     assert {"type": "string"} in projection_store_schema["properties"]["endpoint"]["anyOf"]
     assert {"type": "null"} in projection_store_schema["properties"]["endpoint"]["anyOf"]
+    assert {
+        "mode",
+        "fields",
+        "snippet_chars",
+        "min_score",
+        "exclude_page_ids",
+    } <= set(query_request_schema["properties"])
+    assert query_request_schema["properties"]["mode"]["enum"] == ["lexical", "literal"]
     assert (
         schema["paths"]["/read/{page_id}"]["get"]["responses"]["404"]["content"][
             "application/json"
