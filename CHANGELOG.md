@@ -7,6 +7,16 @@ This project follows a lightweight public-preview changelog format. Dates use
 
 ## Unreleased
 
+## 0.2.6 - 2026-07-29
+
+- Hardened `llmwiki-serve ls/status` process discovery with `psutil`-backed
+  argv/cwd and TCP listener ownership. Registry-empty discovery still avoids
+  fixed-port scans, dedupes launcher/wrapper chains by endpoint, reports the
+  actual listener PID when available, resolves relative process roots against
+  cwd, keeps exact but unreachable process candidates visible as unhealthy
+  `service_verified=false`, records optional process create time for PID reuse
+  checks, and adds `--probe-timeout-seconds` for local health probe tuning.
+
 ## 0.2.5 - 2026-07-28
 
 - Improved `llmwiki-serve ls/status` so default local discovery uses the current

@@ -5,31 +5,47 @@ import json
 import os
 import re
 import shlex
+import socket
 import subprocess
 from collections.abc import Callable, Sequence
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+from types import ModuleType
 from typing import Any, Literal, cast
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from .models import WikiManifest
 
-REGISTRY_SCHEMA_VERSION = 1
+_psutil: ModuleType | None
+try:
+    import psutil as _psutil
+except ImportError:  # pragma: no cover - exercised only in degraded installs
+    _psutil = None
+
+REGISTRY_SCHEMA_VERSION = 2
 STATE_DIR_ENV = "LLMWIKI_SERVE_STATE_DIR"
 INSTANCE_RECORD_DIR = "instances"
-HEALTH_PROBE_TIMEOUT_SECONDS = 0.5
+HEALTH_PROBE_TIMEOUT_SECONDS = 1.5
 HTTP_PROBE_READ_LIMIT = 256 * 1024
 PROCESS_DISCOVERY_COMMAND_TIMEOUT_SECONDS = 3.0
 DEFAULT_SERVE_HOST = "127.0.0.1"
 DEFAULT_SERVE_PORT = 8765
 MANUAL_PROBE_HOST = "127.0.0.1"
 UNKNOWN_PID = 0
+_PSUTIL = cast(Any, _psutil)
 
 InstanceStatus = Literal["healthy", "unhealthy", "running", "stale"]
 DiscoverySource = Literal["registry", "process", "manual-probe"]
 RootSource = Literal["registry", "process-args", "unknown"]
+HealthProbeFailureReason = Literal[
+    "health-connection-failed",
+    "health-http-error",
+    "health-invalid-response",
+    "health-non-llmwiki-service",
+    "health-timeout",
+]
 
 
 @dataclass(frozen=True)
@@ -46,6 +62,7 @@ class InstanceRecord:
     page_count: int
     approved_page_count: int
     started_at: str
+    process_create_time: float | None = None
     schema_version: int = REGISTRY_SCHEMA_VERSION
 
     @classmethod
@@ -71,10 +88,14 @@ class InstanceRecord:
             page_count=manifest.page_count,
             approved_page_count=manifest.approved_page_count,
             started_at=(started_at or datetime.now(UTC)).isoformat().replace("+00:00", "Z"),
+            process_create_time=current_process_create_time(pid),
         )
 
-    def model_dump(self) -> dict[str, Any]:
-        return asdict(self)
+    def model_dump(self, *, include_process_create_time: bool = False) -> dict[str, Any]:
+        payload = asdict(self)
+        if not include_process_create_time:
+            payload.pop("process_create_time", None)
+        return payload
 
     def with_health(self, source: dict[str, Any]) -> InstanceRecord:
         return InstanceRecord(
@@ -93,6 +114,25 @@ class InstanceRecord:
                 default=self.approved_page_count,
             ),
             started_at=self.started_at,
+            process_create_time=self.process_create_time,
+            schema_version=self.schema_version,
+        )
+
+    def with_pid(self, pid: int) -> InstanceRecord:
+        return InstanceRecord(
+            pid=pid,
+            host=self.host,
+            port=self.port,
+            root=self.root,
+            url=self.url,
+            source_id=self.source_id,
+            bundle_id=self.bundle_id,
+            adapter=self.adapter,
+            implementation=self.implementation,
+            page_count=self.page_count,
+            approved_page_count=self.approved_page_count,
+            started_at=self.started_at,
+            process_create_time=self.process_create_time,
             schema_version=self.schema_version,
         )
 
@@ -119,6 +159,7 @@ class InstanceRecord:
             page_count=int_value(source.get("page_count"), default=0),
             approved_page_count=int_value(source.get("approved_page_count"), default=0),
             started_at="",
+            process_create_time=None,
         )
 
 
@@ -135,10 +176,18 @@ class HealthProbeResult:
 
 
 @dataclass(frozen=True)
+class HealthProbeFailure:
+    reason: HealthProbeFailureReason
+
+
+@dataclass(frozen=True)
 class ProcessEntry:
     pid: int
     argv: tuple[str, ...]
     command_line: str = ""
+    cwd: str = ""
+    create_time: float | None = None
+    ppid: int | None = None
 
 
 @dataclass(frozen=True)
@@ -147,6 +196,7 @@ class ServeProcessCandidate:
     host: str
     port: int
     root: str
+    listener_pid_verified: bool = False
 
 
 @dataclass(frozen=True)
@@ -168,6 +218,7 @@ class InstanceInfo:
     version: str = ""
     discovery_source: DiscoverySource = "registry"
     root_source: RootSource = "registry"
+    service_verified: bool = False
 
     def model_dump(self) -> dict[str, Any]:
         payload = self.record.model_dump()
@@ -183,6 +234,7 @@ class InstanceInfo:
                 "version": self.version or "unknown",
                 "discovery_source": self.discovery_source,
                 "root_source": self.root_source,
+                "service_verified": self.service_verified,
             }
         )
         return payload
@@ -227,7 +279,13 @@ def register_instance(record: InstanceRecord, *, state_dir: Path | None = None) 
     path = directory / instance_record_filename(record)
     temporary = path.with_suffix(".json.tmp")
     temporary.write_text(
-        json.dumps(record.model_dump(), ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        json.dumps(
+            record.model_dump(include_process_create_time=True),
+            ensure_ascii=False,
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
         encoding="utf-8",
     )
     temporary.replace(path)
@@ -252,6 +310,7 @@ def list_local_instances(
     processes: bool = True,
     manual_probe_ports: Sequence[int] | None = None,
     process_entries: Sequence[ProcessEntry] | None = None,
+    listener_pids_by_endpoint: dict[tuple[str, int], int] | None = None,
 ) -> list[InstanceInfo]:
     return discover_local_instances(
         state_dir=state_dir,
@@ -261,6 +320,7 @@ def list_local_instances(
         processes=processes,
         manual_probe_ports=manual_probe_ports,
         process_entries=process_entries,
+        listener_pids_by_endpoint=listener_pids_by_endpoint,
     ).instances
 
 
@@ -273,12 +333,64 @@ def discover_local_instances(
     processes: bool = True,
     manual_probe_ports: Sequence[int] | None = None,
     process_entries: Sequence[ProcessEntry] | None = None,
+    listener_pids_by_endpoint: dict[tuple[str, int], int] | None = None,
 ) -> LocalInstanceDiscoveryResult:
     stored_records = read_instance_records(state_dir=state_dir)
+    warnings: list[str] = []
+    process_result: ProcessEntryDiscoveryResult | None = None
+    if processes:
+        if process_entries is None:
+            process_result = current_platform_process_entries()
+            warnings.extend(process_result.warnings)
+        else:
+            process_result = ProcessEntryDiscoveryResult(
+                entries=list(process_entries),
+                warnings=[],
+                listener_pids_by_endpoint=listener_pids_by_endpoint or {},
+            )
+    listener_pids = process_result.listener_pids_by_endpoint if process_result else {}
+    serve_processes = (
+        discover_serve_processes(
+            process_entries=process_result.entries,
+            listener_pids_by_endpoint=process_result.listener_pids_by_endpoint,
+        )
+        if process_result is not None
+        else None
+    )
+    verified_listener_endpoints = (
+        {
+            endpoint_key(candidate.host, candidate.port)
+            for candidate in serve_processes.candidates
+            if candidate.listener_pid_verified
+        }
+        if serve_processes is not None
+        else set()
+    )
     infos: list[InstanceInfo] = []
     for stored in stored_records:
         record = stored.record
         running = process_is_running(record.pid)
+        notes: list[str] = []
+        if running and record.process_create_time is not None:
+            active_create_time = current_process_create_time(record.pid)
+            if active_create_time is not None and not same_process_create_time(
+                active_create_time,
+                record.process_create_time,
+            ):
+                running = False
+                notes.append("pid-reused")
+        listener_pid = listener_pids.get(endpoint_key(record.host, record.port))
+        if (
+            running
+            and listener_pid is not None
+            and listener_pid > 0
+            and listener_pid != record.pid
+            and process_is_running(listener_pid)
+        ):
+            record = record.with_pid(listener_pid)
+            notes.append("listener-pid-corrected")
+            if endpoint_key(record.host, record.port) not in verified_listener_endpoints:
+                notes.append("listener-pid-unverified")
         status: InstanceStatus
         healthy = False
         stale = not running
@@ -296,6 +408,7 @@ def discover_local_instances(
                 healthy = True
                 record = record.with_health(health.source)
                 version = health.version
+        service_verified = healthy
         pruned = False
         if stale and prune_stale:
             unregister_instance(stored.path)
@@ -306,22 +419,20 @@ def discover_local_instances(
                 status=status,
                 healthy=healthy,
                 stale=stale,
-                notes=[],
+                notes=notes,
                 pruned=pruned,
                 registered=True,
                 orphan=False,
                 version=version,
                 discovery_source="registry",
                 root_source="registry",
+                service_verified=service_verified,
             )
         )
-    warnings: list[str] = []
     seen_endpoints = active_endpoint_keys(infos)
-    if processes:
-        process_result = discover_serve_processes(process_entries=process_entries)
-        warnings.extend(process_result.warnings)
+    if serve_processes is not None:
         process_infos = probe_process_candidates(
-            process_result.candidates,
+            serve_processes.candidates,
             seen_endpoints=seen_endpoints,
             timeout_seconds=probe_timeout_seconds,
         )
@@ -374,31 +485,46 @@ def probe_process_candidates(
             approved_page_count=0,
             started_at="",
         )
-        health = probe_llmwiki_health(probe_record, timeout_seconds=timeout_seconds)
-        if health is None:
-            continue
-        record = InstanceRecord.from_health(
-            pid=candidate.pid,
-            host=candidate.host,
-            port=candidate.port,
-            root=candidate.root,
-            source=health.source,
-        )
         notes = ["orphan", "process-discovered"]
-        if not health.version:
-            notes.append("version-unknown")
+        if not candidate.listener_pid_verified:
+            notes.append("listener-pid-unverified")
+        outcome = probe_llmwiki_health_outcome(probe_record, timeout_seconds=timeout_seconds)
+        if isinstance(outcome, HealthProbeFailure):
+            if outcome.reason == "health-non-llmwiki-service":
+                continue
+            notes.extend(["service-unverified", outcome.reason])
+            record = probe_record
+            status: InstanceStatus = "unhealthy"
+            healthy = False
+            version = ""
+            service_verified = False
+        else:
+            record = InstanceRecord.from_health(
+                pid=candidate.pid,
+                host=candidate.host,
+                port=candidate.port,
+                root=candidate.root,
+                source=outcome.source,
+            )
+            status = "healthy"
+            healthy = True
+            version = outcome.version
+            service_verified = True
+            if not outcome.version:
+                notes.append("version-unknown")
         infos.append(
             InstanceInfo(
                 record=record,
-                status="healthy",
-                healthy=True,
+                status=status,
+                healthy=healthy,
                 stale=False,
                 notes=notes,
                 registered=False,
                 orphan=True,
-                version=health.version,
+                version=version,
                 discovery_source="process",
                 root_source="process-args" if candidate.root else "unknown",
+                service_verified=service_verified,
             )
         )
         seen_endpoints.add(candidate_endpoint)
@@ -455,6 +581,7 @@ def probe_manual_ports(
                 version=health.version,
                 discovery_source="manual-probe",
                 root_source="unknown",
+                service_verified=True,
             )
         )
         seen_endpoints.add(candidate_endpoint)
@@ -464,42 +591,276 @@ def probe_manual_ports(
 def discover_serve_processes(
     *,
     process_entries: Sequence[ProcessEntry] | None = None,
+    listener_pids_by_endpoint: dict[tuple[str, int], int] | None = None,
 ) -> ProcessDiscoveryResult:
     if process_entries is None:
         process_result = current_platform_process_entries()
         entries = process_result.entries
         warnings = process_result.warnings
+        listener_pids = process_result.listener_pids_by_endpoint
     else:
         entries = list(process_entries)
         warnings = []
-    candidates: list[ServeProcessCandidate] = []
-    seen: set[tuple[int, str, int]] = set()
+        listener_pids = listener_pids_by_endpoint or {}
+    parent_pids = {entry.pid: entry.ppid for entry in entries if entry.ppid is not None}
+    groups: dict[tuple[str, int], list[ServeProcessCandidate]] = {}
     for entry in entries:
         candidate = parse_serve_process_candidate(entry)
         if candidate is None:
             continue
-        key = (candidate.pid, normalized_endpoint_host(candidate.host), candidate.port)
-        if key in seen:
-            continue
-        candidates.append(candidate)
-        seen.add(key)
+        key = endpoint_key(candidate.host, candidate.port)
+        groups.setdefault(key, []).append(candidate)
+    candidates = [
+        select_endpoint_candidate(
+            group,
+            listener_pid=listener_pids.get(endpoint),
+            parent_pids=parent_pids,
+        )
+        for endpoint, group in groups.items()
+    ]
     return ProcessDiscoveryResult(candidates=candidates, warnings=warnings)
+
+
+def select_endpoint_candidate(
+    candidates: Sequence[ServeProcessCandidate],
+    *,
+    listener_pid: int | None,
+    parent_pids: dict[int, int],
+) -> ServeProcessCandidate:
+    selected = candidates[0]
+    if listener_pid is None or listener_pid <= 0:
+        return selected
+    listener_pid_verified = pid_matches_candidate_tree(
+        listener_pid,
+        candidate_pids={candidate.pid for candidate in candidates},
+        parent_pids=parent_pids,
+    )
+    for candidate in candidates:
+        if candidate.pid == listener_pid:
+            selected = candidate
+            break
+    return ServeProcessCandidate(
+        pid=listener_pid,
+        host=selected.host,
+        port=selected.port,
+        root=selected.root,
+        listener_pid_verified=listener_pid_verified,
+    )
+
+
+def pid_matches_candidate_tree(
+    pid: int,
+    *,
+    candidate_pids: set[int],
+    parent_pids: dict[int, int],
+) -> bool:
+    if pid in candidate_pids:
+        return True
+    seen: set[int] = set()
+    current = pid
+    while current not in seen:
+        seen.add(current)
+        parent = parent_pids.get(current)
+        if parent is None or parent <= 0:
+            return False
+        if parent in candidate_pids:
+            return True
+        current = parent
+    return False
 
 
 @dataclass(frozen=True)
 class ProcessEntryDiscoveryResult:
     entries: list[ProcessEntry]
     warnings: list[str]
+    listener_pids_by_endpoint: dict[tuple[str, int], int] = field(default_factory=dict)
 
 
 def current_platform_process_entries() -> ProcessEntryDiscoveryResult:
-    if os.name == "nt":
-        return windows_process_entries()
-    return posix_process_entries()
+    primary = psutil_process_entries()
+    if not psutil_process_provider_failed(primary):
+        return primary
+    fallback = windows_process_entries() if os.name == "nt" else posix_process_entries()
+    return ProcessEntryDiscoveryResult(
+        entries=fallback.entries,
+        warnings=primary.warnings + fallback.warnings,
+        listener_pids_by_endpoint=fallback.listener_pids_by_endpoint,
+    )
+
+
+def psutil_process_provider_failed(result: ProcessEntryDiscoveryResult) -> bool:
+    return any("psutil process provider" in warning for warning in result.warnings)
+
+
+def psutil_process_entries() -> ProcessEntryDiscoveryResult:
+    if _PSUTIL is None:
+        return ProcessEntryDiscoveryResult(
+            entries=[],
+            warnings=["process discovery degraded: psutil process provider unavailable"],
+        )
+    try:
+        processes = list(_PSUTIL.process_iter(["pid"]))
+    except Exception:  # pragma: no cover - provider-level OS failure
+        return ProcessEntryDiscoveryResult(
+            entries=[],
+            warnings=["process discovery degraded: psutil process provider failed"],
+        )
+
+    entries: list[ProcessEntry] = []
+    access_denied_cmdline = False
+    access_denied_cwd = False
+    access_denied_create_time = False
+    access_denied_ppid = False
+    for process in processes:
+        try:
+            pid = int(process.pid)
+            raw_argv = process.cmdline()
+        except _PSUTIL.AccessDenied:
+            access_denied_cmdline = True
+            continue
+        except (
+            _PSUTIL.NoSuchProcess,
+            _PSUTIL.ZombieProcess,
+            OSError,
+            TypeError,
+            ValueError,
+        ):
+            continue
+        if not raw_argv:
+            continue
+        try:
+            cwd = process.cwd()
+        except _PSUTIL.AccessDenied:
+            access_denied_cwd = True
+            cwd = ""
+        except (
+            _PSUTIL.NoSuchProcess,
+            _PSUTIL.ZombieProcess,
+            OSError,
+        ):
+            cwd = ""
+        try:
+            create_time = float(process.create_time())
+        except _PSUTIL.AccessDenied:
+            access_denied_create_time = True
+            create_time = None
+        except (
+            _PSUTIL.NoSuchProcess,
+            _PSUTIL.ZombieProcess,
+            OSError,
+            TypeError,
+            ValueError,
+        ):
+            create_time = None
+        try:
+            ppid = int(process.ppid())
+        except _PSUTIL.AccessDenied:
+            access_denied_ppid = True
+            ppid = None
+        except (
+            _PSUTIL.NoSuchProcess,
+            _PSUTIL.ZombieProcess,
+            OSError,
+            TypeError,
+            ValueError,
+        ):
+            ppid = None
+        argv = tuple(str(item) for item in raw_argv if str(item))
+        if argv:
+            entries.append(
+                ProcessEntry(
+                    pid=pid,
+                    argv=argv,
+                    cwd=str(cwd) if cwd else "",
+                    create_time=create_time,
+                    ppid=ppid,
+                )
+            )
+
+    listener_pids, listener_warning = psutil_listener_pids_by_endpoint()
+    warnings = [listener_warning] if listener_warning else []
+    if access_denied_cmdline:
+        warnings.append(
+            "process discovery degraded: psutil denied access to some process command lines"
+        )
+    if access_denied_cwd:
+        warnings.append(
+            "process discovery degraded: psutil denied access to some process cwd values"
+        )
+    if access_denied_create_time:
+        warnings.append(
+            "process discovery degraded: psutil denied access to some process create_time values"
+        )
+    if access_denied_ppid:
+        warnings.append(
+            "process discovery degraded: psutil denied access to some process parent PIDs"
+        )
+    return ProcessEntryDiscoveryResult(
+        entries=entries,
+        warnings=warnings,
+        listener_pids_by_endpoint=listener_pids,
+    )
+
+
+def psutil_listener_pids_by_endpoint() -> tuple[dict[tuple[str, int], int], str]:
+    if _PSUTIL is None:
+        return {}, "process discovery degraded: psutil socket provider unavailable"
+    try:
+        connections = _PSUTIL.net_connections(kind="tcp")
+    except _PSUTIL.AccessDenied:
+        return {}, "process discovery degraded: psutil denied access to listener sockets"
+    except Exception:  # pragma: no cover - provider-level OS failure
+        return {}, "process discovery degraded: psutil socket provider failed"
+
+    listener_pids: dict[tuple[str, int], int] = {}
+    for connection in connections:
+        try:
+            if connection.status != _PSUTIL.CONN_LISTEN or connection.pid is None:
+                continue
+            host_port = socket_laddr_host_port(connection.laddr)
+        except (AttributeError, TypeError, ValueError):
+            continue
+        if host_port is None:
+            continue
+        host, port = host_port
+        for key in listener_endpoint_keys(host, port):
+            listener_pids.setdefault(key, int(connection.pid))
+    return listener_pids, ""
+
+
+def listener_endpoint_keys(host: str, port: int) -> set[tuple[str, int]]:
+    keys = {endpoint_key(host, port)}
+    normalized = host.strip().lower()
+    if normalized.startswith("[") and normalized.endswith("]"):
+        normalized = normalized[1:-1]
+    if normalized in {"0.0.0.0", "::", ""}:
+        keys.add((DEFAULT_SERVE_HOST, port))
+    if normalized in {"::", "::1", ""}:
+        keys.add(("::1", port))
+    return keys
+
+
+def socket_laddr_host_port(value: Any) -> tuple[str, int] | None:
+    host = getattr(value, "ip", None)
+    port = getattr(value, "port", None)
+    if host is None or port is None:
+        try:
+            host = value[0]
+            port = value[1]
+        except (IndexError, TypeError):
+            return None
+    try:
+        parsed_port = int(port)
+    except (TypeError, ValueError):
+        return None
+    if parsed_port <= 0 or parsed_port > 65_535:
+        return None
+    return str(host), parsed_port
 
 
 def windows_process_entries() -> ProcessEntryDiscoveryResult:
-    last_error = ""
+    provider_failed = False
+    provider_seen = False
     for executable in ("powershell", "pwsh"):
         try:
             result = subprocess.run(
@@ -519,18 +880,21 @@ def windows_process_entries() -> ProcessEntryDiscoveryResult:
                 timeout=PROCESS_DISCOVERY_COMMAND_TIMEOUT_SECONDS,
                 check=False,
             )
-        except (OSError, subprocess.SubprocessError) as exc:
-            last_error = str(exc)
+        except FileNotFoundError:
             continue
+        except (OSError, subprocess.SubprocessError):
+            provider_failed = True
+            continue
+        provider_seen = True
         if result.returncode != 0:
-            last_error = (result.stderr or result.stdout).strip()
+            provider_failed = True
             continue
         entries = windows_process_entries_from_json(result.stdout)
         return ProcessEntryDiscoveryResult(entries=entries, warnings=[])
-    detail = f": {last_error}" if last_error else ""
+    reason = "failed" if provider_failed or provider_seen else "unavailable"
     return ProcessEntryDiscoveryResult(
         entries=[],
-        warnings=[f"process discovery degraded: Windows process provider unavailable{detail}"],
+        warnings=[f"process discovery degraded: Windows process provider {reason}"],
     )
 
 
@@ -567,26 +931,32 @@ def windows_process_entries_from_json(value: str) -> list[ProcessEntry]:
 
 
 def posix_process_entries() -> ProcessEntryDiscoveryResult:
-    proc_entries = procfs_process_entries(Path("/proc"))
-    if proc_entries is not None:
-        return ProcessEntryDiscoveryResult(entries=proc_entries, warnings=[])
+    proc_result = procfs_process_entries(Path("/proc"))
+    if proc_result is not None:
+        return proc_result
     return ps_process_entries()
 
 
-def procfs_process_entries(proc_root: Path) -> list[ProcessEntry] | None:
+def procfs_process_entries(proc_root: Path) -> ProcessEntryDiscoveryResult | None:
     if not proc_root.is_dir():
         return None
     entries: list[ProcessEntry] = []
     try:
         children = list(proc_root.iterdir())
     except OSError:
-        return None
+        return ProcessEntryDiscoveryResult(
+            entries=[],
+            warnings=["process discovery degraded: procfs process provider failed"],
+        )
+    cmdline_read_failed = False
+    cwd_read_failed = False
     for path in children:
         if not path.name.isdigit():
             continue
         try:
             payload = (path / "cmdline").read_bytes()
         except OSError:
+            cmdline_read_failed = True
             continue
         if not payload:
             continue
@@ -596,8 +966,21 @@ def procfs_process_entries(proc_root: Path) -> list[ProcessEntry] | None:
             if item
         )
         if argv:
-            entries.append(ProcessEntry(pid=int(path.name), argv=argv, command_line=""))
-    return entries
+            cwd = ""
+            try:
+                cwd = str((path / "cwd").resolve(strict=True))
+            except OSError:
+                cwd_read_failed = True
+                cwd = ""
+            entries.append(ProcessEntry(pid=int(path.name), argv=argv, command_line="", cwd=cwd))
+    warnings: list[str] = []
+    if cmdline_read_failed:
+        warnings.append(
+            "process discovery degraded: procfs could not read some process command lines"
+        )
+    if cwd_read_failed:
+        warnings.append("process discovery degraded: procfs could not read some process cwd values")
+    return ProcessEntryDiscoveryResult(entries=entries, warnings=warnings)
 
 
 def ps_process_entries() -> ProcessEntryDiscoveryResult:
@@ -609,17 +992,15 @@ def ps_process_entries() -> ProcessEntryDiscoveryResult:
             timeout=PROCESS_DISCOVERY_COMMAND_TIMEOUT_SECONDS,
             check=False,
         )
-    except (OSError, subprocess.SubprocessError) as exc:
+    except (OSError, subprocess.SubprocessError):
         return ProcessEntryDiscoveryResult(
             entries=[],
-            warnings=[f"process discovery degraded: POSIX process provider unavailable: {exc}"],
+            warnings=["process discovery degraded: POSIX process provider unavailable"],
         )
     if result.returncode != 0:
-        detail = (result.stderr or result.stdout).strip()
-        suffix = f": {detail}" if detail else ""
         return ProcessEntryDiscoveryResult(
             entries=[],
-            warnings=[f"process discovery degraded: POSIX process provider failed{suffix}"],
+            warnings=["process discovery degraded: POSIX process provider failed"],
         )
     entries: list[ProcessEntry] = []
     for line in result.stdout.splitlines():
@@ -648,6 +1029,8 @@ def process_entry_from_command_line(
     pid: int,
     command_line: str,
     platform: Literal["windows", "posix"],
+    cwd: str = "",
+    create_time: float | None = None,
 ) -> ProcessEntry | None:
     argv = (
         split_windows_command_line(command_line)
@@ -656,7 +1039,13 @@ def process_entry_from_command_line(
     )
     if not argv:
         return None
-    return ProcessEntry(pid=pid, argv=tuple(argv), command_line=command_line)
+    return ProcessEntry(
+        pid=pid,
+        argv=tuple(argv),
+        command_line=command_line,
+        cwd=cwd,
+        create_time=create_time,
+    )
 
 
 def split_posix_command_line(command_line: str) -> list[str]:
@@ -720,7 +1109,26 @@ def parse_serve_process_candidate(entry: ProcessEntry) -> ServeProcessCandidate 
     if parsed is None:
         return None
     host, port, root = parsed
-    return ServeProcessCandidate(pid=entry.pid, host=host, port=port, root=root)
+    return ServeProcessCandidate(
+        pid=entry.pid,
+        host=host,
+        port=port,
+        root=resolve_process_root(root, entry.cwd),
+    )
+
+
+def resolve_process_root(root: str, cwd: str) -> str:
+    if not root:
+        return ""
+    try:
+        path = Path(root).expanduser()
+        if not path.is_absolute():
+            if not cwd:
+                return root
+            path = Path(cwd).expanduser() / path
+        return str(path.resolve(strict=False))
+    except (OSError, ValueError):
+        return root
 
 
 def serve_args_from_argv(argv: Sequence[str]) -> tuple[str, ...] | None:
@@ -890,6 +1298,7 @@ def instance_record_from_payload(payload: dict[str, Any]) -> InstanceRecord | No
         page_count=int_value(payload.get("page_count"), default=0),
         approved_page_count=int_value(payload.get("approved_page_count"), default=0),
         started_at=str(payload.get("started_at") or ""),
+        process_create_time=float_value(payload.get("process_create_time")),
         schema_version=int_value(payload.get("schema_version"), default=REGISTRY_SCHEMA_VERSION),
     )
 
@@ -910,6 +1319,8 @@ def instance_record_filename(record: InstanceRecord) -> str:
 def process_is_running(pid: int) -> bool:
     if pid <= 0:
         return False
+    if _PSUTIL is not None:
+        return bool(_PSUTIL.pid_exists(pid))
     if os.name == "nt":
         return windows_process_is_running(pid)
     try:
@@ -919,6 +1330,26 @@ def process_is_running(pid: int) -> bool:
     except OSError:
         return False
     return True
+
+
+def current_process_create_time(pid: int) -> float | None:
+    if pid <= 0 or _PSUTIL is None:
+        return None
+    try:
+        return float(_PSUTIL.Process(pid).create_time())
+    except (
+        _PSUTIL.NoSuchProcess,
+        _PSUTIL.AccessDenied,
+        _PSUTIL.ZombieProcess,
+        OSError,
+        TypeError,
+        ValueError,
+    ):
+        return None
+
+
+def same_process_create_time(left: float, right: float) -> bool:
+    return abs(left - right) < 0.001
 
 
 def windows_process_is_running(pid: int) -> bool:
@@ -951,26 +1382,54 @@ def probe_llmwiki_health(
     *,
     timeout_seconds: float = HEALTH_PROBE_TIMEOUT_SECONDS,
 ) -> HealthProbeResult | None:
+    outcome = probe_llmwiki_health_outcome(record, timeout_seconds=timeout_seconds)
+    return outcome if isinstance(outcome, HealthProbeResult) else None
+
+
+def probe_llmwiki_health_outcome(
+    record: InstanceRecord,
+    *,
+    timeout_seconds: float = HEALTH_PROBE_TIMEOUT_SECONDS,
+) -> HealthProbeResult | HealthProbeFailure:
     request = Request(health_url(record), headers={"accept": "application/json"})
     try:
         with urlopen(request, timeout=timeout_seconds) as response:
             status = getattr(response, "status", response.getcode())
             if status != 200:
-                return None
+                return HealthProbeFailure("health-http-error")
             body = response.read(HTTP_PROBE_READ_LIMIT + 1)
-    except (HTTPError, OSError, TimeoutError, URLError, ValueError):
-        return None
+    except HTTPError:
+        return HealthProbeFailure("health-http-error")
+    except TimeoutError:
+        return HealthProbeFailure("health-timeout")
+    except URLError as exc:
+        if is_timeout_error(exc):
+            return HealthProbeFailure("health-timeout")
+        return HealthProbeFailure("health-connection-failed")
+    except (OSError, ValueError) as exc:
+        if is_timeout_error(exc):
+            return HealthProbeFailure("health-timeout")
+        return HealthProbeFailure("health-connection-failed")
     if len(body) > HTTP_PROBE_READ_LIMIT:
-        return None
+        return HealthProbeFailure("health-invalid-response")
     try:
         payload = json.loads(body.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError):
-        return None
-    if not isinstance(payload, dict) or payload.get("service") != "llmwiki-serve":
-        return None
+        return HealthProbeFailure("health-invalid-response")
+    if not isinstance(payload, dict):
+        return HealthProbeFailure("health-invalid-response")
+    if payload.get("service") != "llmwiki-serve":
+        return HealthProbeFailure("health-non-llmwiki-service")
     source = payload.get("source")
     version = str(payload.get("version") or "")
     return HealthProbeResult(source=source if isinstance(source, dict) else {}, version=version)
+
+
+def is_timeout_error(exc: BaseException) -> bool:
+    if isinstance(exc, (TimeoutError, socket.timeout)):
+        return True
+    reason = getattr(exc, "reason", None)
+    return isinstance(reason, (TimeoutError, socket.timeout))
 
 
 def health_url(record: InstanceRecord) -> str:
@@ -1090,3 +1549,12 @@ def int_value(value: Any, *, default: int) -> int:
         return int(value)
     except (TypeError, ValueError):
         return default
+
+
+def float_value(value: Any) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None

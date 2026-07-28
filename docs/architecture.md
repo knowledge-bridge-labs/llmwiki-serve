@@ -59,19 +59,27 @@ the CLI manifest remains local operator output and includes the root.
 preflight and before Uvicorn starts. The per-user registry is used only by
 `llmwiki-serve ls` and `llmwiki-serve status`; it is not a network API,
 portable source catalog, or daemon manager. Records include PID, host, port,
-URL, root, source id, bundle id, adapter, page counts, and start time. Discovery
-checks process liveness, probes existing local `/health` responses for live
-records, reports stale records left by hard kills, and can prune them. Discovery
-also inspects the local OS process table for command lines that identify
-`llmwiki-serve serve` processes. For unregistered legacy/orphan processes, it
-parses the command line for `--host`, `--port`, and the root argument when
-present, then probes exactly that endpoint's `/health` document. No default
-fixed-port or broad loopback scan is performed. If a platform process provider
-is unavailable, `ls` reports degraded discovery instead of guessing ports. The
-default human table redacts roots to a short tail label; full local roots may
-appear in local registry files and local `--json` output when they come from
-registry records or process arguments, while HTTP `/manifest` and `/health` keep
-redacting roots.
+URL, root, source id, bundle id, adapter, page counts, start time, and optional
+process create time for PID reuse checks. Discovery checks process liveness,
+probes existing local `/health` responses for live records, reports stale
+records left by hard kills or PID reuse, and can prune them. Discovery
+also uses OS process argv/cwd and socket ownership for command lines that
+identify `llmwiki-serve serve` processes. For unregistered legacy/orphan
+processes, it parses `--host`, `--port`, and the root argument when present,
+then probes exactly that endpoint's `/health` document. Healthy process results
+set `service_verified=true`; endpoints that time out or cannot connect remain
+visible as unhealthy unverified candidates, while 200 `/health` documents for
+other services are excluded. When launcher or console-script wrapper chains
+expose several matching command lines for one endpoint, discovery dedupes by
+endpoint and reports the actual TCP listener PID when the OS socket table can
+verify it. The listener relationship is marked verified only when the listener
+is a parsed serve candidate or a descendant of one. No default fixed-port or
+broad loopback scan is performed. If a platform process or socket provider is
+unavailable, `ls` reports aggregated degraded discovery warnings instead of
+guessing ports. The default human table redacts roots to a short tail label;
+full local roots may appear in local registry files and local `--json` output
+when they come from registry records or process arguments, while raw command
+lines are not rendered and HTTP `/manifest` and `/health` keep redacting roots.
 
 Long-running serve apps write best-effort local I/O debugging events by default
 to `.runtime-logs/llmwiki-serve-io.jsonl`. `--io-log off` or

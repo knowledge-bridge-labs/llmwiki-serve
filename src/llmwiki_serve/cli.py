@@ -16,6 +16,7 @@ from .api import (
     create_app,
 )
 from .instances import (
+    HEALTH_PROBE_TIMEOUT_SECONDS,
     InstanceInfo,
     InstanceRecord,
     LocalInstanceDiscoveryResult,
@@ -224,6 +225,15 @@ ProbePortOption: TypeAlias = Annotated[
         ),
     ),
 ]
+ProbeTimeoutOption: TypeAlias = Annotated[
+    float,
+    typer.Option(
+        "--probe-timeout-seconds",
+        min=0.1,
+        max=30.0,
+        help="Seconds to wait for each local /health probe used by ls/status.",
+    ),
+]
 
 
 @app.command()
@@ -346,6 +356,7 @@ def ls_instances(
         ),
     ] = True,
     probe_port: ProbePortOption = None,
+    probe_timeout_seconds: ProbeTimeoutOption = HEALTH_PROBE_TIMEOUT_SECONDS,
     state_dir: InstanceStateDirOption = None,
 ) -> None:
     """List local llmwiki-serve instances."""
@@ -357,6 +368,7 @@ def ls_instances(
         state_dir=state_dir,
         probe=probe,
         prune_stale=prune_stale,
+        probe_timeout_seconds=probe_timeout_seconds,
         processes=processes,
         manual_probe_ports=probe_ports,
     )
@@ -391,6 +403,7 @@ def status_instances(
         ),
     ] = True,
     probe_port: ProbePortOption = None,
+    probe_timeout_seconds: ProbeTimeoutOption = HEALTH_PROBE_TIMEOUT_SECONDS,
     state_dir: InstanceStateDirOption = None,
 ) -> None:
     """Alias for ls."""
@@ -402,6 +415,7 @@ def status_instances(
         state_dir=state_dir,
         probe=probe,
         prune_stale=prune_stale,
+        probe_timeout_seconds=probe_timeout_seconds,
         processes=processes,
         manual_probe_ports=probe_ports,
     )

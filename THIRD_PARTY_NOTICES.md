@@ -10,11 +10,18 @@ Exact resolved direct and transitive dependency versions are recorded in
 | Package | Version range | License | Homepage |
 | --- | --- | --- | --- |
 | FastAPI | `>=0.139.0` | MIT | <https://fastapi.tiangolo.com/> |
-| MCP Python SDK | `>=1.28.1,<2` | MIT | <https://github.com/modelcontextprotocol/python-sdk> |
+| mcp | `>=1.28.1,<2` | MIT | <https://github.com/modelcontextprotocol/python-sdk> |
+| psutil | `>=6.1` | BSD-3-Clause | <https://github.com/giampaolo/psutil> |
 | Pydantic | `>=2.11` | MIT | <https://docs.pydantic.dev/> |
 | PyYAML | `>=6.0` | MIT | <https://pyyaml.org/> |
 | Typer | `>=0.12` | MIT | <https://typer.tiangolo.com/> |
 | Uvicorn | `>=0.49.0` | BSD-3-Clause | <https://www.uvicorn.org/> |
+
+## Direct Optional Dependencies
+
+| Package | Version range | License | Homepage |
+| --- | --- | --- | --- |
+| redis | `>=5` | MIT | <https://github.com/redis/redis-py> |
 
 ## Direct Development Dependencies
 
@@ -24,6 +31,7 @@ Exact resolved direct and transitive dependency versions are recorded in
 | mypy | `>=1.10` | MIT | <https://mypy-lang.org/> |
 | pytest | `>=8.2` | MIT | <https://docs.pytest.org/> |
 | Ruff | `>=0.6` | MIT | <https://docs.astral.sh/ruff/> |
+| types-psutil | `>=7.0` | Apache-2.0 | <https://github.com/python/typeshed> |
 | types-PyYAML | `>=6.0` | Apache-2.0 | <https://github.com/python/typeshed> |
 
 ## Notices
