@@ -16,6 +16,9 @@ This project follows a lightweight public-preview changelog format. Dates use
   cwd, keeps exact but unreachable process candidates visible as unhealthy
   `service_verified=false`, records optional process create time for PID reuse
   checks, and adds `--probe-timeout-seconds` for local health probe tuning.
+- Restricted process-derived health probes to listener-confirmed local
+  endpoints, including IPv6 wildcard loopback handling and bounded probing for
+  many unreachable candidates.
 
 ## 0.2.5 - 2026-07-28
 

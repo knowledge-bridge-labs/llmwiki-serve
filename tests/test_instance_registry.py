@@ -22,8 +22,10 @@ from typer.testing import CliRunner
 from llmwiki_serve.cli import app as cli_app
 from llmwiki_serve.instances import (
     HEALTH_PROBE_TIMEOUT_SECONDS,
+    HealthProbeFailure,
     HealthProbeResult,
     InstanceRecord,
+    ListenerEndpoint,
     LocalInstanceDiscoveryResult,
     ProcessEntry,
     ProcessEntryDiscoveryResult,
@@ -367,6 +369,40 @@ def test_process_discovery_verifies_listener_pid_descendant(
     assert len(result.candidates) == 1
     assert result.candidates[0].pid == 5220
     assert result.candidates[0].listener_pid_verified is True
+    assert result.candidates[0].root == ""
+
+
+def test_listener_pid_correction_prefers_listener_process_root(tmp_path: Path) -> None:
+    wrapper_root = tmp_path / "wrapper root"
+    listener_root = tmp_path / "listener root"
+    result = discover_serve_processes(
+        process_entries=[
+            ProcessEntry(
+                pid=5230,
+                argv=(
+                    "uv",
+                    "run",
+                    "llmwiki-serve",
+                    "serve",
+                    str(wrapper_root),
+                    "--port",
+                    "49235",
+                ),
+                cwd=str(tmp_path),
+            ),
+            ProcessEntry(
+                pid=5240,
+                argv=("llmwiki-serve", "serve", str(listener_root), "--port", "49235"),
+                cwd=str(tmp_path),
+                ppid=5230,
+            ),
+        ],
+        listener_pids_by_endpoint={("127.0.0.1", 49235): 5240},
+    )
+
+    assert len(result.candidates) == 1
+    assert result.candidates[0].pid == 5240
+    assert result.candidates[0].root == str(listener_root.resolve(strict=False))
 
 
 def test_listener_endpoint_keys_cover_wildcard_and_ipv6_loopback() -> None:
@@ -374,6 +410,53 @@ def test_listener_endpoint_keys_cover_wildcard_and_ipv6_loopback() -> None:
     assert ("127.0.0.1", 49227) in listener_endpoint_keys("::", 49227)
     assert ("::1", 49227) in listener_endpoint_keys("::", 49227)
     assert ("::1", 49228) in listener_endpoint_keys("::1", 49228)
+
+
+def test_process_discovery_probes_ipv6_wildcard_on_ipv6_loopback(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "wiki"
+    with ipv6_health_server(
+        llmwiki_health_payload(source_id="ipv6-source", version="0.2.6")
+    ) as port:
+        listener = ListenerEndpoint(pid=5250, host="::", port=port, probe_host="::1")
+        monkeypatch.setattr(
+            "llmwiki_serve.instances.current_platform_process_entries",
+            lambda: ProcessEntryDiscoveryResult(
+                entries=[
+                    ProcessEntry(
+                        pid=5250,
+                        argv=(
+                            "llmwiki-serve",
+                            "serve",
+                            str(root),
+                            "--host",
+                            "::",
+                            "--port",
+                            str(port),
+                        ),
+                    )
+                ],
+                warnings=[],
+                listener_pids_by_endpoint={
+                    ("127.0.0.1", port): 5250,
+                    ("::1", port): 5250,
+                },
+                listeners_by_endpoint={
+                    ("127.0.0.1", port): listener,
+                    ("::1", port): listener,
+                },
+            ),
+        )
+
+        instances = list_local_instances(state_dir=tmp_path / "state")
+
+    assert len(instances) == 1
+    assert instances[0].healthy is True
+    assert instances[0].service_verified is True
+    assert instances[0].record.host == "::1"
+    assert instances[0].record.source_id == "ipv6-source"
 
 
 def test_process_discovery_marks_unverified_listener_pid_when_socket_provider_degrades(
@@ -404,6 +487,9 @@ def test_process_discovery_marks_unverified_listener_pid_when_socket_provider_de
     payload = json.loads(result.output)
     instance = payload["instances"][0]
     assert instance["pid"] == 5030
+    assert instance["status"] == "unhealthy"
+    assert instance["service_verified"] is False
+    assert "health-local-listener-unverified" in instance["notes"]
     assert "listener-pid-unverified" in instance["notes"]
     assert payload["warnings"] == [
         "process discovery degraded: psutil denied access to listener sockets"
@@ -548,8 +634,8 @@ def test_cli_ls_json_reports_orphan_from_process_discovery(
     with health_server(llmwiki_health_payload(source_id="orphan-source", version="0.1.9")) as port:
         monkeypatch.setattr(
             "llmwiki_serve.instances.current_platform_process_entries",
-            lambda: ProcessEntryDiscoveryResult(
-                entries=[
+            lambda: process_entries_with_listener(
+                [
                     ProcessEntry(
                         pid=4242,
                         argv=(
@@ -565,7 +651,9 @@ def test_cli_ls_json_reports_orphan_from_process_discovery(
                         ),
                     )
                 ],
-                warnings=[],
+                pid=4242,
+                host="127.0.0.1",
+                port=port,
             ),
         )
         result = CliRunner().invoke(
@@ -591,7 +679,7 @@ def test_cli_ls_json_reports_orphan_from_process_discovery(
     assert instance["root_source"] == "process-args"
     assert "orphan" in instance["notes"]
     assert "process-discovered" in instance["notes"]
-    assert "listener-pid-unverified" in instance["notes"]
+    assert "listener-pid-unverified" not in instance["notes"]
 
 
 def test_cli_probe_timeout_option_is_forwarded(monkeypatch, tmp_path: Path) -> None:
@@ -828,8 +916,8 @@ def test_process_discovery_ignores_non_llmwiki_health(
     with health_server({"status": "ok", "service": "other"}) as port:
         monkeypatch.setattr(
             "llmwiki_serve.instances.current_platform_process_entries",
-            lambda: ProcessEntryDiscoveryResult(
-                entries=[
+            lambda: process_entries_with_listener(
+                [
                     ProcessEntry(
                         pid=4646,
                         argv=(
@@ -841,7 +929,9 @@ def test_process_discovery_ignores_non_llmwiki_health(
                         ),
                     )
                 ],
-                warnings=[],
+                pid=4646,
+                host="127.0.0.1",
+                port=port,
             ),
         )
         result = CliRunner().invoke(
@@ -861,8 +951,8 @@ def test_process_discovery_does_not_expose_raw_command_line_arguments(
     with health_server(llmwiki_health_payload(source_id="safe-source", version="0.2.5")) as port:
         monkeypatch.setattr(
             "llmwiki_serve.instances.current_platform_process_entries",
-            lambda: ProcessEntryDiscoveryResult(
-                entries=[
+            lambda: process_entries_with_listener(
+                [
                     ProcessEntry(
                         pid=4650,
                         argv=(
@@ -876,7 +966,9 @@ def test_process_discovery_does_not_expose_raw_command_line_arguments(
                         ),
                     )
                 ],
-                warnings=[],
+                pid=4650,
+                host="127.0.0.1",
+                port=port,
             ),
         )
         result = CliRunner().invoke(
@@ -926,8 +1018,103 @@ def test_process_discovery_ignores_failed_health(
     assert instance.service_verified is False
     assert instance.registered is False
     assert instance.orphan is True
-    assert {"health-connection-failed", "health-timeout"} & set(instance.notes)
+    assert "health-local-listener-unverified" in instance.notes
     assert "service-unverified" in instance.notes
+
+
+def test_process_discovery_never_probes_nonlocal_argv_without_listener(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    calls: list[str] = []
+
+    def forbidden_urlopen(request: Any, **kwargs: Any) -> Any:
+        calls.append(str(getattr(request, "full_url", request)))
+        raise AssertionError("process discovery must not probe arbitrary argv hosts")
+
+    monkeypatch.setattr("llmwiki_serve.instances.urlopen", forbidden_urlopen)
+    monkeypatch.setattr(
+        "llmwiki_serve.instances.current_platform_process_entries",
+        lambda: ProcessEntryDiscoveryResult(
+            entries=[
+                ProcessEntry(
+                    pid=4748,
+                    argv=(
+                        "llmwiki-serve",
+                        "serve",
+                        str(tmp_path / "wiki"),
+                        "--host",
+                        "203.0.113.77",
+                        "--port",
+                        "49236",
+                    ),
+                )
+            ],
+            warnings=[],
+        ),
+    )
+
+    instances = list_local_instances(state_dir=tmp_path / "state", probe_timeout_seconds=5.0)
+
+    assert calls == []
+    assert len(instances) == 1
+    assert instances[0].status == "unhealthy"
+    assert instances[0].service_verified is False
+    assert "health-local-listener-unverified" in instances[0].notes
+    assert "service-unverified" in instances[0].notes
+
+
+def test_process_discovery_bounds_verified_listener_probe_latency(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    candidate_count = 16
+    entries = [
+        ProcessEntry(
+            pid=4800 + index,
+            argv=(
+                "llmwiki-serve",
+                "serve",
+                str(tmp_path / f"wiki-{index}"),
+                "--port",
+                str(49250 + index),
+            ),
+        )
+        for index in range(candidate_count)
+    ]
+    listener_pids = {("127.0.0.1", 49250 + index): 4800 + index for index in range(candidate_count)}
+
+    monkeypatch.setattr(
+        "llmwiki_serve.instances.current_platform_process_entries",
+        lambda: ProcessEntryDiscoveryResult(
+            entries=entries,
+            warnings=[],
+            listener_pids_by_endpoint=listener_pids,
+            listeners_by_endpoint={
+                endpoint: ListenerEndpoint(
+                    pid=pid,
+                    host=endpoint[0],
+                    port=endpoint[1],
+                    probe_host=endpoint[0],
+                )
+                for endpoint, pid in listener_pids.items()
+            },
+        ),
+    )
+
+    def slow_probe(record: InstanceRecord, *, timeout_seconds: float) -> HealthProbeFailure:
+        time.sleep(0.2)
+        return HealthProbeFailure("health-timeout")
+
+    monkeypatch.setattr("llmwiki_serve.instances.probe_llmwiki_health_outcome", slow_probe)
+
+    started = time.monotonic()
+    instances = list_local_instances(state_dir=tmp_path / "state", probe_timeout_seconds=1.0)
+    elapsed = time.monotonic() - started
+
+    assert len(instances) == candidate_count
+    assert all(instance.status == "unhealthy" for instance in instances)
+    assert elapsed < 1.5
 
 
 def test_process_discovery_reports_timeout_as_unverified_unhealthy(
@@ -937,8 +1124,8 @@ def test_process_discovery_reports_timeout_as_unverified_unhealthy(
     with slow_health_server(delay_seconds=0.3) as port:
         monkeypatch.setattr(
             "llmwiki_serve.instances.current_platform_process_entries",
-            lambda: ProcessEntryDiscoveryResult(
-                entries=[
+            lambda: process_entries_with_listener(
+                [
                     ProcessEntry(
                         pid=4750,
                         argv=(
@@ -950,7 +1137,9 @@ def test_process_discovery_reports_timeout_as_unverified_unhealthy(
                         ),
                     )
                 ],
-                warnings=[],
+                pid=4750,
+                host="127.0.0.1",
+                port=port,
             ),
         )
 
@@ -1108,10 +1297,35 @@ def test_ci_release_smoke_command_does_not_depend_on_shell_globs() -> None:
     if not workflow_path.exists():
         pytest.skip("repository checkout only; .github workflows are omitted from the sdist")
     workflow = workflow_path.read_text(encoding="utf-8")
+    readme = (Path(__file__).parents[1] / "README.md").read_text(encoding="utf-8")
 
     assert "dist/*.whl" not in workflow
     assert "dist/*.tar.gz" not in workflow
     assert "scripts/release_smoke.py --dist-dir dist --allow-network-install" in workflow
+    assert "scripts/release_smoke.py --wheel dist/*.whl --sdist dist/*.tar.gz" not in readme
+    assert "scripts/release_smoke.py --dist-dir dist" in readme
+
+
+def process_entries_with_listener(
+    entries: list[ProcessEntry],
+    *,
+    pid: int,
+    host: str,
+    port: int,
+    probe_host: str | None = None,
+) -> ProcessEntryDiscoveryResult:
+    listener = ListenerEndpoint(
+        pid=pid,
+        host=host,
+        port=port,
+        probe_host=probe_host or host,
+    )
+    return ProcessEntryDiscoveryResult(
+        entries=entries,
+        warnings=[],
+        listener_pids_by_endpoint={(host, port): pid},
+        listeners_by_endpoint={(host, port): listener},
+    )
 
 
 def make_record(
@@ -1175,6 +1389,41 @@ def health_server(payload: dict[str, Any]) -> Iterator[int]:
             return
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield int(server.server_port)
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+@contextmanager
+def ipv6_health_server(payload: dict[str, Any]) -> Iterator[int]:
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            if self.path != "/health":
+                self.send_response(404)
+                self.end_headers()
+                return
+            body = json.dumps(payload).encode("utf-8")
+            self.send_response(200)
+            self.send_header("content-type", "application/json")
+            self.send_header("content-length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, format: str, *args: object) -> None:
+            return
+
+    class IPv6ThreadingHTTPServer(ThreadingHTTPServer):
+        address_family = socket.AF_INET6
+
+    try:
+        server = IPv6ThreadingHTTPServer(("::1", 0), Handler)
+    except OSError as exc:
+        pytest.skip(f"IPv6 loopback is unavailable: {exc}")
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:

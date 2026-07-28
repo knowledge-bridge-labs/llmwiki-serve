@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import concurrent.futures
 import ctypes
 import json
 import os
@@ -30,6 +31,8 @@ INSTANCE_RECORD_DIR = "instances"
 HEALTH_PROBE_TIMEOUT_SECONDS = 1.5
 HTTP_PROBE_READ_LIMIT = 256 * 1024
 PROCESS_DISCOVERY_COMMAND_TIMEOUT_SECONDS = 3.0
+PROCESS_HEALTH_PROBE_MAX_WORKERS = 8
+PROCESS_HEALTH_PROBE_TOTAL_BUDGET_SECONDS = 3.0
 DEFAULT_SERVE_HOST = "127.0.0.1"
 DEFAULT_SERVE_PORT = 8765
 MANUAL_PROBE_HOST = "127.0.0.1"
@@ -43,7 +46,9 @@ HealthProbeFailureReason = Literal[
     "health-connection-failed",
     "health-http-error",
     "health-invalid-response",
+    "health-local-listener-unverified",
     "health-non-llmwiki-service",
+    "health-probe-budget-exceeded",
     "health-timeout",
 ]
 
@@ -191,12 +196,21 @@ class ProcessEntry:
 
 
 @dataclass(frozen=True)
+class ListenerEndpoint:
+    pid: int
+    host: str
+    port: int
+    probe_host: str
+
+
+@dataclass(frozen=True)
 class ServeProcessCandidate:
     pid: int
     host: str
     port: int
     root: str
     listener_pid_verified: bool = False
+    probe_host: str = ""
 
 
 @dataclass(frozen=True)
@@ -311,6 +325,7 @@ def list_local_instances(
     manual_probe_ports: Sequence[int] | None = None,
     process_entries: Sequence[ProcessEntry] | None = None,
     listener_pids_by_endpoint: dict[tuple[str, int], int] | None = None,
+    listeners_by_endpoint: dict[tuple[str, int], ListenerEndpoint] | None = None,
 ) -> list[InstanceInfo]:
     return discover_local_instances(
         state_dir=state_dir,
@@ -321,6 +336,7 @@ def list_local_instances(
         manual_probe_ports=manual_probe_ports,
         process_entries=process_entries,
         listener_pids_by_endpoint=listener_pids_by_endpoint,
+        listeners_by_endpoint=listeners_by_endpoint,
     ).instances
 
 
@@ -334,6 +350,7 @@ def discover_local_instances(
     manual_probe_ports: Sequence[int] | None = None,
     process_entries: Sequence[ProcessEntry] | None = None,
     listener_pids_by_endpoint: dict[tuple[str, int], int] | None = None,
+    listeners_by_endpoint: dict[tuple[str, int], ListenerEndpoint] | None = None,
 ) -> LocalInstanceDiscoveryResult:
     stored_records = read_instance_records(state_dir=state_dir)
     warnings: list[str] = []
@@ -343,16 +360,21 @@ def discover_local_instances(
             process_result = current_platform_process_entries()
             warnings.extend(process_result.warnings)
         else:
+            listener_endpoints = listeners_by_endpoint or listener_endpoints_from_pids(
+                listener_pids_by_endpoint or {}
+            )
             process_result = ProcessEntryDiscoveryResult(
                 entries=list(process_entries),
                 warnings=[],
                 listener_pids_by_endpoint=listener_pids_by_endpoint or {},
+                listeners_by_endpoint=listener_endpoints,
             )
     listener_pids = process_result.listener_pids_by_endpoint if process_result else {}
     serve_processes = (
         discover_serve_processes(
             process_entries=process_result.entries,
             listener_pids_by_endpoint=process_result.listener_pids_by_endpoint,
+            listeners_by_endpoint=process_result.listeners_by_endpoint,
         )
         if process_result is not None
         else None
@@ -467,68 +489,155 @@ def probe_process_candidates(
     timeout_seconds: float = HEALTH_PROBE_TIMEOUT_SECONDS,
 ) -> list[InstanceInfo]:
     infos: list[InstanceInfo] = []
+    pending: list[tuple[tuple[str, int], ServeProcessCandidate]] = []
     for candidate in candidates:
         candidate_endpoint = endpoint_key(candidate.host, candidate.port)
         if candidate_endpoint in seen_endpoints:
             continue
-        probe_record = InstanceRecord(
-            pid=candidate.pid,
-            host=candidate.host,
-            port=candidate.port,
-            root=candidate.root,
-            url=instance_url(candidate.host, candidate.port),
-            source_id="",
-            bundle_id="",
-            adapter="",
-            implementation="",
-            page_count=0,
-            approved_page_count=0,
-            started_at="",
-        )
-        notes = ["orphan", "process-discovered"]
-        if not candidate.listener_pid_verified:
-            notes.append("listener-pid-unverified")
-        outcome = probe_llmwiki_health_outcome(probe_record, timeout_seconds=timeout_seconds)
-        if isinstance(outcome, HealthProbeFailure):
-            if outcome.reason == "health-non-llmwiki-service":
-                continue
-            notes.extend(["service-unverified", outcome.reason])
-            record = probe_record
-            status: InstanceStatus = "unhealthy"
-            healthy = False
-            version = ""
-            service_verified = False
-        else:
-            record = InstanceRecord.from_health(
-                pid=candidate.pid,
-                host=candidate.host,
-                port=candidate.port,
-                root=candidate.root,
-                source=outcome.source,
+        if not candidate.probe_host:
+            infos.append(
+                process_candidate_info_from_failure(
+                    candidate,
+                    reason="health-local-listener-unverified",
+                )
             )
-            status = "healthy"
-            healthy = True
-            version = outcome.version
-            service_verified = True
-            if not outcome.version:
-                notes.append("version-unknown")
-        infos.append(
-            InstanceInfo(
-                record=record,
-                status=status,
-                healthy=healthy,
-                stale=False,
-                notes=notes,
-                registered=False,
-                orphan=True,
-                version=version,
-                discovery_source="process",
-                root_source="process-args" if candidate.root else "unknown",
-                service_verified=service_verified,
-            )
-        )
+            seen_endpoints.add(candidate_endpoint)
+            continue
+        pending.append((candidate_endpoint, candidate))
+
+    outcomes = probe_process_candidates_concurrently(
+        [candidate for _, candidate in pending],
+        timeout_seconds=timeout_seconds,
+    )
+    for candidate_endpoint, candidate in pending:
+        outcome = outcomes[candidate]
+        info = process_candidate_info_from_outcome(candidate, outcome)
+        if info is None:
+            continue
+        infos.append(info)
         seen_endpoints.add(candidate_endpoint)
     return infos
+
+
+def probe_process_candidates_concurrently(
+    candidates: Sequence[ServeProcessCandidate],
+    *,
+    timeout_seconds: float,
+) -> dict[ServeProcessCandidate, HealthProbeResult | HealthProbeFailure]:
+    if not candidates:
+        return {}
+    outcomes: dict[ServeProcessCandidate, HealthProbeResult | HealthProbeFailure] = {}
+    total_budget = max(timeout_seconds, PROCESS_HEALTH_PROBE_TOTAL_BUDGET_SECONDS)
+    max_workers = min(len(candidates), PROCESS_HEALTH_PROBE_MAX_WORKERS)
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers)
+    futures = {
+        executor.submit(
+            probe_llmwiki_health_outcome,
+            process_probe_record(candidate),
+            timeout_seconds=timeout_seconds,
+        ): candidate
+        for candidate in candidates
+    }
+    try:
+        done, pending = concurrent.futures.wait(futures, timeout=total_budget)
+        for future in done:
+            candidate = futures[future]
+            try:
+                outcomes[candidate] = future.result()
+            except Exception:
+                outcomes[candidate] = HealthProbeFailure("health-connection-failed")
+        for future in pending:
+            outcomes[futures[future]] = HealthProbeFailure("health-probe-budget-exceeded")
+    finally:
+        executor.shutdown(wait=False, cancel_futures=True)
+    return outcomes
+
+
+def process_candidate_info_from_outcome(
+    candidate: ServeProcessCandidate,
+    outcome: HealthProbeResult | HealthProbeFailure,
+) -> InstanceInfo | None:
+    if isinstance(outcome, HealthProbeFailure):
+        if outcome.reason == "health-non-llmwiki-service":
+            return None
+        return process_candidate_info_from_failure(candidate, reason=outcome.reason)
+
+    record = InstanceRecord.from_health(
+        pid=candidate.pid,
+        host=process_probe_host(candidate),
+        port=candidate.port,
+        root=candidate.root,
+        source=outcome.source,
+    )
+    notes = process_candidate_notes(candidate)
+    version = outcome.version
+    if not version:
+        notes.append("version-unknown")
+    return InstanceInfo(
+        record=record,
+        status="healthy",
+        healthy=True,
+        stale=False,
+        notes=notes,
+        registered=False,
+        orphan=True,
+        version=version,
+        discovery_source="process",
+        root_source="process-args" if candidate.root else "unknown",
+        service_verified=True,
+    )
+
+
+def process_candidate_info_from_failure(
+    candidate: ServeProcessCandidate,
+    *,
+    reason: HealthProbeFailureReason,
+) -> InstanceInfo:
+    record = process_probe_record(candidate)
+    notes = process_candidate_notes(candidate)
+    notes.extend(["service-unverified", reason])
+    return InstanceInfo(
+        record=record,
+        status="unhealthy",
+        healthy=False,
+        stale=False,
+        notes=notes,
+        registered=False,
+        orphan=True,
+        version="",
+        discovery_source="process",
+        root_source="process-args" if candidate.root else "unknown",
+        service_verified=False,
+    )
+
+
+def process_candidate_notes(candidate: ServeProcessCandidate) -> list[str]:
+    notes = ["orphan", "process-discovered"]
+    if not candidate.listener_pid_verified:
+        notes.append("listener-pid-unverified")
+    return notes
+
+
+def process_probe_record(candidate: ServeProcessCandidate) -> InstanceRecord:
+    host = process_probe_host(candidate)
+    return InstanceRecord(
+        pid=candidate.pid,
+        host=host,
+        port=candidate.port,
+        root=candidate.root,
+        url=instance_url(host, candidate.port),
+        source_id="",
+        bundle_id="",
+        adapter="",
+        implementation="",
+        page_count=0,
+        approved_page_count=0,
+        started_at="",
+    )
+
+
+def process_probe_host(candidate: ServeProcessCandidate) -> str:
+    return candidate.probe_host or candidate.host
 
 
 def probe_manual_ports(
@@ -592,16 +701,18 @@ def discover_serve_processes(
     *,
     process_entries: Sequence[ProcessEntry] | None = None,
     listener_pids_by_endpoint: dict[tuple[str, int], int] | None = None,
+    listeners_by_endpoint: dict[tuple[str, int], ListenerEndpoint] | None = None,
 ) -> ProcessDiscoveryResult:
     if process_entries is None:
         process_result = current_platform_process_entries()
         entries = process_result.entries
         warnings = process_result.warnings
-        listener_pids = process_result.listener_pids_by_endpoint
+        listener_endpoints = process_result.listeners_by_endpoint
     else:
         entries = list(process_entries)
         warnings = []
         listener_pids = listener_pids_by_endpoint or {}
+        listener_endpoints = listeners_by_endpoint or listener_endpoints_from_pids(listener_pids)
     parent_pids = {entry.pid: entry.ppid for entry in entries if entry.ppid is not None}
     groups: dict[tuple[str, int], list[ServeProcessCandidate]] = {}
     for entry in entries:
@@ -613,7 +724,7 @@ def discover_serve_processes(
     candidates = [
         select_endpoint_candidate(
             group,
-            listener_pid=listener_pids.get(endpoint),
+            listener=listener_endpoints.get(endpoint),
             parent_pids=parent_pids,
         )
         for endpoint, group in groups.items()
@@ -624,27 +735,34 @@ def discover_serve_processes(
 def select_endpoint_candidate(
     candidates: Sequence[ServeProcessCandidate],
     *,
-    listener_pid: int | None,
+    listener: ListenerEndpoint | None,
     parent_pids: dict[int, int],
 ) -> ServeProcessCandidate:
     selected = candidates[0]
-    if listener_pid is None or listener_pid <= 0:
+    if listener is None or listener.pid <= 0:
         return selected
+    listener_pid = listener.pid
+    listener_candidate = next(
+        (candidate for candidate in candidates if candidate.pid == listener_pid),
+        None,
+    )
+    if listener_candidate is not None:
+        selected = listener_candidate
+        root = selected.root
+    else:
+        root = ""
     listener_pid_verified = pid_matches_candidate_tree(
         listener_pid,
         candidate_pids={candidate.pid for candidate in candidates},
         parent_pids=parent_pids,
     )
-    for candidate in candidates:
-        if candidate.pid == listener_pid:
-            selected = candidate
-            break
     return ServeProcessCandidate(
         pid=listener_pid,
         host=selected.host,
         port=selected.port,
-        root=selected.root,
+        root=root,
         listener_pid_verified=listener_pid_verified,
+        probe_host=listener.probe_host,
     )
 
 
@@ -674,6 +792,7 @@ class ProcessEntryDiscoveryResult:
     entries: list[ProcessEntry]
     warnings: list[str]
     listener_pids_by_endpoint: dict[tuple[str, int], int] = field(default_factory=dict)
+    listeners_by_endpoint: dict[tuple[str, int], ListenerEndpoint] = field(default_factory=dict)
 
 
 def current_platform_process_entries() -> ProcessEntryDiscoveryResult:
@@ -685,6 +804,7 @@ def current_platform_process_entries() -> ProcessEntryDiscoveryResult:
         entries=fallback.entries,
         warnings=primary.warnings + fallback.warnings,
         listener_pids_by_endpoint=fallback.listener_pids_by_endpoint,
+        listeners_by_endpoint=fallback.listeners_by_endpoint,
     )
 
 
@@ -777,7 +897,7 @@ def psutil_process_entries() -> ProcessEntryDiscoveryResult:
                 )
             )
 
-    listener_pids, listener_warning = psutil_listener_pids_by_endpoint()
+    listeners, listener_warning = psutil_listeners_by_endpoint()
     warnings = [listener_warning] if listener_warning else []
     if access_denied_cmdline:
         warnings.append(
@@ -798,11 +918,14 @@ def psutil_process_entries() -> ProcessEntryDiscoveryResult:
     return ProcessEntryDiscoveryResult(
         entries=entries,
         warnings=warnings,
-        listener_pids_by_endpoint=listener_pids,
+        listener_pids_by_endpoint={
+            endpoint: listener.pid for endpoint, listener in listeners.items()
+        },
+        listeners_by_endpoint=listeners,
     )
 
 
-def psutil_listener_pids_by_endpoint() -> tuple[dict[tuple[str, int], int], str]:
+def psutil_listeners_by_endpoint() -> tuple[dict[tuple[str, int], ListenerEndpoint], str]:
     if _PSUTIL is None:
         return {}, "process discovery degraded: psutil socket provider unavailable"
     try:
@@ -812,7 +935,7 @@ def psutil_listener_pids_by_endpoint() -> tuple[dict[tuple[str, int], int], str]
     except Exception:  # pragma: no cover - provider-level OS failure
         return {}, "process discovery degraded: psutil socket provider failed"
 
-    listener_pids: dict[tuple[str, int], int] = {}
+    listeners: dict[tuple[str, int], ListenerEndpoint] = {}
     for connection in connections:
         try:
             if connection.status != _PSUTIL.CONN_LISTEN or connection.pid is None:
@@ -823,9 +946,46 @@ def psutil_listener_pids_by_endpoint() -> tuple[dict[tuple[str, int], int], str]
         if host_port is None:
             continue
         host, port = host_port
+        listener = ListenerEndpoint(
+            pid=int(connection.pid),
+            host=host,
+            port=port,
+            probe_host=listener_probe_host(host),
+        )
         for key in listener_endpoint_keys(host, port):
-            listener_pids.setdefault(key, int(connection.pid))
-    return listener_pids, ""
+            listeners.setdefault(key, listener)
+    return listeners, ""
+
+
+def listener_endpoints_from_pids(
+    listener_pids_by_endpoint: dict[tuple[str, int], int],
+) -> dict[tuple[str, int], ListenerEndpoint]:
+    return {
+        (host, port): ListenerEndpoint(
+            pid=pid,
+            host=host,
+            port=port,
+            probe_host=listener_probe_host(host),
+        )
+        for (host, port), pid in listener_pids_by_endpoint.items()
+        if pid > 0
+    }
+
+
+def listener_probe_host(host: str) -> str:
+    normalized = normalized_listener_host(host)
+    if normalized == "::":
+        return "::1"
+    if normalized in {"", "0.0.0.0", "localhost"}:
+        return DEFAULT_SERVE_HOST
+    return normalized
+
+
+def normalized_listener_host(host: str) -> str:
+    normalized = host.strip().lower()
+    if normalized.startswith("[") and normalized.endswith("]"):
+        return normalized[1:-1]
+    return normalized
 
 
 def listener_endpoint_keys(host: str, port: int) -> set[tuple[str, int]]:

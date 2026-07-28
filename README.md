@@ -231,16 +231,19 @@ It reads per-user registry records written by `serve`, probes local `/health`
 for live records, and uses OS process/socket inspection to find actual local
 command lines that invoke `llmwiki-serve serve`. For unregistered legacy/orphan
 processes, it parses `--host`, `--port`, and the root argument when present,
-then probes exactly that endpoint's `/health` document. It does not perform a
-default fixed-port or broad loopback scan. When launchers or console-script
-wrappers expose more than one matching process for the same endpoint, the
-reported PID is the TCP listener PID when the OS socket table can verify it.
+then probes `/health` only through a local endpoint confirmed by the listener
+socket table. It does not perform a default fixed-port or broad loopback scan,
+and it does not request arbitrary argv hostnames or IP addresses. When launchers
+or console-script wrappers expose more than one matching process for the same
+endpoint, the reported PID is the TCP listener PID when the OS socket table can
+verify it.
 It reports PID when known, URL, source id, version, adapter, page counts,
 health/stale status, registered/orphan status, discovery source, root source,
 service verification, and duplicate or parent/subfolder hints. Exact process
-candidates whose `/health` probe times out or cannot connect are reported as
-unhealthy with `service_verified=false`; a 200 `/health` response from another
-service is still excluded. Use `llmwiki-serve ls --json` for scripts,
+candidates whose local listener cannot be verified, or whose listener-confirmed
+`/health` probe times out or cannot connect, are reported as unhealthy with
+`service_verified=false`; a 200 `/health` response from another service is
+still excluded. Use `llmwiki-serve ls --json` for scripts,
 `llmwiki-serve ls --no-processes` for registry-only output,
 `llmwiki-serve ls --probe-port <port>` for an explicit manual loopback
 diagnostic, `llmwiki-serve ls --probe-timeout-seconds <seconds>` to tune local
@@ -556,7 +559,7 @@ uv run ruff check .
 uv run mypy src
 uv run pytest -q
 uv build
-uv run python scripts/release_smoke.py --wheel dist/*.whl --sdist dist/*.tar.gz
+uv run python scripts/release_smoke.py --dist-dir dist
 ```
 
 The release smoke checks the bundled sample wiki through CLI, HTTP,

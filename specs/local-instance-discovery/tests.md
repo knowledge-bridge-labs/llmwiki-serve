@@ -20,15 +20,20 @@
   command shapes, including quoted paths with spaces.
 - With an empty registry, a healthy `/health` response from a process-discovered
   `llmwiki-serve serve` endpoint appears in `ls --json` as
-  `registered=false`, `orphan=true`, and `discovery_source=process`.
+  `registered=false`, `orphan=true`, and `discovery_source=process` only when
+  the endpoint is backed by a verified local listener socket.
 - With an empty registry, an exact process-discovered `llmwiki-serve serve`
-  endpoint whose `/health` probe times out or cannot connect appears as
-  `status=unhealthy`, `service_verified=false`, and carries a reason note.
+  endpoint whose local listener cannot be verified, or whose listener-confirmed
+  `/health` probe times out or cannot connect, appears as `status=unhealthy`,
+  `service_verified=false`, and carries a reason note.
 - When wrapper and child processes advertise the same endpoint, `ls --json`
   reports the OS socket listener PID rather than an arbitrary wrapper PID.
 - Listener PID verification is true only when the listener is a parsed llmwiki
   serve candidate or a descendant of one; unrelated socket owners carry an
   unverified note.
+- Listener PID correction uses the listener process's own parsed root when that
+  process is a parsed serve candidate. If only a parent/wrapper is parsed, the
+  listener PID can still be shown but root evidence is `unknown`.
 - Process root arguments that are relative paths are resolved against the
   process cwd when cwd is available.
 - A server discovered from both registry and process table on the same endpoint
@@ -36,6 +41,11 @@
 - A non-llmwiki process or non-llmwiki/invalid identity health response is
   ignored, while an exact matching process whose health probe fails before
   identity verification remains visible as unhealthy and unverified.
+- Process-derived probes do not call non-local argv hosts and choose `::1` for
+  IPv6 wildcard listeners.
+- Many exact unreachable process candidates are bounded by concurrent or
+  budgeted probing and remain visible as unhealthy/unverified rather than
+  causing sequential `N * timeout` delay.
 - A live reused PID with failed or non-llmwiki health is reported as
   `unhealthy` rather than healthy, and it is not rediscovered from process
   state unless a matching serve command and healthy endpoint exist.
@@ -65,6 +75,10 @@
   server.
 - Focused provider tests using synthetic process entries and socket ownership
   maps so wrapper and degraded-provider behavior is deterministic.
+- Focused data-safety tests proving crafted external argv hosts are not probed,
+  IPv6 wildcard listeners probe via `::1`, wrapper-derived listener roots are
+  downgraded to unknown, and multiple unreachable process candidates are
+  bounded.
 - Windows real-server smoke on an arbitrary OS-assigned or free local port with
   an empty registry, verifying that `ls --json` finds the endpoint without a
   fixed-port scan and reports the listener PID.

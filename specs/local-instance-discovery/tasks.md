@@ -32,6 +32,10 @@
 - [x] Update third-party notices for `psutil` and `types-psutil`.
 - [x] Sanitize fallback provider and procfs degraded warnings, strengthen
   third-party notice matching, and make repo-only workflow tests sdist-safe.
+- [x] Restrict process-derived health probes to verified local listener
+  endpoints, preserve manual probe and registry contracts, fix IPv6 wildcard
+  probing, downgrade wrapper-only listener roots, and bound process probe
+  latency.
 - [x] Run Windows focused tests, full suite, and a real arbitrary-port server
   discovery smoke.
 

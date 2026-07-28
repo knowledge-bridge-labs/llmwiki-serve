@@ -63,12 +63,19 @@ empty.
   not infer ports from a fixed external candidate list.
 - `REQ-INST-011`: unregistered process candidates with a healthy `/health` JSON
   document containing `service: llmwiki-serve` are included as verified healthy
-  instances.
-- `REQ-INST-011a`: unregistered process candidates whose parsed endpoint times
-  out, refuses the connection, or otherwise fails before service identity can be
-  verified are still included as `status=unhealthy`, `service_verified=false`,
-  with notes that explain the health failure. A 200 `/health` response that
-  identifies another service remains excluded.
+  instances only after the parsed endpoint is tied to an actual local listener
+  socket. Process-derived probes must use the listener-confirmed local probe
+  host, not an arbitrary hostname or IP from argv.
+- `REQ-INST-011a`: unregistered process candidates whose local listener cannot
+  be verified, whose listener-confirmed `/health` endpoint times out, refuses
+  the connection, or otherwise fails before service identity can be verified are
+  still included as `status=unhealthy`, `service_verified=false`, with notes
+  that explain the health or listener verification failure. A 200 `/health`
+  response that identifies another service remains excluded.
+- `REQ-INST-011b`: process discovery must not request external or non-local
+  argv hosts directly. Wildcard listeners use a loopback probe host that matches
+  the listener family: `0.0.0.0` probes through `127.0.0.1`, and IPv6 wildcard
+  `::` probes through `::1`.
 - `REQ-INST-012`: process-discovered results include `registered=false`,
   `orphan=true`, source identity, version when available, PID, port, URL, health
   status, `discovery_source=process`, and `root_source=process-args` or
@@ -100,6 +107,11 @@ empty.
   verified only when it is itself a parsed llmwiki serve candidate or a
   descendant of one. If that relationship cannot be verified, discovery adds a
   note that the listener PID was unverified.
+- `REQ-INST-017a`: when the listener PID is itself a parsed serve candidate,
+  discovery uses that listener process's parsed argv/cwd for root evidence. If
+  the listener PID is only a descendant of a parsed wrapper, the displayed PID
+  may still be corrected to the listener, but root evidence is downgraded to
+  `unknown` rather than inherited from the wrapper.
 - `REQ-INST-018`: process root arguments that are relative paths are resolved
   against the advertising process cwd when cwd is available. If cwd is
   unavailable, discovery keeps the original argument and reports the process
@@ -118,6 +130,10 @@ empty.
 - `REQ-INST-021`: `/health` probes used by `ls` and `status` use a conservative
   default timeout and expose a CLI override so normal local servers are not
   routinely missed by transient sub-second startup or scheduling delays.
+- `REQ-INST-021a`: process-derived health probes are bounded so many exact but
+  unreachable candidates do not cause `N * timeout` CLI latency. Candidates not
+  probed within the process probe budget remain visible as unhealthy and
+  unverified rather than being dropped.
 
 ## Compatibility
 
@@ -137,13 +153,16 @@ socket ownership evidence.
 The registry is local operator state and may contain absolute source roots. It
 must not be exposed through network APIs, committed, or used as a portable source
 identity. Process command lines may also contain local roots; local JSON marks
-whether a root came from the registry or process arguments. HTTP probing only
-reads exact process-derived endpoints or explicit manual diagnostic ports,
-ignores non-llmwiki responses, and never exposes local roots through network
-APIs. Full roots in local `--json` remain an accepted operator-facing contract
-for registry and process-argument evidence. Raw command lines, launcher
-arguments, credentials, and provider command strings must not be rendered in
-human tables or JSON output.
+whether a root came from the registry or process arguments. Process-derived
+HTTP probing only reads endpoints confirmed by the local listener socket table
+and never follows arbitrary argv hostnames or IP addresses. Registry record
+health checks and explicit `--probe-port` manual loopback diagnostics retain
+their existing local operator contracts. Non-llmwiki responses are ignored, and
+local roots are never exposed through network APIs. Full roots in local
+`--json` remain an accepted operator-facing contract for registry and
+process-argument evidence. Raw command lines, launcher arguments, credentials,
+and provider command strings must not be rendered in human tables or JSON
+output.
 
 ## References
 

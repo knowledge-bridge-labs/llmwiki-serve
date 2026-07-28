@@ -45,14 +45,19 @@ Because older installs did not write this registry, `ls` and `status` also
 inspect the local OS process table for actual command lines that identify
 `llmwiki-serve serve` processes. For unregistered legacy/orphan processes,
 discovery parses `--host`, `--port`, and the root argument when possible, then
-probes exactly that host and port at `/health`. Only responses that identify the
-service as `llmwiki-serve` are reported. Unregistered process results are marked
+ties that parsed endpoint to an actual local listener socket before probing
+`/health`. Process-derived probes use the listener-confirmed local probe host
+instead of arbitrary argv hostnames or IP addresses. Wildcard listeners are
+probed through loopback for their address family: `0.0.0.0` through
+`127.0.0.1`, and `::` through `::1`. Only responses that identify the service
+as `llmwiki-serve` are reported. Unregistered process results are marked
 `registered=false` and `orphan=true`, include source identity and version when
 available, and mark whether the root came from process arguments.
-If an exact process candidate is found but its parsed `/health` endpoint times
-out or cannot be reached, discovery reports it as an unverified unhealthy
-orphan instead of dropping it. A reachable 200 `/health` document identifying a
-different service is still excluded.
+If an exact process candidate is found but its local listener cannot be verified
+or its listener-confirmed `/health` endpoint times out or cannot be reached,
+discovery reports it as an unverified unhealthy orphan instead of dropping it.
+A reachable 200 `/health` document identifying a different service is still
+excluded.
 
 Process and socket inspection use `psutil` as the primary cross-platform path
 instead of shelling out and reparsing command-line strings in the normal case.
@@ -64,7 +69,10 @@ launchers from causing the displayed PID to drift away from the actual server
 process. The listener PID is marked verified only when it is itself a parsed
 llmwiki candidate or a descendant of one; otherwise the PID may still be shown
 as the socket owner, but a `listener-pid-unverified` note makes the missing
-relationship explicit. If argv, cwd, create time, parent PID, or socket
+relationship explicit. When the listener process itself is parsed, its argv/cwd
+provide the root evidence. When only a parent/wrapper is parsed, the listener
+PID may still be used but root evidence is downgraded to `unknown` rather than
+inherited from the wrapper. If argv, cwd, create time, parent PID, or socket
 ownership cannot be read, discovery emits one aggregated warning per degraded
 provider capability and continues without guessed ports. Fallback process
 provider failures use sanitized provider/capability wording only; raw
@@ -81,10 +89,14 @@ diagnostic `notes`.
 Discovery does not perform a default fixed-port or broad loopback scan. If a
 platform process provider is unavailable, `ls` reports degraded discovery and
 does not substitute guessed ports. Operators can still pass an explicit
-`--probe-port` for manual loopback diagnostics. `ls` and `status` expose a
-local `--probe-timeout-seconds` override, and the default timeout is
-conservative enough to avoid routinely missing healthy local servers during
-normal startup or scheduler jitter.
+`--probe-port` for manual loopback diagnostics, and registry records keep their
+existing local health-check contract. `ls` and `status` expose a local
+`--probe-timeout-seconds` override, and the default timeout is conservative
+enough to avoid routinely missing healthy local servers during normal startup
+or scheduler jitter. Process-derived probes are bounded so many exact but
+unreachable candidates do not create sequential `N * timeout` CLI latency;
+candidates that cannot be probed inside that budget remain unhealthy and
+unverified local diagnostics.
 
 ## Consequences
 

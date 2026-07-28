@@ -66,14 +66,19 @@ records left by hard kills or PID reuse, and can prune them. Discovery
 also uses OS process argv/cwd and socket ownership for command lines that
 identify `llmwiki-serve serve` processes. For unregistered legacy/orphan
 processes, it parses `--host`, `--port`, and the root argument when present,
-then probes exactly that endpoint's `/health` document. Healthy process results
-set `service_verified=true`; endpoints that time out or cannot connect remain
-visible as unhealthy unverified candidates, while 200 `/health` documents for
-other services are excluded. When launcher or console-script wrapper chains
-expose several matching command lines for one endpoint, discovery dedupes by
-endpoint and reports the actual TCP listener PID when the OS socket table can
-verify it. The listener relationship is marked verified only when the listener
-is a parsed serve candidate or a descendant of one. No default fixed-port or
+then probes `/health` only through a local endpoint confirmed by the listener
+socket table. Healthy process results set `service_verified=true`; candidates
+whose local listener cannot be verified, or whose listener-confirmed endpoint
+times out or cannot connect, remain visible as unhealthy unverified candidates,
+while 200 `/health` documents for other services are excluded. Wildcard process
+listeners probe through loopback for their address family: `127.0.0.1` for
+IPv4 wildcard and `::1` for IPv6 wildcard. When launcher or console-script
+wrapper chains expose several matching command lines for one endpoint,
+discovery dedupes by endpoint and reports the actual TCP listener PID when the
+OS socket table can verify it. The listener relationship is marked verified
+only when the listener is a parsed serve candidate or a descendant of one. Root
+evidence comes from the listener's own parsed argv/cwd when available; a
+wrapper-only relationship leaves root as `unknown`. No default fixed-port or
 broad loopback scan is performed. If a platform process or socket provider is
 unavailable, `ls` reports aggregated degraded discovery warnings instead of
 guessing ports. The default human table redacts roots to a short tail label;
