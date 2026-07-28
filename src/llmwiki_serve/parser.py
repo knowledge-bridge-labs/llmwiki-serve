@@ -169,11 +169,19 @@ def markdown_link_target(value: str) -> str:
 
 
 def extract_inline_tags(text: str) -> list[str]:
-    tags = [match.group(1).strip(".,;:!?") for match in INLINE_TAG_RE.finditer(text)]
+    tags = [
+        tag
+        for match in INLINE_TAG_RE.finditer(text)
+        if valid_inline_tag(tag := match.group(1).strip(".,;:!?"))
+    ]
     for match in LOGSEQ_TAGS_RE.finditer(text):
         raw = match.group(1).replace(",", " ")
         tags.extend(part.strip("#") for part in raw.split())
     return unique([clean_text(tag.strip("#")) for tag in tags if clean_text(tag.strip("#"))])
+
+
+def valid_inline_tag(value: str) -> bool:
+    return any(char.isalpha() for char in value)
 
 
 def string_list(value: Any) -> list[str]:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 from typing import Annotated, NoReturn, TypeAlias
@@ -12,6 +13,13 @@ from .api import (
     QUERY_LIMIT_MAX,
     QUERY_LIMIT_MIN,
     create_app,
+)
+from .instances import (
+    InstanceInfo,
+    InstanceRecord,
+    list_local_instances,
+    register_instance,
+    unregister_instance,
 )
 from .projection_store import (
     ProjectionStoreBackend,
@@ -146,6 +154,16 @@ McpToolDescriptionPrefixOption: TypeAlias = Annotated[
         ),
     ),
 ]
+InstanceStateDirOption: TypeAlias = Annotated[
+    Path | None,
+    typer.Option(
+        "--state-dir",
+        help=(
+            "Local instance registry state directory. Defaults to "
+            "$LLMWIKI_SERVE_STATE_DIR or the per-user state directory."
+        ),
+    ),
+]
 
 
 @app.command()
@@ -182,6 +200,68 @@ def source_bundle(root: WikiRootArgument) -> None:
         typer.echo(LlmWikiService(root).source_bundle().model_dump_json(indent=2))
     except FileNotFoundError as exc:
         exit_with_error(str(exc))
+
+
+@app.command("ls")
+def ls_instances(
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Print machine-readable instance JSON."),
+    ] = False,
+    probe: Annotated[
+        bool,
+        typer.Option(
+            "--probe/--no-probe",
+            help="Probe each live registered instance through its local /health endpoint.",
+        ),
+    ] = True,
+    prune_stale: Annotated[
+        bool,
+        typer.Option(
+            "--prune-stale",
+            help="Remove stale registry records after reporting them.",
+        ),
+    ] = False,
+    state_dir: InstanceStateDirOption = None,
+) -> None:
+    """List locally registered llmwiki-serve instances."""
+    instances = list_local_instances(
+        state_dir=state_dir,
+        probe=probe,
+        prune_stale=prune_stale,
+    )
+    print_instances(instances, json_output=json_output)
+
+
+@app.command("status")
+def status_instances(
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Print machine-readable instance JSON."),
+    ] = False,
+    probe: Annotated[
+        bool,
+        typer.Option(
+            "--probe/--no-probe",
+            help="Probe each live registered instance through its local /health endpoint.",
+        ),
+    ] = True,
+    prune_stale: Annotated[
+        bool,
+        typer.Option(
+            "--prune-stale",
+            help="Remove stale registry records after reporting them.",
+        ),
+    ] = False,
+    state_dir: InstanceStateDirOption = None,
+) -> None:
+    """Alias for ls."""
+    instances = list_local_instances(
+        state_dir=state_dir,
+        probe=probe,
+        prune_stale=prune_stale,
+    )
+    print_instances(instances, json_output=json_output)
 
 
 @app.command()
@@ -275,14 +355,15 @@ def serve(
             redis_url=resolved_redis_url,
             redis_failure_policy=redis_failure_policy,
         )
-        LlmWikiService(
+        preflight_service = LlmWikiService(
             root,
             refresh_interval_seconds=refresh_interval_seconds,
             producer_manifest_path=producer_manifest,
             projection_store=projection_store,
             cache_namespace=resolved_namespace,
             source_id=resolved_source_id,
-        ).index()
+        )
+        preflight_service.index()
         fastapi_app = create_app(
             root,
             allow_drafts=allow_drafts,
@@ -305,11 +386,27 @@ def serve(
     except (RuntimeError, ValueError) as exc:
         exit_with_error(str(exc))
 
-    uvicorn.run(
-        fastapi_app,
-        host=host,
-        port=port,
-    )
+    registry_path = None
+    try:
+        registry_path = register_instance(
+            InstanceRecord.from_manifest(
+                pid=os.getpid(),
+                host=host,
+                port=port,
+                manifest=preflight_service.manifest(),
+            )
+        )
+    except OSError as exc:
+        typer.secho(f"Warning: failed to write local instance registry: {exc}", err=True)
+
+    try:
+        uvicorn.run(
+            fastapi_app,
+            host=host,
+            port=port,
+        )
+    finally:
+        unregister_instance(registry_path)
 
 
 def resolve_projection_store_backend(
@@ -337,6 +434,52 @@ def resolve_int_option_env(value: int | None, env_name: str) -> int | None:
         return int(env_value)
     except ValueError as exc:
         raise ValueError(f"{env_name} must be an integer") from exc
+
+
+def print_instances(instances: list[InstanceInfo], *, json_output: bool) -> None:
+    if json_output:
+        typer.echo(
+            json.dumps(
+                {"instances": [item.model_dump() for item in instances]},
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return
+    if not instances:
+        typer.echo("No llmwiki-serve instances found.")
+        return
+    typer.echo(render_instance_table(instances))
+
+
+def render_instance_table(instances: list[InstanceInfo]) -> str:
+    headers = ["PID", "URL", "STATUS", "ROOT", "ADAPTER", "PAGES", "SOURCE", "NOTES"]
+    rows = [
+        [
+            str(item.record.pid),
+            item.record.url.removeprefix("http://"),
+            item.status,
+            item.record.root,
+            item.record.adapter or "-",
+            f"{item.record.approved_page_count}/{item.record.page_count}",
+            item.record.source_id or "-",
+            ",".join(sorted(item.notes)) or "-",
+        ]
+        for item in instances
+    ]
+    widths = [
+        max(len(headers[index]), *(len(row[index]) for row in rows))
+        for index in range(len(headers))
+    ]
+    lines = [
+        "  ".join(header.ljust(widths[index]) for index, header in enumerate(headers)),
+        "  ".join("-" * width for width in widths),
+    ]
+    lines.extend(
+        "  ".join(value.ljust(widths[index]) for index, value in enumerate(row)) for row in rows
+    )
+    return "\n".join(lines)
 
 
 def exit_with_error(message: str) -> NoReturn:

@@ -7,7 +7,12 @@ from dataclasses import dataclass
 
 from .models import SearchResult, WikiIndex, WikiPage
 
-TOKEN_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*|[가-힣]{2,}")
+TOKEN_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*(?:[가-힣]+)?|[가-힣]+")
+ASCII_HANGUL_RE = re.compile(r"^([A-Za-z0-9]+)([가-힣]+)$")
+HANGUL_RE = re.compile(r"^[가-힣]+$")
+BM25_K1 = 1.2
+BM25_B = 0.75
+SEARCH_SNIPPET_LIMIT = 280
 
 
 @dataclass(frozen=True)
@@ -26,6 +31,12 @@ class SearchCorpus:
     @property
     def total(self) -> int:
         return max(1, len(self.documents))
+
+    @property
+    def average_doc_length(self) -> float:
+        if not self.documents:
+            return 1.0
+        return max(1.0, sum(len(document.tokens) for document in self.documents) / self.total)
 
 
 def search(
@@ -47,24 +58,34 @@ def build_search_corpus(pages: list[WikiPage]) -> SearchCorpus:
 
 
 def search_corpus(corpus: SearchCorpus, query: str, *, limit: int = 8) -> list[SearchResult]:
-    tokens = tokenize(query)
+    tokens = unique_tokens(tokenize(query))
     if not tokens:
         return overview_results(corpus.pages, limit)
 
     results: list[SearchResult] = []
+    average_doc_length = corpus.average_doc_length
     for document in corpus.documents:
         text_score = 0.0
         for token in tokens:
-            if not document.counts[token]:
+            frequency = document.counts[token]
+            if not frequency:
                 continue
             idf = math.log(
                 1 + (corpus.total - corpus.doc_freq[token] + 0.5) / (corpus.doc_freq[token] + 0.5)
             )
-            text_score += document.counts[token] * idf
+            text_score += (
+                idf
+                * bm25_term_frequency(
+                    frequency,
+                    doc_length=len(document.tokens),
+                    average_doc_length=average_doc_length,
+                )
+                * query_token_weight(token)
+            )
         if text_score <= 0:
             continue
         page = document.page
-        score = text_score + role_boost(page)
+        score = text_score * role_multiplier(page)
         results.append(to_result(page, score=score, query_tokens=tokens, route="search"))
     results.sort(key=lambda item: (-item.score, role_rank(item.role), item.path))
     return results[:limit]
@@ -121,11 +142,47 @@ def page_text(page: WikiPage) -> str:
 
 
 def tokenize(text: str) -> list[str]:
-    return [match.group(0).lower() for match in TOKEN_RE.finditer(text)]
+    tokens: list[str] = []
+    for match in TOKEN_RE.finditer(text):
+        token = match.group(0).lower()
+        tokens.append(token)
+        compound = ASCII_HANGUL_RE.match(token)
+        if compound:
+            tokens.extend(part for part in compound.groups() if part)
+            continue
+        if HANGUL_RE.match(token) and len(token) > 2:
+            tokens.extend(token[index : index + 2] for index in range(len(token) - 1))
+    return tokens
 
 
-def role_boost(page: WikiPage) -> float:
-    return {"hot": 2.5, "index": 2.0, "overview": 1.4}.get(page.role, 0.0)
+def unique_tokens(tokens: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for token in tokens:
+        if token in seen:
+            continue
+        seen.add(token)
+        result.append(token)
+    return result
+
+
+def bm25_term_frequency(frequency: int, *, doc_length: int, average_doc_length: float) -> float:
+    denominator = frequency + BM25_K1 * (
+        1 - BM25_B + BM25_B * (max(1, doc_length) / average_doc_length)
+    )
+    return (frequency * (BM25_K1 + 1)) / denominator
+
+
+def query_token_weight(token: str) -> float:
+    if token.isdigit():
+        return 0.2
+    if HANGUL_RE.match(token) and len(token) == 1:
+        return 0.4
+    return 1.0
+
+
+def role_multiplier(page: WikiPage) -> float:
+    return {"hot": 1.15, "index": 1.06, "overview": 1.03}.get(page.role, 1.0)
 
 
 def role_rank(role: str) -> int:
@@ -145,7 +202,7 @@ def to_result(page: WikiPage, *, score: float, query_tokens: list[str], route: s
     )
 
 
-def snippet_for(page: WikiPage, query_tokens: list[str], limit: int = 420) -> str:
+def snippet_for(page: WikiPage, query_tokens: list[str], limit: int = SEARCH_SNIPPET_LIMIT) -> str:
     haystack = page.text or page.summary
     if query_tokens:
         lowered = haystack.lower()

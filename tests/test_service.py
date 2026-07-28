@@ -42,6 +42,7 @@ from llmwiki_serve.projection_store import (
     safe_key_part,
 )
 from llmwiki_serve.search import search as raw_search
+from llmwiki_serve.search import tokenize
 from llmwiki_serve.service import LlmWikiService, source_signature
 
 FIXTURE = Path(__file__).parent / "fixtures" / "sample-wiki"
@@ -234,6 +235,90 @@ zzdraftonlyneedle exists only in this draft page.
     ]
     assert service.search("zzdraftonlyneedle") == []
     assert service.search("zzdraftonlyneedle", include_drafts=True)[0]["page_id"] == "draft-note"
+
+
+def test_korean_numeric_tokenization_preserves_ordinals_and_bigrams() -> None:
+    tokens = tokenize("3차 계약서")
+
+    assert "3차" in tokens
+    assert "3" in tokens
+    assert "차" in tokens
+    assert "계약서" in tokens
+    assert "계약" in tokens
+
+
+def test_korean_numeric_search_ranks_focused_contract_page_over_long_index(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "wiki"
+    topics = root / "topics"
+    topics.mkdir(parents=True)
+    long_index_noise = " ".join(["3"] * 180 + ["계약"] * 12)
+    write_markdown(
+        root / "index.md",
+        f"""
+---
+wiki_title: Korean Contract Fixture
+review_state: approved
+---
+# INDEX
+
+Aggregate operational index. {long_index_noise}
+
+The index mentions 3차 계약 once while cataloging many unrelated records.
+""",
+    )
+    write_markdown(
+        topics / "contract-and-estimate.md",
+        """
+---
+title: Contract And Estimate
+review_state: approved
+---
+# Contract And Estimate
+
+행복ICT 3차 계약 조건과 증원 데이터PM 레이블러 계약 범위를 정리한다.
+3차 계약 변경점, 견적 승인, 계약 일정, 계약 담당자를 함께 추적한다.
+""",
+    )
+    service = LlmWikiService(root)
+
+    results = service.search("3차 계약", limit=4)
+
+    assert results[0]["page_id"] == "topics/contract-and-estimate"
+    assert [item["page_id"] for item in results].index("index") > 0
+
+
+def test_numeric_inline_hashtags_are_not_projected_as_tags(tmp_path: Path) -> None:
+    root = tmp_path / "wiki"
+    root.mkdir()
+    write_markdown(
+        root / "index.md",
+        """
+---
+wiki_title: Numeric Tag Fixture
+review_state: approved
+---
+# Numeric Tag Fixture
+
+Review markers #20, #27, and #41 are issue-style prose references.
+Keep #review-41 and #태그1 as real inline tags.
+""",
+    )
+    service = LlmWikiService(root)
+
+    page = service.read("index")
+    graph = service.graph(limit=100)
+    tag_ids = {node["id"] for node in graph["nodes"] if node["kind"] == "tag"}
+
+    assert "20" not in page["tags"]
+    assert "27" not in page["tags"]
+    assert "41" not in page["tags"]
+    assert "review-41" in page["tags"]
+    assert "태그1" in page["tags"]
+    assert "tag:20" not in tag_ids
+    assert "tag:27" not in tag_ids
+    assert "tag:41" not in tag_ids
 
 
 def test_global_and_local_questions_use_same_context_contract() -> None:

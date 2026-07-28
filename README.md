@@ -4,27 +4,27 @@
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
 [![Python >=3.11](https://img.shields.io/badge/python-%3E%3D3.11-3776AB.svg)](https://www.python.org/)
 
-`llmwiki-serve` is the read-only Knowledge Source server for the LLMWiki
-toolchain. Point it at an existing Markdown, Obsidian-style, or LLMWiki folder
-and it exposes the same local projection as CLI commands, HTTP endpoints,
-MCP-style JSON-RPC tools, an MCP Streamable HTTP endpoint, and optional
-A2A-style compatibility endpoints.
+`llmwiki-serve` turns an existing Markdown, Obsidian-style, or LLMWiki folder
+into cited, agent-readable context. Point it at files you already own, ask a
+question, and it returns a local context pack with cited pages, source refs,
+limitations, and graph hints for coding agents, IDE agents, scripts, or
+workbenches.
+
+It is local-first and read-only: source files stay on disk, no hosted vector
+store is required, and the server does not crawl the web, call a model,
+synthesize final answers, or mutate your wiki.
 
 Use it when:
 
-- You want local, agent-readable context from files you already own.
-- A coding agent, IDE agent, script, or workbench can retrieve cited evidence
-  and do its own planning or answer synthesis.
-- You need the source layer that `llmwiki-agent-bridge` and `llmwiki-chat` can
-  call.
+- You want an agent to ground its work in local docs, notes, ADRs, runbooks, or
+  project wiki pages.
+- You need a source layer that returns evidence while the agent, IDE, script, or
+  workbench keeps control of planning and answer synthesis.
+- You already have Markdown or Obsidian-style knowledge and do not want to
+  change the authoring workflow before trying agent context.
 
-In the toolchain, `llmwiki-serve` is the first layer: it reads your wiki and
-serves evidence. `llmwiki-agent-bridge` is optional answer-synthesis
-escalation, and `llmwiki-chat` is the browser workbench for source, graph,
-runtime, and trace inspection.
-
-It is not a full-stack RAG app: it does not crawl the web, build a hosted
-vector store, run a model, synthesize final answers, or mutate your wiki.
+It is not for hosted RAG, vector-database-first ingestion, wiki authoring,
+enterprise auth, model runtime hosting, or certified MCP/A2A platform claims.
 
 [Examples](examples/README.md)
 | [Architecture](docs/architecture.md)
@@ -37,8 +37,17 @@ vector store, run a model, synthesize final answers, or mutate your wiki.
 | [Support](SUPPORT.md)
 | [Changelog](CHANGELOG.md)
 
-> Public-preview note: PyPI install is available for `llmwiki-serve==0.2.2`.
+> Public-preview note: PyPI install is available for `llmwiki-serve==0.2.3`.
 > Source checkout remains supported for local development and release smoke tests.
+
+## Start Here
+
+| If you want to... | Start with | Role |
+| --- | --- | --- |
+| Serve an existing Markdown, Obsidian, or LLMWiki folder as cited context for an agent that still owns its own workflow. | `llmwiki-serve` | Read-only source layer in this repo; continue to the [10-Minute Quick Start](#10-minute-quick-start). |
+| Try the smallest bundled first-run path across the local stack. | `llmwiki-bridge-start` | Starter workflow around the source layer and companion services. |
+| Inspect sources, graph context, runtime choices, citations, and traces in a browser. | `llmwiki-chat` | Human workbench for review and routing, not the source of truth. |
+| Give a client one model-backed endpoint that gathers evidence and returns cited answers. | `llmwiki-agent-bridge` | Optional answer-synthesis escalation above `llmwiki-serve`. |
 
 ## Demo
 
@@ -77,6 +86,8 @@ By default, `serve` writes local request/response debugging events to
 In another terminal, query the local server:
 
 ```bash
+uv run llmwiki-serve ls
+
 curl -s http://127.0.0.1:8765/manifest
 
 curl -s http://127.0.0.1:8765/query \
@@ -121,7 +132,7 @@ uv tool install llmwiki-serve
 pipx install llmwiki-serve
 ```
 
-Pin `llmwiki-serve==0.2.2` when you need to reproduce this public-preview
+Pin `llmwiki-serve==0.2.3` when you need to reproduce this public-preview
 release exactly.
 
 ## What It Serves
@@ -203,7 +214,7 @@ All entry points use the same read-only service behavior.
 
 | Surface | Shape |
 | --- | --- |
-| CLI | `manifest`, `query`, `source-refs`, `source-bundle`, and `serve`. |
+| CLI | `manifest`, `query`, `source-refs`, `source-bundle`, `serve`, `ls`, and `status`. |
 | HTTP | `GET /health`, `GET /manifest`, `GET /source-bundle`, `GET /source-refs`, `POST /query`, `POST /search`, `GET /read/{page_id}`, `GET /graph`, `GET /graph/neighborhood`. |
 | MCP-style JSON-RPC | `POST /mcp` with `tools/list` and `tools/call` for `llmwiki_context`, `llmwiki_search`, `llmwiki_read`, `llmwiki_graph`, `llmwiki_graph_neighbors`, `llmwiki_source_refs`, and `llmwiki_source_bundle`. |
 | MCP Streamable HTTP | `POST /mcp/stream` using the official MCP Python SDK FastMCP Streamable HTTP transport for the same seven tools. |
@@ -214,6 +225,15 @@ connection setup. It identifies the service as `llmwiki-serve`, reports the
 current source id, bundle id, projection counts, protocol endpoints,
 capabilities, and CORS mode without exposing the local source root or literal
 configured CORS origin values.
+
+`llmwiki-serve ls` is the local operator discovery command for running servers.
+It reads per-user registry records written by `serve`, probes local `/health`
+for live records, and reports PID, URL, root, source id, bundle id, adapter,
+page counts, health/stale status, and duplicate or parent/subfolder hints. Use
+`llmwiki-serve ls --json` for scripts and `llmwiki-serve ls --prune-stale` to
+remove records left by hard-killed processes. `status` is an alias for `ls`.
+Full root paths appear only in this local CLI output and local registry state,
+not in HTTP manifest or health responses.
 
 Agents should call `llmwiki_context` first for a single grounded question.
 Agents that coordinate host-owned RAG or multi-source orchestration should also
@@ -348,6 +368,13 @@ details unless documented here.
   approved-only context.
 - Network manifest responses omit the local wiki root path. The CLI manifest is
   local operator output and includes the root path.
+- Long-running `serve` instances write a best-effort local instance registry
+  record under per-user state so `llmwiki-serve ls` can list running servers.
+  The registry contains PID, host, port, source identity, page counts, and the
+  local root path; treat it as local diagnostic state. Set
+  `LLMWIKI_SERVE_STATE_DIR` to choose a different state directory. Hard-killed
+  processes can leave stale records, which `ls` reports and `ls --prune-stale`
+  removes.
 - Long-running `serve` instances write local I/O debugging events by default to
   `.runtime-logs/llmwiki-serve-io.jsonl`. Events include method, path, status,
   duration, selected request bodies for `/query`, `/mcp`, `/mcp/stream`, and
@@ -470,7 +497,7 @@ knowledge folders. It is Apache-2.0 licensed and is not an official project from
 Andrej Karpathy or any upstream producer named in compatibility examples.
 
 This repository is in public preview. PyPI install is available for
-`llmwiki-serve==0.2.2`, and source checkout remains supported for local
+`llmwiki-serve==0.2.3`, and source checkout remains supported for local
 development and release smoke tests. Use the hosted docs and Release Status &
 Compatibility matrix for the current package and protocol posture.
 
