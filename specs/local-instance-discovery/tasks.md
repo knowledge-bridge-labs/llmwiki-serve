@@ -8,8 +8,11 @@
 - [x] Add `llmwiki-serve ls` and `llmwiki-serve status` CLI commands.
 - [x] Add stale, health, duplicate bundle, same-root, and parent/subfolder
   annotations.
+- [x] Add process-table orphan/legacy server discovery with opt-out and explicit
+  manual probe controls.
 - [x] Add focused tests.
 - [x] Update README and architecture docs.
+- [x] Update ADR and changelog for registry-plus-process discovery behavior.
 - [x] Run validation.
 
 ## LLMWiki Ingestion Candidates
@@ -17,3 +20,5 @@
 - `specs/local-instance-discovery/`
 - `README.md`
 - `docs/architecture.md`
+- `docs/decisions/2026-07-28-local-instance-registry-boundary.md`
+- `CHANGELOG.md`

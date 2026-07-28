@@ -18,7 +18,8 @@ from .api import (
 from .instances import (
     InstanceInfo,
     InstanceRecord,
-    list_local_instances,
+    LocalInstanceDiscoveryResult,
+    discover_local_instances,
     register_instance,
     unregister_instance,
 )
@@ -213,6 +214,16 @@ InstanceStateDirOption: TypeAlias = Annotated[
         ),
     ),
 ]
+ProbePortOption: TypeAlias = Annotated[
+    list[int] | None,
+    typer.Option(
+        "--probe-port",
+        help=(
+            "Manually probe an explicit loopback port for diagnostics. "
+            "Repeat for multiple ports. No ports are guessed by default."
+        ),
+    ),
+]
 
 
 @app.command()
@@ -327,15 +338,29 @@ def ls_instances(
             help="Remove stale registry records after reporting them.",
         ),
     ] = False,
+    processes: Annotated[
+        bool,
+        typer.Option(
+            "--processes/--no-processes",
+            help="Discover unregistered local serve processes from the OS process table.",
+        ),
+    ] = True,
+    probe_port: ProbePortOption = None,
     state_dir: InstanceStateDirOption = None,
 ) -> None:
-    """List locally registered llmwiki-serve instances."""
-    instances = list_local_instances(
+    """List local llmwiki-serve instances."""
+    try:
+        probe_ports = validate_probe_ports(probe_port or [], source="--probe-port")
+    except ValueError as exc:
+        exit_with_error(str(exc))
+    discovery = discover_local_instances(
         state_dir=state_dir,
         probe=probe,
         prune_stale=prune_stale,
+        processes=processes,
+        manual_probe_ports=probe_ports,
     )
-    print_instances(instances, json_output=json_output)
+    print_instance_discovery(discovery, json_output=json_output)
 
 
 @app.command("status")
@@ -358,15 +383,29 @@ def status_instances(
             help="Remove stale registry records after reporting them.",
         ),
     ] = False,
+    processes: Annotated[
+        bool,
+        typer.Option(
+            "--processes/--no-processes",
+            help="Discover unregistered local serve processes from the OS process table.",
+        ),
+    ] = True,
+    probe_port: ProbePortOption = None,
     state_dir: InstanceStateDirOption = None,
 ) -> None:
     """Alias for ls."""
-    instances = list_local_instances(
+    try:
+        probe_ports = validate_probe_ports(probe_port or [], source="--probe-port")
+    except ValueError as exc:
+        exit_with_error(str(exc))
+    discovery = discover_local_instances(
         state_dir=state_dir,
         probe=probe,
         prune_stale=prune_stale,
+        processes=processes,
+        manual_probe_ports=probe_ports,
     )
-    print_instances(instances, json_output=json_output)
+    print_instance_discovery(discovery, json_output=json_output)
 
 
 @app.command()
@@ -553,8 +592,38 @@ def split_cli_values(values: list[str] | None) -> list[str] | None:
     return result
 
 
+def validate_probe_ports(values: list[int], *, source: str) -> list[int]:
+    ports: list[int] = []
+    for port in values:
+        if port <= 0 or port > 65_535:
+            raise ValueError(f"{source} ports must be between 1 and 65535")
+        if port not in ports:
+            ports.append(port)
+    return ports
+
+
 def search_mode_value(mode: SearchModeChoice) -> SearchMode:
     return "literal" if mode is SearchModeChoice.literal else "lexical"
+
+
+def print_instance_discovery(
+    discovery: LocalInstanceDiscoveryResult,
+    *,
+    json_output: bool,
+) -> None:
+    if json_output:
+        typer.echo(
+            json.dumps(
+                discovery.model_dump(),
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return
+    print_instances(discovery.instances, json_output=False)
+    for warning in sorted(set(discovery.warnings)):
+        typer.secho(f"Warning: {warning}", fg=typer.colors.YELLOW, err=True)
 
 
 def print_instances(instances: list[InstanceInfo], *, json_output: bool) -> None:
@@ -575,13 +644,26 @@ def print_instances(instances: list[InstanceInfo], *, json_output: bool) -> None
 
 
 def render_instance_table(instances: list[InstanceInfo]) -> str:
-    headers = ["PID", "URL", "STATUS", "ROOT", "ADAPTER", "PAGES", "SOURCE", "NOTES"]
+    headers = [
+        "PID",
+        "URL",
+        "STATUS",
+        "REGISTRY",
+        "VERSION",
+        "ROOT",
+        "ADAPTER",
+        "PAGES",
+        "SOURCE",
+        "NOTES",
+    ]
     rows = [
         [
-            str(item.record.pid),
+            str(item.record.pid) if item.record.pid > 0 else "-",
             item.record.url.removeprefix("http://"),
             item.status,
-            item.record.root,
+            "registered" if item.registered else "orphan",
+            item.version or "unknown",
+            redacted_root_label(item.record.root),
             item.record.adapter or "-",
             f"{item.record.approved_page_count}/{item.record.page_count}",
             item.record.source_id or "-",
@@ -601,6 +683,20 @@ def render_instance_table(instances: list[InstanceInfo]) -> str:
         "  ".join(value.ljust(widths[index]) for index, value in enumerate(row)) for row in rows
     )
     return "\n".join(lines)
+
+
+def redacted_root_label(value: str) -> str:
+    if not value:
+        return "-"
+    try:
+        path = Path(value).expanduser()
+        anchor = path.anchor
+        parts = [part for part in path.parts if part and part != anchor]
+    except (OSError, ValueError):
+        return "-"
+    if not parts:
+        return "-"
+    return ".../" + "/".join(parts[-2:])
 
 
 def exit_with_error(message: str) -> NoReturn:

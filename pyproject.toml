@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "llmwiki-serve"
-version = "0.2.4"
+version = "0.2.5"
 description = "Serve existing Markdown, Obsidian-style, or LLMWiki folders as cited agent-readable context."
 readme = "README.md"
 requires-python = ">=3.11"

@@ -37,7 +37,7 @@ enterprise auth, model runtime hosting, or certified MCP/A2A platform claims.
 | [Support](SUPPORT.md)
 | [Changelog](CHANGELOG.md)
 
-> Public-preview note: PyPI install is available for `llmwiki-serve==0.2.4`.
+> Public-preview note: PyPI install is available for `llmwiki-serve==0.2.5`.
 > Source checkout remains supported for local development and release smoke tests.
 
 ## Start Here
@@ -132,7 +132,7 @@ uv tool install llmwiki-serve
 pipx install llmwiki-serve
 ```
 
-Pin `llmwiki-serve==0.2.4` when you need to reproduce this public-preview
+Pin `llmwiki-serve==0.2.5` when you need to reproduce this public-preview
 release exactly.
 
 ## What It Serves
@@ -228,12 +228,22 @@ configured CORS origin values.
 
 `llmwiki-serve ls` is the local operator discovery command for running servers.
 It reads per-user registry records written by `serve`, probes local `/health`
-for live records, and reports PID, URL, root, source id, bundle id, adapter,
-page counts, health/stale status, and duplicate or parent/subfolder hints. Use
-`llmwiki-serve ls --json` for scripts and `llmwiki-serve ls --prune-stale` to
-remove records left by hard-killed processes. `status` is an alias for `ls`.
-Full root paths appear only in this local CLI output and local registry state,
-not in HTTP manifest or health responses.
+for live records, and inspects the OS process table for actual local command
+lines that invoke `llmwiki-serve serve`. For unregistered legacy/orphan
+processes, it parses `--host`, `--port`, and the root argument when present,
+then probes exactly that endpoint's `/health` document. It does not perform a
+default fixed-port or broad loopback scan. It reports PID when known, URL,
+source id, version, adapter, page counts, health/stale status,
+registered/orphan status, discovery source, root source, and duplicate or
+parent/subfolder hints. Use `llmwiki-serve ls --json` for scripts,
+`llmwiki-serve ls --no-processes` for registry-only output,
+`llmwiki-serve ls --probe-port <port>` for an explicit manual loopback
+diagnostic, and `llmwiki-serve ls --prune-stale` to remove records left by
+hard-killed processes. `status` is an alias for `ls`. Full root paths may appear
+in local registry state and local `--json` output when they come from registry
+records or process arguments; JSON marks this with `root_source`. Default human
+output redacts roots to a short tail label. HTTP manifest and health responses
+do not expose local roots.
 
 Agents should call `llmwiki_context` first for a single grounded question.
 Agents that coordinate host-owned RAG or multi-source orchestration should also
@@ -378,9 +388,13 @@ details unless documented here.
   record under per-user state so `llmwiki-serve ls` can list running servers.
   The registry contains PID, host, port, source identity, page counts, and the
   local root path; treat it as local diagnostic state. Set
-  `LLMWIKI_SERVE_STATE_DIR` to choose a different state directory. Hard-killed
-  processes can leave stale records, which `ls` reports and `ls --prune-stale`
-  removes.
+  `LLMWIKI_SERVE_STATE_DIR` to choose a different state directory. `ls` also
+  discovers unregistered legacy/orphan servers by reading actual local process
+  command lines that match `llmwiki-serve serve`, parsing their host and port,
+  and probing only those endpoints. Pass `--no-processes` to disable process
+  discovery or `--probe-port <port>` for an explicit manual loopback diagnostic.
+  Hard-killed processes can leave stale records, which `ls` reports and
+  `ls --prune-stale` removes.
 - Long-running `serve` instances write local I/O debugging events by default to
   `.runtime-logs/llmwiki-serve-io.jsonl`. Events include method, path, status,
   duration, selected request bodies for `/query`, `/mcp`, `/mcp/stream`, and
@@ -503,7 +517,7 @@ knowledge folders. It is Apache-2.0 licensed and is not an official project from
 Andrej Karpathy or any upstream producer named in compatibility examples.
 
 This repository is in public preview. PyPI install is available for
-`llmwiki-serve==0.2.4`, and source checkout remains supported for local
+`llmwiki-serve==0.2.5`, and source checkout remains supported for local
 development and release smoke tests. Use the hosted docs and Release Status &
 Compatibility matrix for the current package and protocol posture.
 
