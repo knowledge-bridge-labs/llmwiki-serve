@@ -16,6 +16,7 @@ generators to change their output format.
 | Source bundle | Describes one served knowledge source with a stable source id, portable projection signature, visible source refs, and metadata-only raw-origin hints for host RAG or bridge orchestration. |
 | Search/context | Ranks approved pages, adds hot/index/overview orientation, withholds drafts by default, and returns context packs for agents. |
 | Graph output | Returns projected nodes and edges through `/graph`, bounded neighborhoods through `/graph/neighborhood`, MCP graph tools, source-bundle source refs, and context pack graph fields. |
+| Local instance registry | Writes best-effort per-user `serve` process records for local CLI discovery without changing HTTP or MCP contracts. |
 | Serve I/O logging | Writes local JSONL request/response events for HTTP, MCP-style, MCP Streamable HTTP, and opt-in A2A-style flows with credential/header/local-root redaction. |
 
 Protocol scope: the current serving surface is HTTP plus MCP-style JSON-RPC, MCP
@@ -48,6 +49,16 @@ Network HTTP and MCP tool calls with `include_drafts=true` are ignored
 unless the app is created with `allow_drafts=True` or the CLI server is started
 with `--allow-drafts`. Network manifest responses omit the local source root path;
 the CLI manifest remains local operator output and includes the root.
+
+`serve` writes a best-effort local instance registry record after projection
+preflight and before Uvicorn starts. The per-user registry is used only by
+`llmwiki-serve ls` and `llmwiki-serve status`; it is not a network API,
+portable source catalog, or daemon manager. Records include PID, host, port,
+URL, root, source id, bundle id, adapter, page counts, and start time. Discovery
+checks process liveness, probes existing local `/health` responses for live
+records, reports stale records left by hard kills, and can prune them. Full
+local roots may appear in this local CLI output and registry file, while HTTP
+`/manifest` and `/health` keep redacting roots.
 
 Long-running serve apps write best-effort local I/O debugging events by default
 to `.runtime-logs/llmwiki-serve-io.jsonl`. `--io-log off` or
@@ -85,6 +96,8 @@ other retrieval systems.
 - No upstream repository, plugin, vault, or generator configuration is required.
 - Indexes, search results, and graph edges are derived projections rebuilt from the files on disk.
 - Runtime metadata lives in memory for the current service process.
+- Local instance registry records are diagnostics for process discovery, not
+  source facts or projection input.
 - Long-running service instances compare source path metadata, file size,
   modification time, and content digests for projection-affecting files, then
   rebuild the in-memory projection on the next request when Markdown, Org,

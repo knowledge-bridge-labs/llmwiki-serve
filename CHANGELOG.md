@@ -7,6 +7,15 @@ This project follows a lightweight public-preview changelog format. Dates use
 
 ## Unreleased
 
+## 0.2.3 - 2026-07-28
+
+- Added `llmwiki-serve ls` and `llmwiki-serve status` for local operator
+  discovery of running serve instances, including health, stale-record,
+  duplicate, and parent/subfolder annotations.
+- Improved Korean and numeric search relevance with better token matching,
+  BM25-style length normalization, smaller role boosts, numeric pseudo-tag
+  filtering, and shorter default snippets.
+
 ## 0.2.2 - 2026-07-23
 
 - Scoped MCP server names, instructions, and tool descriptions to the served

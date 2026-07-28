@@ -4,14 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "llmwiki-serve"
-version = "0.2.2"
-description = "Serve LLMWiki Markdown folders over HTTP, MCP-style JSON-RPC, MCP Streamable HTTP, and opt-in A2A-style message surfaces."
+version = "0.2.3"
+description = "Serve existing Markdown, Obsidian-style, or LLMWiki folders as cited agent-readable context."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
 license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
 authors = [{ name = "LLMWiki Serve contributors" }]
-keywords = ["llmwiki", "mcp", "a2a", "knowledge-graph", "rag"]
+keywords = ["llmwiki", "markdown", "obsidian", "agent-context", "mcp", "rag"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "License :: OSI Approved :: Apache Software License",
@@ -84,7 +84,10 @@ exclude = [
   "/.venv",
   "/build",
   "/dist",
+  "/docs/gtm-*",
+  "/docs/quickstart-agent-context.md",
   "/htmlcov",
+  "/specs/gtm-*",
   "/**/.DS_Store",
   "/**/.env",
   "/**/.env.*",
