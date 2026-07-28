@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import os
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -17,6 +17,7 @@ from .models import (
     GraphNode,
     ProjectionMetadata,
     RawOriginsMetadata,
+    SearchMode,
     SourceBundleManifest,
     SourceRef,
     SourceRefsResponse,
@@ -30,7 +31,13 @@ from .projection_store import (
     ProjectionRecord,
     ProjectionStore,
 )
-from .search import SearchCorpus, build_search_corpus, context_orientation, search_corpus
+from .search import (
+    SearchCorpus,
+    build_search_corpus,
+    context_orientation,
+    project_search_result,
+    search_corpus,
+)
 
 SourceSignature = tuple[tuple[str, int, int], ...]
 _ProjectionSignature = tuple["_PathState", ...]
@@ -56,6 +63,23 @@ IGNORED_SIGNATURE_PARTS = {
     "build",
 }
 DEFAULT_GRAPH_LIMIT = 100
+READ_FIELD_ORDER = (
+    "id",
+    "title",
+    "path",
+    "role",
+    "text",
+    "summary",
+    "frontmatter",
+    "review_state",
+    "status",
+    "source_refs",
+    "tags",
+    "links",
+    "headings",
+    "updated_at",
+)
+READ_FIELDS = set(READ_FIELD_ORDER)
 
 
 class LlmWikiService:
@@ -192,11 +216,40 @@ class LlmWikiService:
     def _cache_source_id(self) -> str:
         return self.explicit_source_id or source_id_for_root(self.root)
 
-    def context(self, query: str, *, limit: int = 8, include_drafts: bool = False) -> ContextPack:
+    def context(
+        self,
+        query: str,
+        *,
+        limit: int = 8,
+        include_drafts: bool = False,
+        mode: SearchMode = "lexical",
+        fields: Sequence[str] | None = None,
+        snippet_chars: int | None = None,
+        min_score: float | None = None,
+        exclude_page_ids: Sequence[str] | None = None,
+    ) -> ContextPack:
         index = self.index()
         views = self._index_views(index)
-        orientation = context_orientation(index, include_drafts=include_drafts)
-        evidence = search_corpus(views.search_corpus(include_drafts), query, limit=limit)
+        orientation = [
+            project_search_result(item, fields)
+            for item in context_orientation(
+                index,
+                include_drafts=include_drafts,
+                snippet_chars=snippet_chars,
+            )
+        ]
+        evidence = [
+            project_search_result(item, fields)
+            for item in search_corpus(
+                views.search_corpus(include_drafts),
+                query,
+                limit=limit,
+                mode=mode,
+                snippet_chars=snippet_chars,
+                min_score=min_score,
+                exclude_page_ids=exclude_page_ids,
+            )
+        ]
         limitations: list[str] = []
         if not evidence:
             limitations.append("No matching approved LLMWiki page was found.")
@@ -220,12 +273,32 @@ class LlmWikiService:
         )
 
     def search(
-        self, query: str, *, limit: int = 8, include_drafts: bool = False
+        self,
+        query: str,
+        *,
+        limit: int = 8,
+        include_drafts: bool = False,
+        mode: SearchMode = "lexical",
+        fields: Sequence[str] | None = None,
+        snippet_chars: int | None = None,
+        min_score: float | None = None,
+        exclude_page_ids: Sequence[str] | None = None,
     ) -> list[dict[str, Any]]:
         views = self._index_views()
         return [
-            item.model_dump()
-            for item in search_corpus(views.search_corpus(include_drafts), query, limit=limit)
+            project_search_result(item, fields).model_dump(
+                mode="json",
+                exclude_unset=fields is not None,
+            )
+            for item in search_corpus(
+                views.search_corpus(include_drafts),
+                query,
+                limit=limit,
+                mode=mode,
+                snippet_chars=snippet_chars,
+                min_score=min_score,
+                exclude_page_ids=exclude_page_ids,
+            )
         ]
 
     def _index_views(self, index: WikiIndex | None = None) -> _IndexViews:
@@ -234,12 +307,18 @@ class LlmWikiService:
             self._views = _IndexViews.build(current)
         return self._views
 
-    def read(self, page_id: str, *, include_drafts: bool = False) -> dict[str, Any]:
+    def read(
+        self,
+        page_id: str,
+        *,
+        include_drafts: bool = False,
+        fields: Sequence[str] | None = None,
+    ) -> dict[str, Any]:
         for page in self.index().pages:
             if page.id == page_id or page.path == page_id:
                 if not include_drafts and not page.approved_for_serving:
                     return {"found": False, "reason": "not approved for serving"}
-                return page.model_dump(mode="json")
+                return project_read_payload(page.model_dump(mode="json"), fields)
         return {"found": False}
 
     def source_refs(self, *, include_drafts: bool = False) -> SourceRefsResponse:
@@ -340,6 +419,17 @@ class LlmWikiService:
             nodes=neighborhood.nodes,
             edges=neighborhood.edges,
         )
+
+
+def project_read_payload(payload: dict[str, Any], fields: Sequence[str] | None) -> dict[str, Any]:
+    if fields is None:
+        return payload
+    requested: list[str] = []
+    for field in fields:
+        normalized = field.strip().lower()
+        if normalized in READ_FIELDS and normalized not in requested:
+            requested.append(normalized)
+    return {field: payload[field] for field in READ_FIELD_ORDER if field in requested}
 
 
 @dataclass

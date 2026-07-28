@@ -2,7 +2,8 @@
 
 ## Status
 
-Draft.
+Implemented through the `0.2.3` relevance slice plus the follow-up payload and
+literal-retrieval slice for issue `#25`.
 
 ## Problem
 
@@ -10,6 +11,10 @@ A Korean query such as `3차 계약` can rank a long aggregate `INDEX` page abov
 focused content page. The current tokenizer loses Korean ordinal morphemes such
 as `차`, raw term frequency rewards long pages, and prose issue markers such as
 `#20` are harvested as tags that add numeric noise to the search text.
+
+After the first relevance slice, agents still needed a cheap way to answer
+"does this exact string exist?" and a way to avoid paying for snippets, repeated
+pages, and full read bodies when they only need triage metadata.
 
 ## Goals
 
@@ -20,15 +25,22 @@ as `차`, raw term frequency rewards long pages, and prose issue markers such as
 - Stop harvesting pure numeric inline hashtags from prose into page tags.
 - Trim search snippets to a smaller default while preserving the existing
   result schema.
+- Add a literal search mode for exact substring retrieval and trustworthy
+  negative checks.
+- Add bounded search/query result projection controls for snippets, result
+  fields, low-score filtering, and already-seen page exclusions.
+- Add read field projection so callers can request metadata or summaries
+  without the full page body.
 - Add focused regressions for `3차 계약` and numeric pseudo-tags.
 
 ## Non-Goals
 
 - Do not add a new vector or semantic-search dependency.
-- Do not add literal grep/find endpoints in this slice.
-- Do not add `fields`, `exclude_page_ids`, `min_score`, role filters, or read
-  projections in this slice.
-- Do not change HTTP, MCP, or model response schemas.
+- Do not add a separate grep/find endpoint while `mode=literal` on the existing
+  search/query surfaces covers exact substring lookup.
+- Do not add role filters in this slice.
+- Do not add confidence-envelope metadata beyond the explicit `min_score`
+  caller control.
 
 ## Requirements
 
@@ -45,26 +57,35 @@ as `차`, raw term frequency rewards long pages, and prose issue markers such as
   `WikiPage.tags` or projected tag nodes.
 - `REQ-SEARCH-007`: search result snippets keep the existing `snippet` field but
   use a smaller default context window.
+- `REQ-SEARCH-008`: search and query support `mode=literal` for exact
+  substring matching, including Korean/numeric phrases such as `3차 계약`.
+- `REQ-SEARCH-009`: search and query support `snippet_chars`, `fields`,
+  `min_score`, and `exclude_page_ids` without changing default full-payload
+  behavior.
+- `REQ-SEARCH-010`: read supports `fields` projection over `WikiPage` fields;
+  omitted fields are not serialized on HTTP/MCP projected reads.
 
 ## Compatibility
 
-This is a relevance behavior change with stable public schemas. Search result
-order and scores may change. Existing clients keep the same HTTP/MCP request and
-response shapes.
+This is an additive contract change. Default search, query, and read responses
+remain full and backward-compatible. Callers that opt into `fields` receive
+partial result/page objects, so generated OpenAPI documents projection variants.
+Search result order and scores may still differ from pre-`0.2.3` behavior
+because lexical ranking uses BM25-style normalization.
 
 ## Data Safety
 
-The change does not expose new paths, credentials, drafts, or raw files. It
-reduces default search-result text volume without adding new payload fields.
+The change does not expose new paths, credentials, drafts, or raw files. Network
+manifest and health responses continue to redact local roots. Projection options
+only remove fields from already-authorized search/query/read payloads.
 
 ## Follow-Up Scope
 
-- Literal `llmwiki_find` or `llmwiki_grep` tool for exact substring and negative
-  existence checks.
-- Search response field projection, `snippet_chars`, `min_score`, role filters,
-  and `exclude_page_ids`.
-- Read-response projection to avoid returning summary/headings alongside full
-  text when callers do not need them.
+- Role filters can be considered later if there is evidence that callers need
+  explicit meta-page inclusion/exclusion beyond current ranking and
+  `exclude_page_ids`.
+- Broader CJK recall beyond the existing conservative bigram support remains
+  deferred until a concrete failing corpus is available.
 
 ## References
 

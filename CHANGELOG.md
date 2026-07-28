@@ -7,6 +7,14 @@ This project follows a lightweight public-preview changelog format. Dates use
 
 ## Unreleased
 
+## 0.2.4 - 2026-07-28
+
+- Added literal search mode for exact substring retrieval across service, HTTP,
+  MCP, and CLI search/query flows.
+- Added search/query payload controls for `fields`, `snippet_chars`,
+  `min_score`, and `exclude_page_ids`, plus read `fields` projection for
+  body-free metadata reads.
+
 ## 0.2.3 - 2026-07-28
 
 - Added `llmwiki-serve ls` and `llmwiki-serve status` for local operator

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, NoReturn, TypeAlias
 
@@ -21,6 +22,7 @@ from .instances import (
     register_instance,
     unregister_instance,
 )
+from .models import SearchMode
 from .projection_store import (
     ProjectionStoreBackend,
     RedisFailurePolicy,
@@ -29,6 +31,12 @@ from .projection_store import (
 from .service import LlmWikiService
 
 app = typer.Typer(help="Serve or inspect an LLMWiki Markdown folder.")
+
+
+class SearchModeChoice(StrEnum):
+    lexical = "lexical"
+    literal = "literal"
+
 
 WikiRootArgument: TypeAlias = Annotated[
     Path,
@@ -49,6 +57,47 @@ QueryLimitOption: TypeAlias = Annotated[
         min=QUERY_LIMIT_MIN,
         max=QUERY_LIMIT_MAX,
         help=f"Maximum context/search evidence items ({QUERY_LIMIT_MIN}-{QUERY_LIMIT_MAX}).",
+    ),
+]
+SearchModeOption: TypeAlias = Annotated[
+    SearchModeChoice,
+    typer.Option(
+        "--mode",
+        help="Search mode: lexical ranking or literal exact-substring matching.",
+    ),
+]
+SearchFieldsOption: TypeAlias = Annotated[
+    list[str] | None,
+    typer.Option(
+        "--fields",
+        help=(
+            "Comma-separated or repeated SearchResult fields to return. "
+            "page_id is always included when set."
+        ),
+    ),
+]
+SnippetCharsOption: TypeAlias = Annotated[
+    int | None,
+    typer.Option(
+        "--snippet-chars",
+        min=0,
+        max=2_000,
+        help="Maximum characters per result snippet. Use 0 for empty snippets.",
+    ),
+]
+MinScoreOption: TypeAlias = Annotated[
+    float | None,
+    typer.Option(
+        "--min-score",
+        min=0.0,
+        help="Drop search results below this score.",
+    ),
+]
+ExcludePageIdOption: TypeAlias = Annotated[
+    list[str] | None,
+    typer.Option(
+        "--exclude-page-id",
+        help="Page id or path to exclude from search evidence. Repeat for multiple pages.",
     ),
 ]
 ServePortOption: TypeAlias = Annotated[
@@ -176,10 +225,66 @@ def manifest(root: WikiRootArgument) -> None:
 
 
 @app.command()
-def query(root: WikiRootArgument, text: str, limit: QueryLimitOption = 8) -> None:
+def query(
+    root: WikiRootArgument,
+    text: str,
+    limit: QueryLimitOption = 8,
+    mode: SearchModeOption = SearchModeChoice.lexical,
+    fields: SearchFieldsOption = None,
+    snippet_chars: SnippetCharsOption = None,
+    min_score: MinScoreOption = None,
+    exclude_page_id: ExcludePageIdOption = None,
+) -> None:
     """Build a context pack for a query."""
     try:
-        typer.echo(LlmWikiService(root).context(text, limit=limit).model_dump_json(indent=2))
+        result_fields = split_cli_values(fields)
+        typer.echo(
+            LlmWikiService(root)
+            .context(
+                text,
+                limit=limit,
+                mode=search_mode_value(mode),
+                fields=result_fields,
+                snippet_chars=snippet_chars,
+                min_score=min_score,
+                exclude_page_ids=split_cli_values(exclude_page_id) or [],
+            )
+            .model_dump_json(indent=2, exclude_unset=result_fields is not None)
+        )
+    except FileNotFoundError as exc:
+        exit_with_error(str(exc))
+
+
+@app.command("search")
+def search_pages(
+    root: WikiRootArgument,
+    text: str,
+    limit: QueryLimitOption = 8,
+    mode: SearchModeOption = SearchModeChoice.lexical,
+    fields: SearchFieldsOption = None,
+    snippet_chars: SnippetCharsOption = None,
+    min_score: MinScoreOption = None,
+    exclude_page_id: ExcludePageIdOption = None,
+) -> None:
+    """Search pages and print result JSON."""
+    try:
+        typer.echo(
+            json.dumps(
+                {
+                    "results": LlmWikiService(root).search(
+                        text,
+                        limit=limit,
+                        mode=search_mode_value(mode),
+                        fields=split_cli_values(fields),
+                        snippet_chars=snippet_chars,
+                        min_score=min_score,
+                        exclude_page_ids=split_cli_values(exclude_page_id) or [],
+                    )
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
     except FileNotFoundError as exc:
         exit_with_error(str(exc))
 
@@ -434,6 +539,22 @@ def resolve_int_option_env(value: int | None, env_name: str) -> int | None:
         return int(env_value)
     except ValueError as exc:
         raise ValueError(f"{env_name} must be an integer") from exc
+
+
+def split_cli_values(values: list[str] | None) -> list[str] | None:
+    if values is None:
+        return None
+    result: list[str] = []
+    for value in values:
+        for item in value.split(","):
+            normalized = item.strip()
+            if normalized and normalized not in result:
+                result.append(normalized)
+    return result
+
+
+def search_mode_value(mode: SearchModeChoice) -> SearchMode:
+    return "literal" if mode is SearchModeChoice.literal else "lexical"
 
 
 def print_instances(instances: list[InstanceInfo], *, json_output: bool) -> None:

@@ -11,13 +11,21 @@ the normalized score.
 Parser tag extraction will keep frontmatter tags and explicit non-numeric
 inline tags, but pure numeric inline hashtags will no longer become tags.
 
+The follow-up slice keeps the same search/query/read surfaces and adds optional
+controls instead of introducing a separate grep endpoint. `mode=literal` performs
+case-folded exact substring matching, while `fields`, `snippet_chars`,
+`min_score`, and `exclude_page_ids` let callers keep search/query payloads small
+and avoid repeated pages. Read `fields` projection returns only requested
+`WikiPage` fields.
+
 ## Affected Areas
 
 - Source modules: `src/llmwiki_serve/search.py`,
-  `src/llmwiki_serve/parser.py`
-- Tests: focused search/parser regressions in `tests/test_service.py`
-- Docs: this spec; README/architecture only if operator-visible behavior needs
-  mention
+  `src/llmwiki_serve/parser.py`, `src/llmwiki_serve/service.py`,
+  `src/llmwiki_serve/api.py`, `src/llmwiki_serve/cli.py`,
+  `src/llmwiki_serve/models.py`
+- Tests: focused search/parser/API/MCP/CLI regressions in `tests/test_service.py`
+- Docs/contracts: this spec and generated `docs/openapi.json`
 
 ## Risks
 
@@ -33,11 +41,19 @@ inline tags, but pure numeric inline hashtags will no longer become tags.
   Mitigation: frontmatter tags remain available for deliberate numeric tags;
   only body-harvested pure numeric hashtags are filtered.
 
+- Risk: field projection could break clients expecting full result objects.
+  Mitigation: projection is opt-in; default calls still return the full existing
+  fields.
+
+- Risk: literal matching may be mistaken for semantic phrase search.
+  Mitigation: call it `mode=literal` and keep lexical ranking as the default.
+
 ## Rollout
 
 - Update tokenizer and scorer.
 - Filter numeric inline tags.
 - Add focused regressions for `3차 계약`, length normalization, and numeric
   pseudo-tags.
-- Keep grep/find and richer payload controls as explicit follow-up scope.
+- Add literal mode and payload controls as the issue follow-up slice.
+- Regenerate/check OpenAPI after the request and response model additions.
 - Run full local validation.

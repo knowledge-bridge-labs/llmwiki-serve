@@ -37,7 +37,7 @@ enterprise auth, model runtime hosting, or certified MCP/A2A platform claims.
 | [Support](SUPPORT.md)
 | [Changelog](CHANGELOG.md)
 
-> Public-preview note: PyPI install is available for `llmwiki-serve==0.2.3`.
+> Public-preview note: PyPI install is available for `llmwiki-serve==0.2.4`.
 > Source checkout remains supported for local development and release smoke tests.
 
 ## Start Here
@@ -132,7 +132,7 @@ uv tool install llmwiki-serve
 pipx install llmwiki-serve
 ```
 
-Pin `llmwiki-serve==0.2.3` when you need to reproduce this public-preview
+Pin `llmwiki-serve==0.2.4` when you need to reproduce this public-preview
 release exactly.
 
 ## What It Serves
@@ -214,7 +214,7 @@ All entry points use the same read-only service behavior.
 
 | Surface | Shape |
 | --- | --- |
-| CLI | `manifest`, `query`, `source-refs`, `source-bundle`, `serve`, `ls`, and `status`. |
+| CLI | `manifest`, `query`, `search`, `source-refs`, `source-bundle`, `serve`, `ls`, and `status`. |
 | HTTP | `GET /health`, `GET /manifest`, `GET /source-bundle`, `GET /source-refs`, `POST /query`, `POST /search`, `GET /read/{page_id}`, `GET /graph`, `GET /graph/neighborhood`. |
 | MCP-style JSON-RPC | `POST /mcp` with `tools/list` and `tools/call` for `llmwiki_context`, `llmwiki_search`, `llmwiki_read`, `llmwiki_graph`, `llmwiki_graph_neighbors`, `llmwiki_source_refs`, and `llmwiki_source_bundle`. |
 | MCP Streamable HTTP | `POST /mcp/stream` using the official MCP Python SDK FastMCP Streamable HTTP transport for the same seven tools. |
@@ -241,6 +241,12 @@ inspect `llmwiki_source_bundle` to discover the stable source identity,
 projection signature, raw-origin metadata, and opaque source references.
 Search, read, graph, and source-ref tools are follow-up tools for focused
 inspection.
+
+Search and query calls default to the full result shape, and callers can opt
+into tighter retrieval with `mode=literal` for exact substring checks,
+`snippet_chars`, result `fields`, `min_score`, and `exclude_page_ids`. Page reads
+also accept `fields` projection so clients can request metadata or summaries
+without the full `text` body.
 
 MCP server metadata is scoped to the served wiki by default. The FastMCP server
 name, FastMCP instructions, and MCP tool descriptions include the manifest
@@ -497,7 +503,7 @@ knowledge folders. It is Apache-2.0 licensed and is not an official project from
 Andrej Karpathy or any upstream producer named in compatibility examples.
 
 This repository is in public preview. PyPI install is available for
-`llmwiki-serve==0.2.3`, and source checkout remains supported for local
+`llmwiki-serve==0.2.4`, and source checkout remains supported for local
 development and release smoke tests. Use the hosted docs and Release Status &
 Compatibility matrix for the current package and protocol posture.
 
