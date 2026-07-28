@@ -228,22 +228,31 @@ configured CORS origin values.
 
 `llmwiki-serve ls` is the local operator discovery command for running servers.
 It reads per-user registry records written by `serve`, probes local `/health`
-for live records, and inspects the OS process table for actual local command
-lines that invoke `llmwiki-serve serve`. For unregistered legacy/orphan
+for live records, and uses OS process/socket inspection to find actual local
+command lines that invoke `llmwiki-serve serve`. For unregistered legacy/orphan
 processes, it parses `--host`, `--port`, and the root argument when present,
-then probes exactly that endpoint's `/health` document. It does not perform a
-default fixed-port or broad loopback scan. It reports PID when known, URL,
-source id, version, adapter, page counts, health/stale status,
-registered/orphan status, discovery source, root source, and duplicate or
-parent/subfolder hints. Use `llmwiki-serve ls --json` for scripts,
+then probes `/health` only through a local endpoint confirmed by the listener
+socket table. It does not perform a default fixed-port or broad loopback scan,
+and it does not request arbitrary argv hostnames or IP addresses. When launchers
+or console-script wrappers expose more than one matching process for the same
+endpoint, the reported PID is the TCP listener PID when the OS socket table can
+verify it.
+It reports PID when known, URL, source id, version, adapter, page counts,
+health/stale status, registered/orphan status, discovery source, root source,
+service verification, and duplicate or parent/subfolder hints. Exact process
+candidates whose local listener cannot be verified, or whose listener-confirmed
+`/health` probe times out or cannot connect, are reported as unhealthy with
+`service_verified=false`; a 200 `/health` response from another service is
+still excluded. Use `llmwiki-serve ls --json` for scripts,
 `llmwiki-serve ls --no-processes` for registry-only output,
 `llmwiki-serve ls --probe-port <port>` for an explicit manual loopback
-diagnostic, and `llmwiki-serve ls --prune-stale` to remove records left by
-hard-killed processes. `status` is an alias for `ls`. Full root paths may appear
-in local registry state and local `--json` output when they come from registry
-records or process arguments; JSON marks this with `root_source`. Default human
-output redacts roots to a short tail label. HTTP manifest and health responses
-do not expose local roots.
+diagnostic, `llmwiki-serve ls --probe-timeout-seconds <seconds>` to tune local
+health probe tolerance, and `llmwiki-serve ls --prune-stale` to remove records
+left by hard-killed processes. `status` is an alias for `ls`. Full root paths
+may appear in local registry state and local `--json` output when they come from
+registry records or process arguments; JSON marks this with `root_source`.
+Default human output redacts roots to a short tail label, and raw command lines
+are not rendered. HTTP manifest and health responses do not expose local roots.
 
 Agents should call `llmwiki_context` first for a single grounded question.
 Agents that coordinate host-owned RAG or multi-source orchestration should also
@@ -389,12 +398,17 @@ details unless documented here.
   The registry contains PID, host, port, source identity, page counts, and the
   local root path; treat it as local diagnostic state. Set
   `LLMWIKI_SERVE_STATE_DIR` to choose a different state directory. `ls` also
-  discovers unregistered legacy/orphan servers by reading actual local process
-  command lines that match `llmwiki-serve serve`, parsing their host and port,
-  and probing only those endpoints. Pass `--no-processes` to disable process
-  discovery or `--probe-port <port>` for an explicit manual loopback diagnostic.
-  Hard-killed processes can leave stale records, which `ls` reports and
-  `ls --prune-stale` removes.
+  discovers unregistered legacy/orphan servers from OS process argv/cwd and
+  socket ownership for command lines that match `llmwiki-serve serve`, parsing
+  their host and port, and probing only those endpoints. Wrapper chains are
+  deduped by endpoint and report the listener PID when the OS exposes it, with
+  notes when the listener cannot be tied to a parsed serve process. New registry
+  records also include process create time so PID reuse can be marked stale
+  instead of treated as the original server. Pass `--no-processes` to disable
+  process discovery, `--probe-port <port>` for an explicit manual loopback
+  diagnostic, or `--probe-timeout-seconds <seconds>` to tune local health probe
+  tolerance. Hard-killed processes can leave stale records, which `ls` reports
+  and `ls --prune-stale` removes.
 - Long-running `serve` instances write local I/O debugging events by default to
   `.runtime-logs/llmwiki-serve-io.jsonl`. Events include method, path, status,
   duration, selected request bodies for `/query`, `/mcp`, `/mcp/stream`, and
@@ -545,7 +559,7 @@ uv run ruff check .
 uv run mypy src
 uv run pytest -q
 uv build
-uv run python scripts/release_smoke.py --wheel dist/*.whl --sdist dist/*.tar.gz
+uv run python scripts/release_smoke.py --dist-dir dist
 ```
 
 The release smoke checks the bundled sample wiki through CLI, HTTP,

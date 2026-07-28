@@ -13,8 +13,8 @@ NOTICES = PROJECT_ROOT / "THIRD_PARTY_NOTICES.md"
 def main() -> int:
     project = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
     declared = direct_dependency_names(project)
-    notice_text = canonicalize(NOTICES.read_text(encoding="utf-8"))
-    missing = sorted(name for name in declared if name not in notice_text)
+    noticed = notice_package_names(NOTICES.read_text(encoding="utf-8"))
+    missing = sorted(declared - noticed)
     if missing:
         print(
             "THIRD_PARTY_NOTICES.md is missing direct dependency notice(s): " + ", ".join(missing),
@@ -23,6 +23,38 @@ def main() -> int:
         return 1
     print("THIRD_PARTY_NOTICES.md covers declared direct dependencies")
     return 0
+
+
+def notice_package_names(text: str) -> set[str]:
+    names: set[str] = set()
+    in_package_table = False
+    for line in text.splitlines():
+        cells = markdown_table_cells(line)
+        if cells is None:
+            in_package_table = False
+            continue
+        if not cells:
+            continue
+        if is_markdown_separator_row(cells):
+            continue
+        first_cell = canonicalize(cells[0])
+        if first_cell == "package":
+            in_package_table = True
+            continue
+        if in_package_table and first_cell:
+            names.add(first_cell)
+    return names
+
+
+def markdown_table_cells(line: str) -> list[str] | None:
+    stripped = line.strip()
+    if not stripped.startswith("|") or not stripped.endswith("|"):
+        return None
+    return [cell.strip() for cell in stripped.strip("|").split("|")]
+
+
+def is_markdown_separator_row(cells: list[str]) -> bool:
+    return all(re.fullmatch(r":?-{3,}:?", cell) is not None for cell in cells)
 
 
 def direct_dependency_names(project: dict[str, object]) -> set[str]:
