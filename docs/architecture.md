@@ -61,9 +61,17 @@ preflight and before Uvicorn starts. The per-user registry is used only by
 portable source catalog, or daemon manager. Records include PID, host, port,
 URL, root, source id, bundle id, adapter, page counts, and start time. Discovery
 checks process liveness, probes existing local `/health` responses for live
-records, reports stale records left by hard kills, and can prune them. Full
-local roots may appear in this local CLI output and registry file, while HTTP
-`/manifest` and `/health` keep redacting roots.
+records, reports stale records left by hard kills, and can prune them. Discovery
+also inspects the local OS process table for command lines that identify
+`llmwiki-serve serve` processes. For unregistered legacy/orphan processes, it
+parses the command line for `--host`, `--port`, and the root argument when
+present, then probes exactly that endpoint's `/health` document. No default
+fixed-port or broad loopback scan is performed. If a platform process provider
+is unavailable, `ls` reports degraded discovery instead of guessing ports. The
+default human table redacts roots to a short tail label; full local roots may
+appear in local registry files and local `--json` output when they come from
+registry records or process arguments, while HTTP `/manifest` and `/health` keep
+redacting roots.
 
 Long-running serve apps write best-effort local I/O debugging events by default
 to `.runtime-logs/llmwiki-serve-io.jsonl`. `--io-log off` or

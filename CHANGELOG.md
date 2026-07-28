@@ -7,6 +7,14 @@ This project follows a lightweight public-preview changelog format. Dates use
 
 ## Unreleased
 
+## 0.2.5 - 2026-07-28
+
+- Improved `llmwiki-serve ls/status` so default local discovery uses the current
+  registry first, then verifies unregistered legacy/orphan `llmwiki-serve serve`
+  processes discovered from OS command lines on their parsed host and port.
+  JSON now reports `registered`, `orphan`, `version`, `discovery_source`, and
+  `root_source`, while default human output avoids printing full root paths.
+
 ## 0.2.4 - 2026-07-28
 
 - Added literal search mode for exact substring retrieval across service, HTTP,
