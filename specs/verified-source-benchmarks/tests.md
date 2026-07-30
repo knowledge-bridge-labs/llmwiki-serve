@@ -113,8 +113,9 @@
 - Quality report is missing qrels, query provenance, tokenizer provenance, or
   run counts.
 - Citation-required answer cites an unsupported or out-of-source document.
-- Hard abstention negative query returns any row on a retrieval-evaluated
-  surface, even if the row is a nearby refusal-evidence page.
+- Hard negative stress query returns any row on a retrieval-evaluated surface,
+  even if the row is a nearby refusal-evidence page. This is a retrieval stress
+  failure, not a serve runtime abstention contract.
 
 ## Threshold Gates
 
@@ -125,7 +126,8 @@ Deterministic public quality rows must meet:
 - nDCG@10 >= 0.85
 - citation precision >= 0.95
 - citation recall >= 0.85 for citation-required queries
-- negative-query false positive rate <= 0.05
+- negative-query false positive rate <= 0.05 as a retrieval stress threshold,
+  not a final-answer abstention API
 - context-token p95 within 20% of the raw selected-document baseline unless a
   measured recall, citation, or agent-success improvement justifies the cost
 - served warm p95 latency regression <= 25% from the comparable prior report

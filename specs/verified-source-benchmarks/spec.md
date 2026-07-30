@@ -98,6 +98,12 @@ Smoke output must include at least:
 Purpose: measure whether served retrieval returns expected evidence with
 reasonable cost and latency.
 
+Negative-query false positive rate is a retrieval stress metric for
+retrieval-evaluated serve surfaces. It measures whether a recall-oriented
+surface returns rows for unanswerable or hard-negative queries; it is not a
+serve-owned final answerability, abstention, model-verification, or final
+citation-selection contract.
+
 Required checks:
 
 - corpus manifest is deterministic and public-safe
@@ -107,6 +113,9 @@ Required checks:
 - retrieval-evaluated report surfaces include recall@5, hit@5, MRR, nDCG@10,
   citation precision/recall, context tokens, p50/p95 latency, payload bytes,
   and run counts; telemetry-only surfaces report only their telemetry fields
+- negative-query FPR is a retrieval stress metric for retrieval-evaluated serve
+  surfaces, not a claim that `llmwiki-serve` owns final answerability,
+  abstention, model-backed verification, or final citation selection
 - paired bootstrap confidence intervals accompany benchmark deltas
 - source mutation, draft leak, private path leak, or unsupported citation claims
   are hard failures regardless of average metric scores
@@ -251,8 +260,9 @@ Rules:
 
 - ranks are explicit and must be contiguous from `1` within each
   `run_id`/`query_id`; top-k metrics use `rank <= k`, not row order.
-- for hard abstention negative queries, any returned row on a retrieval-evaluated
-  surface is a false positive. Nearby pages that explain adjacent technology or
+- for hard negative stress queries, any returned row on a retrieval-evaluated
+  surface is a false positive for the benchmark metric. This does not require a
+  serve runtime abstention API. Nearby pages that explain adjacent technology or
   refusal context are intentionally not relevant evidence for those negatives.
 - `citation_ids` must be known public corpus source refs and must be attached
   to the returned row's `doc_id`; citing a different served document is a hard
@@ -321,6 +331,9 @@ Rules:
   every retrieval-evaluated run passes the retrieval/citation/negative-query
   thresholds. Telemetry-only `service-context-bundle` runs are excluded from
   public retrieval gates and expose `gate_scope: telemetry-only`.
+- Passing or failing the negative-query FPR threshold affects retrieval-quality
+  reporting only. It must not be presented as proof that `llmwiki-serve` owns
+  final answer abstention or model-backed answer verification.
 - `metrics.<run>.query_classes` contains per-class metrics keyed by the
   canonical query class values listed above. Retrieval surfaces include quality
   metrics and telemetry distributions per class. Telemetry-only bundle runs
@@ -432,7 +445,8 @@ Reasonable retrieval thresholds for public quality claims:
 - nDCG@10 >= 0.85
 - citation precision >= 0.95
 - citation recall >= 0.85 for citation-required queries
-- negative-query false positive rate <= 0.05
+- negative-query false positive rate <= 0.05 as a retrieval stress threshold,
+  not a final-answer abstention API
 - context token p95 must not exceed raw selected-document baseline by more than
   20% unless recall, citation support, or agent success improves materially
 - served warm p95 latency must not regress by more than 25% from the comparable

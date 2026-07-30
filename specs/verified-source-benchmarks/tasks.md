@@ -34,6 +34,9 @@
 - [x] Run deterministic quality smoke on Windows.
 - [ ] Run deterministic quality benchmark on DGX Spark/Ubuntu.
 - [ ] Run vLLM Qwen agent-tier smoke on DGX.
+- [ ] Define a likely 0.2.8-style answerability benchmark-methodology follow-up
+  with stratified source/query splits, per-query artifacts, frozen gates, and
+  public-safe reports; keep it separate from serve runtime API design.
 - [ ] Publish docs tables only after hard-fail checks and reasonable thresholds
   pass.
 

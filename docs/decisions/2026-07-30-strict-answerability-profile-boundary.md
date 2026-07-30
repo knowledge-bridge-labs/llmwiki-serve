@@ -1,111 +1,98 @@
-# ADR: Strict Answerability Profile Boundary
+# ADR: Strict Answerability Boundary
 
 ## Status
 
-Proposed / Future.
+Proposed / Decision Candidate.
 
 ## Context
 
-`llmwiki-serve` is optimized to provide useful local context from read-only
-Markdown projections. Its default search and context behavior should favor
-recall because agents often need nearby pages, orientation pages, graph hints,
-and citation candidates before they can decide what to read next.
+`llmwiki-serve` is optimized to serve read-only Markdown projections as useful
+agent context. Its search, query, read, graph, and context surfaces should favor
+recall: agents often need nearby pages, orientation pages, graph hints, and
+citation candidates before deciding what to inspect next.
 
-That same recall-oriented posture is not an answerability guarantee. Read-only
-benchmark analysis found that hard negative queries can still receive plausible
-rows, including a measured negative FPR of `1.0` for a recall-oriented setting.
-Trying to repair that with a single score cutoff is the wrong boundary: simple
-thresholds can suppress false positives, but they also remove legitimate
-answerable evidence and destroy recall on real variants.
+That recall-oriented posture is not an answerability guarantee. A service row
+can be useful retrieval evidence without proving that a final answer should be
+given. The question "what source material should the agent inspect?" is a
+different product boundary from "should the final answer abstain?"
 
-The service needs an opt-in strict profile for workflows that prefer abstention
-over speculative context. That profile must not redefine baseline retrieval or
-make orientation rows look like answer evidence.
+Exploratory strict answerability work tested a query-level lexical gate against
+two held-out source families, OpenWiki and Pratiyush, with native and shadow
+profiles. The strict gate achieved negative-query FPR `0` and admitted `0` hard
+negatives. It also removed too much legitimate evidence, with Recall@5 losses
+against the recall-oriented baseline:
+
+| Held-out profile | Recall@5 delta |
+| --- | --- |
+| OpenWiki native | `-23.6` percentage points |
+| OpenWiki shadow | `-26.1` percentage points |
+| Pratiyush native | `-31.0` percentage points |
+| Pratiyush shadow | `-37.1` percentage points |
+
+The result is clear enough for a boundary decision: hard-negative abstention can
+be forced lexically, but not without unacceptable retrieval loss for serve's
+core job. These experiment results are not a public quality claim.
 
 ## Decision
 
-Keep default search, query, and context behavior unchanged. Add any strict
-answerability behavior only as a future opt-in profile with additive
-configuration or request controls.
+Reject a strict answerability runtime profile for `llmwiki-serve` in this
+candidate. Do not add public runtime controls, schemas, generated OpenAPI,
+package metadata, version changes, or default behavior changes for strict
+answerability in the serve package.
 
-Strict answerability sits above retrieval. The service first produces candidates
-through the existing context/search path, then the strict profile decides whether
-those candidates support answering the query. Retrieval answers "what might be
-useful?"; answerability answers "is there enough current served evidence to
-answer?"
+`llmwiki-serve` remains recall-oriented and source/retrieval evidence oriented.
+It owns local projection, source-safe reads, search, context assembly,
+orientation telemetry, source refs, citation-bearing retrieved rows, and
+read-only service compatibility.
 
-The first strict profile layer uses a documented lexical signal envelope rather
-than a global qrel-tuned threshold. The envelope may consider significant query
-term coverage, exact literal matches, title/path/heading agreement, score
-separation, citation-bearing evidence density, and required-token misses. It
-must require literal support for numbers, versions, dates, identifiers, quoted
-phrases, and private-token style needles. It must require citation-bearing
-support for citation-required queries.
+Negative answer abstention, model-backed evidence verification, synthesized
+answer support, and final citation selection belong in `llmwiki-agent-bridge` or
+the host agent/RAG layer. Those layers may call `llmwiki-serve` for candidate
+evidence, then decide whether the evidence is enough to answer.
 
-Calibration and acceptance are separate. Envelope parameters may be calibrated
-only on a calibration split, chosen from documented broad ranges, and frozen
-before holdout evaluation. Public quality claims require held-out real source
-variants and query variants. Tuning per-query, per-source, or per-qrel constants
-is rejected.
+Negative-query FPR in verified-source benchmarks remains a retrieval stress
+metric. It measures how often retrieval-evaluated serve surfaces return rows for
+unanswerable or hard-negative queries. It does not make `llmwiki-serve` the
+owner of final answer abstention, final citation selection, or model-backed
+verification.
 
-Semantic reranking, embeddings, cross-encoders, and LLM evidence verification
-are not part of the initial boundary. They may be added only as future opt-in
-layers with their own privacy, latency, token, cost, and held-out metric gates.
-An LLM verifier, if added later, may inspect only served candidate evidence and
-must not answer from model prior knowledge or unserved source files.
-
-Orientation rows remain orientation telemetry. They can help an agent navigate,
-and context-bundle reports may include them for payload telemetry, but they do
-not count as answer support, citation support, retrieval recall, or negative
-false positives for strict answerability. Benchmark run ids and report fields
-must distinguish default retrieval, strict answerability, orientation-only rows,
-and telemetry-only bundles.
-
-Public API compatibility is preserved by default. Existing clients continue to
-receive the same default schemas and behavior. Any future strict-profile public
-controls or diagnostics must be additive, opt-in, and separately reviewed for
-OpenAPI, HTTP, MCP, Streamable HTTP, CLI, and environment compatibility.
-
-Strict answerability artifacts and diagnostics must be public-safe. They must
-not persist private local paths, private endpoint URLs, credentials, tokens, raw
-request bodies, raw private query logs, unredacted Redis keys, or private source
-content. If a strict layer fails, times out, exceeds budget, or sees corrupt
-state, it fails closed for answerability admission while preserving default
-retrieval availability.
-
-Rollback is configuration-first: disable the strict profile and ignore any
-strict-profile runtime state, calibration artifacts, or diagnostics. No source
-cleanup is required because this boundary does not write to served source
-folders.
+Future benchmark-methodology work is preserved as a separate follow-up, not a
+runtime API. A likely 0.2.8-style follow-up may define stratified source/query
+splits, per-query artifacts, frozen gates, public-safe run reports, and
+pre-registered evaluation rules for answerability stress testing. That work
+should remain benchmark/report methodology unless a later ADR explicitly
+reopens the runtime boundary.
 
 ## Consequences
 
-- Default agent context remains recall-oriented and backward-compatible.
-- Strict workflows get an abstention-oriented path without weakening normal
-  search/context.
-- Retrieval metrics, answerability metrics, and orientation telemetry stay
-  separate.
-- The design resists overfitting by requiring frozen calibration and held-out
-  real-variant gates.
-- Future semantic or LLM layers have a clear boundary and cannot silently become
-  default behavior.
+- Default search, query, context, HTTP, MCP, Streamable HTTP, CLI, and OpenAPI
+  behavior remain unchanged.
+- The service avoids shipping a low-recall abstention gate as a public API.
+- Retrieval metrics, answerability stress metrics, orientation telemetry, and
+  final-answer quality stay separate.
+- Agent and RAG layers can implement stricter answer policies without forcing
+  all serve clients through an abstention-oriented gate.
+- Public docs must not claim strict answerability quality from the held-out
+  lexical experiment.
 
 ## Follow-Ups
 
-- Define exact opt-in config and request names in
-  `specs/strict-answerability-profile/` before implementation.
-- Add benchmark/report support for strict answerability run ids.
-- Build public-safe calibration and held-out real-variant datasets.
-- Implement lexical-only strict answerability before considering semantic or LLM
-  verifier layers.
-- Document public usage only after held-out recall, negative FPR, citation,
-  privacy, latency, and rollback gates pass.
+- Keep `specs/strict-answerability-profile/` as a boundary and deferred
+  methodology spec, not an implementation spec for serve runtime behavior.
+- Update verified-source benchmark wording so negative-query FPR is explicitly
+  a retrieval stress metric.
+- If answerability evaluation resumes, define a public-safe 0.2.8-style
+  benchmark-methodology slice with stratified splits, per-query artifacts, and
+  frozen gates before running or publishing results.
+- Route runtime abstention, model-backed verification, and final citation
+  selection design to `llmwiki-agent-bridge` or the host agent/RAG layer.
 
 ## References
 
 - Spec: `specs/strict-answerability-profile/`
 - Verified benchmark spec: `specs/verified-source-benchmarks/`
-- Search relevance spec: `specs/korean-numeric-search-relevance/`
+- Held-out summary:
+  `docs/research/2026-07-30-strict-answerability-heldout-summary.md`
 - Managed generic context ADR:
   `docs/decisions/2026-07-30-managed-generic-markdown-sidecar-boundary.md`
 - Architecture: `docs/architecture.md`
