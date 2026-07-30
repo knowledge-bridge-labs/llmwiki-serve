@@ -169,6 +169,7 @@ EXPECTED_WHEEL_FILES = frozenset(
         "llmwiki_serve/api.py",
         "llmwiki_serve/cli.py",
         "llmwiki_serve/io_logging.py",
+        "llmwiki_serve/managed_context.py",
         "llmwiki_serve/models.py",
         "llmwiki_serve/parser.py",
         "llmwiki_serve/projection.py",

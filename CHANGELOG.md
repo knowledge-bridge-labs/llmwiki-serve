@@ -7,6 +7,22 @@ This project follows a lightweight public-preview changelog format. Dates use
 
 ## Unreleased
 
+## 0.2.7 - 2026-07-30
+
+- Added opt-in managed context for generic Markdown folders, using an external
+  local sidecar for opaque page-hit priors and projection-derived orientation
+  while keeping authored source files and `graph/graph.json` untouched.
+- Added verified-source benchmark harnesses, fixtures, public-safe benchmark
+  cases, report validation, and collection support for retrieval-quality
+  evidence with Qwen tokenizer provenance and source-mutation guards.
+- Expanded upstream candidate smoke support with 12 actual-pinned public cases,
+  public report generation, license evidence fields, setup validation, and
+  private-path/credential report scanning.
+- Added proposed strict-answerability spec and ADR material without enabling new
+  runtime answer-synthesis behavior.
+- Documented the managed-context boundary and central upstream compatibility
+  evidence links in README, architecture, and release guidance.
+
 ## 0.2.6 - 2026-07-29
 
 - Hardened `llmwiki-serve ls/status` process discovery with `psutil`-backed

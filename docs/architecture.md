@@ -242,8 +242,12 @@ generated or stored files on disk when they match the native folder contract or
 a supported format adapter.
 
 The optional upstream smoke uses pinned public sample snapshots from selected
-targets, not floating branch heads, so those checks are reproducible compatibility
-probes rather than live upstream certification.
+targets, not floating branch heads, so those checks are reproducible
+compatibility-smoke probes rather than live upstream certification, upstream
+producer certification, or quality certification. Current public smoke evidence
+is summarized in the central
+[Evidence](https://knowledge-bridge-labs.github.io/llmwiki-docs/evidence) page
+instead of duplicated here.
 
 | Target | Adapter | Coverage | What is accepted today |
 | --- | --- | --- | --- |
@@ -307,35 +311,19 @@ without mutating the input tree.
 The A2A-style checks use the explicit compatibility opt-in; default app
 instances keep those routes disabled.
 
-The upstream snapshot smoke is narrower and stronger in a different way: it
-clones only pinned public commits, never floating branches, and runs the same
-service checks against real static upstream folders. As of the 2026-07-01 audit,
-the actual upstream smoke covers these public static snapshots:
+The upstream snapshot smoke checks a different evidence path: it clones only
+pinned public commits, never floating branches, and runs the same service checks
+against real static upstream folders. The current central Evidence page records
+a 12-case actual-pinned Windows report, including product URLs, pinned commits,
+adapters, file/page counts, graph counts, license evidence, and mutation
+status. Treat that report as projection compatibility evidence only; it does
+not measure retrieval quality, answer quality, model behavior,
+vendor-runtime conformance, or upstream producer certification.
 
-| Target | Smoke case | Static folder checked |
-| --- | --- | --- |
-| `atomicstrata/llm-wiki-compiler` | `atomic-compiler-basic` | `examples/basic/wiki` generated LLMWiki Markdown. |
-| `SamurAIGPT/llm-wiki-agent` | `samuraigpt-agent` | Repository root Markdown wiki snapshot. |
-| `Pratiyush/llm-wiki` | `pratiyush-llm-wiki` | Repository root Markdown knowledge-base snapshot. |
-| `logseq/logseq` | `logseq-exporter-test-graph` | `deps/graph-parser/test/resources/exporter-test-graph` static Logseq graph fixture. |
-| `foambubble/foam` | `foam-template` | Repository root static Foam template workspace. |
-| `dendronhq/dendron` | `dendron-test-workspace` | `test-workspace` static Dendron workspace. |
-| `jason-effi-lab/karpathy-llm-wiki-vault` | `karpathy-llm-wiki-vault` | `wiki` static LLMWiki Markdown vault with concepts, entities, sources, and syntheses. |
-| `luotwo/llm-wiki` | `luotwo-llm-wiki` | Repository root with nested static `wiki/` source root. |
-| `nishio/llm-wiki-about-delite` | `nishio-llm-wiki-about-delite` | Repository root static Quartz source tree with config and Markdown pages. |
-| `iBlinkQ/llm-wiki-obsidian-blink` | `iblinkq-llm-wiki-obsidian-blink` | Repository root static LLMWiki Obsidian vault with `.obsidian` marker. |
-
-The generated compatibility suite still covers the original catalog targets that
-do not currently have exact upstream smoke cases:
-
-| Target | Why it is not an upstream smoke case |
-| --- | --- |
-| `nashsu/llm_wiki` | The public repository has docs and the source app, but no small pinned generated LLMWiki Markdown folder matching the native folder contract without running the app/provider-backed workflow. |
-| `lucasastorian/llmwiki` | The public repository describes runtime workspace creation; it does not include a small static generated `wiki/` folder that can be cloned and served directly. |
-| `jackyzha0/quartz` | The repository includes Quartz docs Markdown, but not a current adapter-detectable `quartz.config.*` plus populated `content/` site root; creating that root requires Quartz initialization/build steps. |
-
-The smoke also includes static LLMWiki-style folders beyond the original catalog
-when they provide useful public compatibility evidence without requiring
+The generated compatibility suite still covers synthetic catalog output shapes
+that may not have exact upstream smoke evidence in a given report. The optional
+upstream smoke can also include static LLMWiki-style folders beyond the original
+catalog when they provide useful public compatibility evidence without requiring
 provider calls or source mutation.
 
 ## Graph Projection
@@ -373,6 +361,13 @@ present it must be numeric; boolean or string confidence values are ignored.
 The graph is intentionally derived, not authoritative. The source folder remains
 the system of record, with Markdown pages and optional sidecar facts loaded by
 adapters.
+
+`graph/graph.json` is a source-owned graph sidecar, not managed context.
+Experimental managed context is generic-Markdown only and stores an external
+opaque sidecar outside the source root. Native `hot.md`, `index.md`,
+`overview.md`, and root `quickstart.md` remain source-owned and untouched; the
+managed-context sidecar is not a source page, not `graph/graph.json`, and not a
+replacement for authored structure.
 
 ## Graph Neighborhood Lookup
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 import re
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 from .models import SearchMode, SearchResult, SearchResultProjection, WikiIndex, WikiPage
@@ -26,6 +26,7 @@ SEARCH_RESULT_FIELD_ORDER = (
     "route",
 )
 SEARCH_RESULT_FIELDS = set(SEARCH_RESULT_FIELD_ORDER)
+ManagedPrior = Callable[[SearchResult], float]
 
 
 @dataclass(frozen=True)
@@ -62,6 +63,8 @@ def search(
     snippet_chars: int | None = None,
     min_score: float | None = None,
     exclude_page_ids: Sequence[str] | None = None,
+    managed_prior: ManagedPrior | None = None,
+    managed_tie_band: float = 0.0,
 ) -> list[SearchResult]:
     pages = visible_pages(index.pages, include_drafts)
     return search_corpus(
@@ -72,6 +75,8 @@ def search(
         snippet_chars=snippet_chars,
         min_score=min_score,
         exclude_page_ids=exclude_page_ids,
+        managed_prior=managed_prior,
+        managed_tie_band=managed_tie_band,
     )
 
 
@@ -95,6 +100,8 @@ def search_corpus(
     snippet_chars: int | None = None,
     min_score: float | None = None,
     exclude_page_ids: Sequence[str] | None = None,
+    managed_prior: ManagedPrior | None = None,
+    managed_tie_band: float = 0.0,
 ) -> list[SearchResult]:
     if mode == "literal":
         return literal_search_corpus(
@@ -104,6 +111,8 @@ def search_corpus(
             snippet_chars=snippet_chars,
             min_score=min_score,
             exclude_page_ids=exclude_page_ids,
+            managed_prior=managed_prior,
+            managed_tie_band=managed_tie_band,
         )
     tokens = unique_tokens(tokenize(query))
     excluded = page_exclusion_set(exclude_page_ids)
@@ -152,7 +161,11 @@ def search_corpus(
                 snippet_chars=snippet_chars,
             )
         )
-    results.sort(key=lambda item: (-item.score, role_rank(item.role), item.path))
+    rank_search_results(
+        results,
+        managed_prior=managed_prior,
+        managed_tie_band=managed_tie_band,
+    )
     return results[:limit]
 
 
@@ -164,6 +177,8 @@ def literal_search_corpus(
     snippet_chars: int | None = None,
     min_score: float | None = None,
     exclude_page_ids: Sequence[str] | None = None,
+    managed_prior: ManagedPrior | None = None,
+    managed_tie_band: float = 0.0,
 ) -> list[SearchResult]:
     literal_query = normalized_literal(query)
     excluded = page_exclusion_set(exclude_page_ids)
@@ -198,8 +213,57 @@ def literal_search_corpus(
                 literal_query=literal_query,
             )
         )
-    results.sort(key=lambda item: (-item.score, role_rank(item.role), item.path))
+    rank_search_results(
+        results,
+        managed_prior=managed_prior,
+        managed_tie_band=managed_tie_band,
+    )
     return results[:limit]
+
+
+def rank_search_results(
+    results: list[SearchResult],
+    *,
+    managed_prior: ManagedPrior | None = None,
+    managed_tie_band: float = 0.0,
+) -> None:
+    results.sort(key=lexical_sort_key)
+    if (
+        managed_prior is None
+        or managed_tie_band <= 0
+        or not math.isfinite(managed_tie_band)
+        or len(results) < 2
+    ):
+        return
+
+    ranked: list[SearchResult] = []
+    index = 0
+    while index < len(results):
+        band_top_score = results[index].score
+        band: list[SearchResult] = []
+        while index < len(results) and band_top_score - results[index].score <= managed_tie_band:
+            band.append(results[index])
+            index += 1
+        band.sort(key=lambda item: managed_sort_key(item, managed_prior, managed_tie_band))
+        ranked.extend(band)
+    results[:] = ranked
+
+
+def lexical_sort_key(item: SearchResult) -> tuple[float, int, str]:
+    return (-item.score, role_rank(item.role), item.path)
+
+
+def managed_sort_key(
+    item: SearchResult,
+    managed_prior: ManagedPrior,
+    managed_tie_band: float,
+) -> tuple[float, float, int, str]:
+    try:
+        boost = float(managed_prior(item))
+    except (TypeError, ValueError):
+        boost = 0.0
+    boost = 0.0 if not math.isfinite(boost) or boost <= 0 else min(boost, managed_tie_band)
+    return (-(item.score + boost), -item.score, role_rank(item.role), item.path)
 
 
 def context_orientation(

@@ -1,0 +1,4 @@
+{"query_id":"q-release-explicit-root","text":"Which release evidence page checks explicit source roots qrels and service context payloads?","class":"known-item","locale":"en","expected_behavior":"answerable"}
+{"query_id":"q-managed-shadow-materialization","text":"Which page explains benchmark-only generic shadow materialization and managed context no-op behavior?","class":"plain-markdown","locale":"en","expected_behavior":"answerable"}
+{"query_id":"q-korean-phase-contract","text":"7번 계약 정산은 어느 phase contract 문서에 있나요?","class":"korean-numeric","locale":"ko","expected_behavior":"answerable"}
+{"query_id":"q-negative-private-path","text":"zzpayrollcredentialneedle","class":"negative","locale":"en","expected_behavior":"unanswerable"}

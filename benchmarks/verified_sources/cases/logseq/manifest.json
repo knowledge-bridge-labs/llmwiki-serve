@@ -1,0 +1,222 @@
+{
+  "schema": "llmwiki-serve-verified-source-case-manifest-v1",
+  "case_id": "logseq-exporter-test-graph",
+  "product": "logseq/logseq",
+  "official_url": "https://github.com/logseq/logseq",
+  "official_link": "https://github.com/logseq/logseq",
+  "repo_url": "https://github.com/logseq/logseq.git",
+  "source_kind": "actual-pinned",
+  "commit": "a9a67f61ab29972d2e2b6c7a5864e6e3306c0d9a",
+  "full_commit": "a9a67f61ab29972d2e2b6c7a5864e6e3306c0d9a",
+  "source_path": "deps/graph-parser/test/resources/exporter-test-graph",
+  "license_evidence": "AGPL-3.0",
+  "license": "AGPL-3.0",
+  "evidence_type": "Actual pinned static Logseq graph-parser fixture; projection compatibility only.",
+  "expected_adapter": "logseq",
+  "expected_implementation": "logseq/logseq",
+  "projection": {
+    "adapter": "logseq",
+    "implementation": "logseq/logseq",
+    "page_count": 54,
+    "approved_page_count": 54,
+    "graph_node_count": 105,
+    "graph_edge_count": 73,
+    "source_root": ".",
+    "source_ref_count": 0
+  },
+  "source_ref_behavior": {
+    "projected_source_refs": "empty",
+    "citation_mode": "deterministic-public-path-id",
+    "reason": "The dedicated Logseq adapter projects page IDs and paths from pages/ and journals/, but no authored source_refs are present in the served pages. Corpus source_ref_ids therefore use logseq:<projected-path>."
+  },
+  "document_hub": {
+    "hot_page": "",
+    "index_page": "",
+    "overview_page": "",
+    "absent": true
+  },
+  "hub_absence": {
+    "hot": {
+      "present": false,
+      "page": ""
+    },
+    "index": {
+      "present": false,
+      "page": ""
+    },
+    "overview": {
+      "present": false,
+      "page": ""
+    },
+    "absence": true
+  },
+  "managed_context_expectation": {
+    "dedicated_adapter_no_hub_control": true,
+    "expected_effect": "no-op",
+    "reason": "The source is projected by the dedicated Logseq adapter and has no hot.md, index.md, or overview.md hub page."
+  },
+  "managed_context": {
+    "native_adapter": true,
+    "native_adapter_managed_on_no_op": true,
+    "native_adapter_managed_off_no_op": true,
+    "reason": "Dedicated Logseq projection has no hub pages, so managed context on or off is a no-op."
+  },
+  "qrel_granularity": {
+    "level": "page-id",
+    "source_refs": "none projected",
+    "support_spans": "empty by policy; benchmark artifacts do not copy upstream text"
+  },
+  "query_count": 12,
+  "qrel_count": 31,
+  "query_coverage_counts": {
+    "global": 2,
+    "local": 2,
+    "multi-hop": 2,
+    "negative": 1,
+    "property": 2,
+    "numeric-or-literal": 1,
+    "citation": 2
+  },
+  "benchmark_schema_query_class_counts": {
+    "global-map": 2,
+    "known-item": 4,
+    "multi-hop": 2,
+    "negative": 1,
+    "korean-numeric": 1,
+    "citation": 2
+  },
+  "query_coverage": [
+    {
+      "query_id": "q-logseq-global-graph-fixture",
+      "coverage_class": "global",
+      "benchmark_class": "global-map",
+      "judged_page_ids": [
+        "pages/contents",
+        "journals/2024_01_08",
+        "journals/2025_12_17"
+      ]
+    },
+    {
+      "query_id": "q-logseq-local-chat-gpt-alias",
+      "coverage_class": "local",
+      "benchmark_class": "known-item",
+      "judged_page_ids": [
+        "pages/chat-gpt"
+      ]
+    },
+    {
+      "query_id": "q-logseq-multihop-creativework-movie",
+      "coverage_class": "multi-hop",
+      "benchmark_class": "multi-hop",
+      "judged_page_ids": [
+        "pages/CreativeWork",
+        "pages/Movie",
+        "pages/Interstellar",
+        "journals/2024_02_23"
+      ]
+    },
+    {
+      "query_id": "q-logseq-negative-payroll-token",
+      "coverage_class": "negative",
+      "benchmark_class": "negative",
+      "judged_page_ids": [
+        "pages/contents"
+      ]
+    },
+    {
+      "query_id": "q-logseq-property-whiteboard-tool",
+      "coverage_class": "property",
+      "benchmark_class": "known-item",
+      "judged_page_ids": [
+        "pages/Whiteboard___Tool",
+        "pages/Whiteboard___Arrow_head_toggle"
+      ]
+    },
+    {
+      "query_id": "q-logseq-numeric-property-values",
+      "coverage_class": "numeric-or-literal",
+      "benchmark_class": "korean-numeric",
+      "judged_page_ids": [
+        "pages/some page",
+        "pages/new page",
+        "journals/2024_02_29",
+        "journals/2024_07_24"
+      ]
+    },
+    {
+      "query_id": "q-logseq-citation-zlib-highlights",
+      "coverage_class": "citation",
+      "benchmark_class": "citation",
+      "judged_page_ids": [
+        "pages/zlib",
+        "pages/hls__zlib",
+        "journals/2026_01_01"
+      ]
+    },
+    {
+      "query_id": "q-logseq-global-highlight-assets",
+      "coverage_class": "global",
+      "benchmark_class": "global-map",
+      "judged_page_ids": [
+        "pages/zlib",
+        "pages/Understanding EXPLAIN",
+        "pages/hls__zlib",
+        "pages/hls__Understanding EXPLAIN",
+        "pages/unlinked-highlights",
+        "journals/2026_01_01"
+      ]
+    },
+    {
+      "query_id": "q-logseq-local-namespace-page",
+      "coverage_class": "local",
+      "benchmark_class": "known-item",
+      "judged_page_ids": [
+        "pages/n1___x___y"
+      ]
+    },
+    {
+      "query_id": "q-logseq-multihop-linked-filters",
+      "coverage_class": "multi-hop",
+      "benchmark_class": "multi-hop",
+      "judged_page_ids": [
+        "journals/2024_10_09",
+        "pages/chat-gpt"
+      ]
+    },
+    {
+      "query_id": "q-logseq-property-query-table",
+      "coverage_class": "property",
+      "benchmark_class": "known-item",
+      "judged_page_ids": [
+        "journals/2024_02_14",
+        "journals/2024_08_07"
+      ]
+    },
+    {
+      "query_id": "q-logseq-citation-pdf-asset-fallback",
+      "coverage_class": "citation",
+      "benchmark_class": "citation",
+      "judged_page_ids": [
+        "pages/hls__Sina_de_Capoeria_Batizado_2025_-_Program_Itinerary_1752179325104_0",
+        "journals/2025_07_10"
+      ]
+    }
+  ],
+  "benchmark_artifacts": {
+    "corpus": {
+      "path": "corpus.jsonl",
+      "record_count": 54,
+      "sha256": "b72ffa85e97068fd0510e1767836cc246d874e37c063abc76f063811b75d3fcd"
+    },
+    "native_queries": {
+      "path": "queries.jsonl",
+      "record_count": 12,
+      "sha256": "5282908d731e366faf5644b0781cfa28d7c1c1f6effede14472907bda9da9a61"
+    },
+    "native_qrels": {
+      "path": "qrels.jsonl",
+      "record_count": 31,
+      "sha256": "aa847d760ade8d5b3ff292ea0316cb15d75c0e840598b02b6cd1772559e718a7"
+    }
+  }
+}

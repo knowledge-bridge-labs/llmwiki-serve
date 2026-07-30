@@ -9,6 +9,14 @@ from pathlib import Path
 from typing import Any, Literal
 
 from .adapters import load_wiki
+from .managed_context import (
+    ManagedContextOption,
+    ManagedContextRuntime,
+    ManagedContextScope,
+)
+from .managed_context import (
+    source_signature_digest as managed_source_signature_digest,
+)
 from .models import (
     ContextPack,
     GraphEdge,
@@ -18,6 +26,7 @@ from .models import (
     ProjectionMetadata,
     RawOriginsMetadata,
     SearchMode,
+    SearchResult,
     SourceBundleManifest,
     SourceRef,
     SourceRefsResponse,
@@ -63,6 +72,7 @@ IGNORED_SIGNATURE_PARTS = {
     "build",
 }
 DEFAULT_GRAPH_LIMIT = 100
+MANAGED_CONTEXT_HIT_ROUTES = {"search", "literal"}
 READ_FIELD_ORDER = (
     "id",
     "title",
@@ -92,7 +102,9 @@ class LlmWikiService:
         projection_store: ProjectionStore | None = None,
         cache_namespace: str = "default",
         source_id: str | None = None,
+        managed_context: ManagedContextOption = None,
         clock: Callable[[], float] | None = None,
+        _managed_context_clock: Callable[[], float] | None = None,
     ) -> None:
         if refresh_interval_seconds < 0:
             raise ValueError("refresh_interval_seconds must be non-negative")
@@ -101,7 +113,9 @@ class LlmWikiService:
         self.projection_store = projection_store or InMemoryProjectionStore()
         self.cache_namespace = cache_namespace
         self.explicit_source_id = source_id
+        self.managed_context = ManagedContextRuntime(self.root, managed_context)
         self._clock = clock or time.monotonic
+        self._managed_context_clock = _managed_context_clock or time.time
         self._last_refresh_check: float | None = None
         self._index: WikiIndex | None = None
         self._views: _IndexViews | None = None
@@ -230,17 +244,11 @@ class LlmWikiService:
     ) -> ContextPack:
         index = self.index()
         views = self._index_views(index)
-        orientation = [
-            project_search_result(item, fields)
-            for item in context_orientation(
-                index,
-                include_drafts=include_drafts,
-                snippet_chars=snippet_chars,
-            )
-        ]
-        evidence = [
-            project_search_result(item, fields)
-            for item in search_corpus(
+        managed_scope = self._managed_context_scope(index)
+        managed_now = self._managed_context_clock()
+        orientation_evidence_results: list[SearchResult] | None = None
+        if self.managed_context.active_for_index(index) and query.strip():
+            orientation_evidence_results = search_corpus(
                 views.search_corpus(include_drafts),
                 query,
                 limit=limit,
@@ -249,7 +257,50 @@ class LlmWikiService:
                 min_score=min_score,
                 exclude_page_ids=exclude_page_ids,
             )
-        ]
+        managed_prior = self.managed_context.prior(index, managed_scope, now=managed_now)
+        evidence_results = search_corpus(
+            views.search_corpus(include_drafts),
+            query,
+            limit=limit,
+            mode=mode,
+            snippet_chars=snippet_chars,
+            min_score=min_score,
+            exclude_page_ids=exclude_page_ids,
+            managed_prior=managed_prior,
+            managed_tie_band=self.managed_context.config.lexical_tie_band,
+        )
+        managed_orientation = self.managed_context.orientation(
+            index,
+            managed_scope,
+            query=query,
+            evidence_results=(
+                orientation_evidence_results
+                if orientation_evidence_results is not None
+                else evidence_results
+            ),
+            include_drafts=include_drafts,
+            snippet_chars=snippet_chars,
+            now=managed_now,
+        )
+        orientation_results = (
+            context_orientation(
+                index,
+                include_drafts=include_drafts,
+                snippet_chars=snippet_chars,
+            )
+            if managed_orientation is None
+            else managed_orientation
+        )
+        if managed_orientation is None or managed_orientation:
+            self.managed_context.record_hits(
+                index,
+                managed_scope,
+                managed_context_hit_page_ids(evidence_results),
+                include_drafts=include_drafts,
+                now=managed_now,
+            )
+        orientation = [project_search_result(item, fields) for item in orientation_results]
+        evidence = [project_search_result(item, fields) for item in evidence_results]
         limitations: list[str] = []
         if not evidence:
             limitations.append("No matching approved LLMWiki page was found.")
@@ -284,21 +335,35 @@ class LlmWikiService:
         min_score: float | None = None,
         exclude_page_ids: Sequence[str] | None = None,
     ) -> list[dict[str, Any]]:
-        views = self._index_views()
+        index = self.index()
+        views = self._index_views(index)
+        managed_scope = self._managed_context_scope(index)
+        managed_now = self._managed_context_clock()
+        managed_prior = self.managed_context.prior(index, managed_scope, now=managed_now)
+        results = search_corpus(
+            views.search_corpus(include_drafts),
+            query,
+            limit=limit,
+            mode=mode,
+            snippet_chars=snippet_chars,
+            min_score=min_score,
+            exclude_page_ids=exclude_page_ids,
+            managed_prior=managed_prior,
+            managed_tie_band=self.managed_context.config.lexical_tie_band,
+        )
+        self.managed_context.record_hits(
+            index,
+            managed_scope,
+            managed_context_hit_page_ids(results),
+            include_drafts=include_drafts,
+            now=managed_now,
+        )
         return [
             project_search_result(item, fields).model_dump(
                 mode="json",
                 exclude_unset=fields is not None,
             )
-            for item in search_corpus(
-                views.search_corpus(include_drafts),
-                query,
-                limit=limit,
-                mode=mode,
-                snippet_chars=snippet_chars,
-                min_score=min_score,
-                exclude_page_ids=exclude_page_ids,
-            )
+            for item in results
         ]
 
     def _index_views(self, index: WikiIndex | None = None) -> _IndexViews:
@@ -314,12 +379,31 @@ class LlmWikiService:
         include_drafts: bool = False,
         fields: Sequence[str] | None = None,
     ) -> dict[str, Any]:
-        for page in self.index().pages:
+        index = self.index()
+        managed_scope = self._managed_context_scope(index)
+        for page in index.pages:
             if page.id == page_id or page.path == page_id:
                 if not include_drafts and not page.approved_for_serving:
                     return {"found": False, "reason": "not approved for serving"}
+                self.managed_context.record_hits(
+                    index,
+                    managed_scope,
+                    [page.id],
+                    include_drafts=include_drafts,
+                    now=self._managed_context_clock(),
+                )
                 return project_read_payload(page.model_dump(mode="json"), fields)
         return {"found": False}
+
+    def _managed_context_scope(self, index: WikiIndex) -> ManagedContextScope:
+        return self.managed_context.scope(
+            source_id=self._source_id_for_index(index),
+            adapter_kind=index.adapter,
+            projection_signature_digest=managed_projection_signature_digest(
+                self._projection_signature or ()
+            ),
+            source_signature_digest=managed_source_signature_digest(self._signature),
+        )
 
     def source_refs(self, *, include_drafts: bool = False) -> SourceRefsResponse:
         index = self.index()
@@ -627,6 +711,12 @@ def projection_store_endpoint(
     return endpoint
 
 
+def managed_context_hit_page_ids(results: Sequence[Any]) -> list[str]:
+    return [
+        item.page_id for item in results if getattr(item, "route", "") in MANAGED_CONTEXT_HIT_ROUTES
+    ]
+
+
 def approved_graph_view(index: WikiIndex) -> _GraphView:
     approved_pages = {f"page:{page.id}" for page in index.pages if page.approved_for_serving}
     approved_paths = {page.path for page in index.pages if page.approved_for_serving}
@@ -761,6 +851,17 @@ def projection_signature_digest(signature: _ProjectionSignature) -> str:
             ]
         )
         for state in signature
+    )
+    return f"sha256:{hashlib.sha256(payload.encode('utf-8')).hexdigest()}"
+
+
+def managed_projection_signature_digest(signature: _ProjectionSignature) -> str:
+    if not signature:
+        return ""
+    entries = sorted((state.kind, state.size, state.digest) for state in signature)
+    payload = "\n".join(
+        "\t".join([str(index), kind, str(size), digest])
+        for index, (kind, size, digest) in enumerate(entries)
     )
     return f"sha256:{hashlib.sha256(payload.encode('utf-8')).hexdigest()}"
 

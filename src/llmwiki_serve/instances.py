@@ -1344,6 +1344,8 @@ SERVE_OPTIONS_WITH_VALUES = {
     "--mcp-title",
     "--mcp-instructions",
     "--mcp-tool-description-prefix",
+    "--managed-context-state-dir",
+    "--managed-context-namespace",
 }
 
 

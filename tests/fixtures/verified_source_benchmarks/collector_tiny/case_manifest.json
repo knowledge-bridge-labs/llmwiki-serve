@@ -1,0 +1,79 @@
+{
+  "schema": "llmwiki-serve-verified-source-collector-case-v1",
+  "case_id": "collector-tiny",
+  "product": "Collector Tiny Fixture",
+  "official_link": "https://example.invalid/llmwiki-serve/collector-tiny",
+  "source_kind": "synthetic-fixture",
+  "evidence_label": "benchmark-fixture-not-actual-product",
+  "pinned_commit": "1111111111111111111111111111111111111111",
+  "checkout_root": "upstream_cache/collector-product",
+  "source_root": "upstream_cache/collector-product/wiki",
+  "license": "synthetic-fixture",
+  "inputs": {
+    "corpus": "corpus.jsonl",
+    "queries": "queries.jsonl",
+    "qrels": "qrels.jsonl"
+  },
+  "tokenizer": {
+    "id": "Qwen/Qwen3-collector-fixture-tokenizer",
+    "revision": "fixture-rev-collector",
+    "path": "tokenizer_stub",
+    "byte_proxy_allowed": false
+  },
+  "surfaces": [
+    "service-context",
+    "service-context-orientation",
+    "service-context-bundle",
+    "service-search-read"
+  ],
+  "phases": [
+    "cold",
+    "warm",
+    "primed"
+  ],
+  "page_id_map": {
+    "release.md": "release",
+    "managed-context.md": "managed-context",
+    "contract.md": "contract",
+    "hot.md": "hot",
+    "index.md": "index"
+  },
+  "variants": [
+    {
+      "variant_id": "native",
+      "source_root": "upstream_cache/collector-product/wiki",
+      "adapter": "llmwiki-markdown",
+      "managed_context": false,
+      "materialization": "pinned-source-root",
+      "evidence_label": "synthetic-native-source-root",
+      "expected_managed_delta": "no-op-non-generic"
+    },
+    {
+      "variant_id": "native-managed-on",
+      "source_root": "upstream_cache/collector-product/wiki",
+      "adapter": "llmwiki-markdown",
+      "managed_context": true,
+      "materialization": "pinned-source-root",
+      "evidence_label": "synthetic-native-source-root",
+      "expected_managed_delta": "no-op-non-generic"
+    },
+    {
+      "variant_id": "generic-shadow-managed-off",
+      "source_root": "generic_shadow",
+      "adapter": "generic-markdown",
+      "managed_context": false,
+      "materialization": "benchmark-only-generic-shadow",
+      "evidence_label": "benchmark-only-generic-shadow",
+      "shadow_of": "upstream_cache/collector-product/wiki"
+    },
+    {
+      "variant_id": "generic-shadow-managed-on",
+      "source_root": "generic_shadow",
+      "adapter": "generic-markdown",
+      "managed_context": true,
+      "materialization": "benchmark-only-generic-shadow",
+      "evidence_label": "benchmark-only-generic-shadow",
+      "shadow_of": "upstream_cache/collector-product/wiki"
+    }
+  ]
+}

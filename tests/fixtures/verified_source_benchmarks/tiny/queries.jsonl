@@ -1,0 +1,5 @@
+{"query_id":"q-known-release","text":"Which page explains release readiness?","class":"known-item","locale":"en","expected_behavior":"answerable"}
+{"query_id":"q-multihop-onboarding-release","text":"Which onboarding page points to release readiness work?","class":"multi-hop","locale":"en","expected_behavior":"answerable"}
+{"query_id":"q-negative-private-token","text":"Which page contains the private payroll token?","class":"negative","locale":"en","expected_behavior":"unanswerable"}
+{"query_id":"q-korean-contract","text":"3차 계약 정산은 어느 문서에 있나요?","class":"korean-numeric","locale":"ko","expected_behavior":"answerable"}
+{"query_id":"q-citation-source","text":"Which source reference supports the source map?","class":"citation","locale":"en","expected_behavior":"answerable"}

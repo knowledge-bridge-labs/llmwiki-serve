@@ -1,0 +1,31 @@
+{"query_id":"q-logseq-global-graph-fixture","doc_id":"pages/contents","relevance":3,"support_spans":[],"citation_required":true}
+{"query_id":"q-logseq-global-graph-fixture","doc_id":"journals/2024_01_08","relevance":2,"support_spans":[],"citation_required":true}
+{"query_id":"q-logseq-global-graph-fixture","doc_id":"journals/2025_12_17","relevance":2,"support_spans":[],"citation_required":true}
+{"query_id":"q-logseq-local-chat-gpt-alias","doc_id":"pages/chat-gpt","relevance":3,"support_spans":[],"citation_required":true}
+{"query_id":"q-logseq-multihop-creativework-movie","doc_id":"pages/CreativeWork","relevance":3,"support_spans":[],"citation_required":true}
+{"query_id":"q-logseq-multihop-creativework-movie","doc_id":"pages/Movie","relevance":3,"support_spans":[],"citation_required":true}
+{"query_id":"q-logseq-multihop-creativework-movie","doc_id":"pages/Interstellar","relevance":2,"support_spans":[],"citation_required":true}
+{"query_id":"q-logseq-multihop-creativework-movie","doc_id":"journals/2024_02_23","relevance":2,"support_spans":[],"citation_required":true}
+{"query_id":"q-logseq-negative-payroll-token","doc_id":"pages/contents","relevance":0,"support_spans":[],"citation_required":false}
+{"query_id":"q-logseq-property-whiteboard-tool","doc_id":"pages/Whiteboard___Tool","relevance":3,"support_spans":[],"citation_required":true}
+{"query_id":"q-logseq-property-whiteboard-tool","doc_id":"pages/Whiteboard___Arrow_head_toggle","relevance":2,"support_spans":[],"citation_required":true}
+{"query_id":"q-logseq-numeric-property-values","doc_id":"pages/some page","relevance":3,"support_spans":[],"citation_required":true}
+{"query_id":"q-logseq-numeric-property-values","doc_id":"pages/new page","relevance":3,"support_spans":[],"citation_required":true}
+{"query_id":"q-logseq-numeric-property-values","doc_id":"journals/2024_02_29","relevance":3,"support_spans":[],"citation_required":true}
+{"query_id":"q-logseq-numeric-property-values","doc_id":"journals/2024_07_24","relevance":2,"support_spans":[],"citation_required":true}
+{"query_id":"q-logseq-citation-zlib-highlights","doc_id":"pages/zlib","relevance":3,"support_spans":[],"citation_required":true}
+{"query_id":"q-logseq-citation-zlib-highlights","doc_id":"pages/hls__zlib","relevance":3,"support_spans":[],"citation_required":true}
+{"query_id":"q-logseq-citation-zlib-highlights","doc_id":"journals/2026_01_01","relevance":2,"support_spans":[],"citation_required":true}
+{"query_id":"q-logseq-global-highlight-assets","doc_id":"pages/zlib","relevance":3,"support_spans":[],"citation_required":true}
+{"query_id":"q-logseq-global-highlight-assets","doc_id":"pages/Understanding EXPLAIN","relevance":3,"support_spans":[],"citation_required":true}
+{"query_id":"q-logseq-global-highlight-assets","doc_id":"pages/hls__zlib","relevance":2,"support_spans":[],"citation_required":true}
+{"query_id":"q-logseq-global-highlight-assets","doc_id":"pages/hls__Understanding EXPLAIN","relevance":2,"support_spans":[],"citation_required":true}
+{"query_id":"q-logseq-global-highlight-assets","doc_id":"pages/unlinked-highlights","relevance":2,"support_spans":[],"citation_required":true}
+{"query_id":"q-logseq-global-highlight-assets","doc_id":"journals/2026_01_01","relevance":2,"support_spans":[],"citation_required":true}
+{"query_id":"q-logseq-local-namespace-page","doc_id":"pages/n1___x___y","relevance":3,"support_spans":[],"citation_required":true}
+{"query_id":"q-logseq-multihop-linked-filters","doc_id":"journals/2024_10_09","relevance":3,"support_spans":[],"citation_required":true}
+{"query_id":"q-logseq-multihop-linked-filters","doc_id":"pages/chat-gpt","relevance":2,"support_spans":[],"citation_required":true}
+{"query_id":"q-logseq-property-query-table","doc_id":"journals/2024_02_14","relevance":3,"support_spans":[],"citation_required":true}
+{"query_id":"q-logseq-property-query-table","doc_id":"journals/2024_08_07","relevance":2,"support_spans":[],"citation_required":true}
+{"query_id":"q-logseq-citation-pdf-asset-fallback","doc_id":"pages/hls__Sina_de_Capoeria_Batizado_2025_-_Program_Itinerary_1752179325104_0","relevance":3,"support_spans":[],"citation_required":true}
+{"query_id":"q-logseq-citation-pdf-asset-fallback","doc_id":"journals/2025_07_10","relevance":2,"support_spans":[],"citation_required":true}

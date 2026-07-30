@@ -1,0 +1,4 @@
+{"query_id":"q-release-explicit-root","doc_id":"release","relevance":3,"support_spans":[{"start":0,"end":120}],"citation_required":true}
+{"query_id":"q-managed-shadow-materialization","doc_id":"managed-context","relevance":3,"support_spans":[{"start":0,"end":150}],"citation_required":true}
+{"query_id":"q-korean-phase-contract","doc_id":"contract","relevance":3,"support_spans":[{"start":0,"end":120}],"citation_required":true}
+{"query_id":"q-negative-private-path","doc_id":"release","relevance":0,"support_spans":[],"citation_required":false}
