@@ -11,8 +11,10 @@ unchanged. Internal experimental candidates remain evaluated evidence only and
 are not shipped or supported runtime profiles. Public report generation now
 requires explicit analyzer profile and implementation revision metadata, and
 validation rejects non-public profiles and all-zero placeholder revisions.
-Focused tests/checks have passed. Final immutable Windows/DGX reports, full
-suite/release validation, README/docs evidence, and commit/deploy/release steps
+Focused tests/checks have passed. Final immutable Windows/DGX reports for
+`git:9f03f39666edf0d2516cf1f6d9c7171802eabd2c` now pass public report
+validation, and repository README/report evidence is updated. Full
+suite/release validation, merge, hosted docs deployment, and package release
 remain pending.
 
 ## Problem
@@ -94,8 +96,8 @@ create broad hub matches through split words.
 - Label SciFact public reports as English opt-in same-data comparisons.
 - Require explicit analyzer profile and implementation revision metadata for
   public report generation and validation.
-- Keep final immutable Windows/DGX reports and release steps pending until the
-  release validation package is complete.
+- Keep merge, hosted docs deployment, package release, and full release
+  validation pending until the release validation package is complete.
 
 ## Non-Goals
 
@@ -152,9 +154,10 @@ create broad hub matches through split words.
 - `REQ-ELA-017`: Managed-context tests that previously relied on stopword
   evidence must use the explicit contract: stopwords do not create unrelated
   evidence, and orientation remains separate from lexical evidence ranking.
-- `REQ-ELA-018`: Final immutable Windows/DGX reports and release steps remain
-  pending and must not be represented as complete; stale tracked reports remain
-  pending until regenerated from the final release implementation.
+- `REQ-ELA-018`: Final immutable Windows/DGX reports must be regenerated from
+  a real release implementation before public evidence is claimed. As of this
+  revision, the `git:9f03f39666edf0d2516cf1f6d9c7171802eabd2c` reports pass
+  public validation; release steps remain pending.
 - `REQ-ELA-019`: CLI and programmatic public report generation must require an
   explicit `analyzer_profile` and explicit `implementation_revision`.
 - `REQ-ELA-020`: Public report validation must reject analyzer profiles outside

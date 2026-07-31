@@ -45,9 +45,10 @@
 - Stopwords do not make unrelated managed-context evidence answerable or boost
   nonmatching read-prior pages.
 - Hybrid/fusion ranking is not implemented or accepted by this spec.
-- Stale reports remain pending until replaced by final immutable Windows/DGX
-  reports from the release implementation.
-- Final immutable Windows/DGX reports and release steps remain pending.
+- Stale reports have been replaced by final immutable Windows/DGX reports from
+  `git:9f03f39666edf0d2516cf1f6d9c7171802eabd2c`.
+- Final immutable Windows/DGX reports pass public report validation; release
+  steps remain pending.
 
 ## Validation Commands
 
@@ -60,7 +61,7 @@ Focused implementation validation for this opt-in change:
 
 Focused implementation tests and checks have passed for the `legacy|english`
 runtime boundary, opt-in CLI/Python wiring, unchanged HTTP/MCP request schemas,
-and public report generation/validation hardening. Release validation still
-requires final immutable Windows/DGX sanitized public reports from a real
-release commit, the full suite, README/docs evidence updates, and
-commit/deploy/release steps.
+and public report generation/validation hardening. Final Windows/DGX sanitized
+public reports now pass public report validation. Release validation still
+requires the full suite, merge, hosted docs deployment, and package release
+steps.

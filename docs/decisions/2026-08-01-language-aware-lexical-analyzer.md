@@ -11,9 +11,11 @@ unchanged. Evaluated experimental candidates are evidence only, not shipped or
 supported runtime profiles. Public report generation now requires explicit
 analyzer profile and implementation revision metadata, and validation rejects
 non-public profiles and all-zero placeholder revisions. Focused tests/checks
-have passed. Final immutable Windows/DGX reports, full suite/release
-validation, README/docs evidence, and commit/deploy/release steps remain
-pending.
+have passed. Final immutable Windows/DGX reports for
+`git:9f03f39666edf0d2516cf1f6d9c7171802eabd2c` now pass public report
+validation, and repository README/report evidence is updated. Full
+suite/release validation, merge, hosted docs deployment, and package release
+remain pending.
 
 ## Context
 
@@ -129,17 +131,16 @@ real commit. Hybrid/fusion ranking is deferred to a separate future spec.
 - Rollback is limited because `legacy` remains the default.
 - Diagnostic timing numbers remain internal evidence and must not be used as
   public performance claims.
-- Stale reports remain pending until replaced by final immutable Windows/DGX
-  reports from the release implementation.
-- Final immutable Windows/DGX reports and release steps remain pending.
+- Stale reports have been replaced by final immutable Windows/DGX reports from
+  the release implementation revision.
+- Final immutable Windows/DGX reports pass public report validation; release
+  steps remain pending.
 
 ## Follow-Up Work
 
-- Generate final immutable Windows/DGX sanitized public benchmark reports from
-  a real release commit.
 - Run the full suite and release validation against the final report package.
-- Add README/docs benchmark evidence and conservative reproduction links.
-- Commit, push, deploy docs, and release after final reports pass validation.
+- Merge, deploy hosted docs, and release after final reports pass validation
+  and release gates.
 - Open a separate future spec for any hybrid/fusion ranking proposal.
 
 ## References

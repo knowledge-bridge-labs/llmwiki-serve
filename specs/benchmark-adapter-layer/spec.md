@@ -5,9 +5,12 @@
 Implementation contract accepted for this feature branch. The bundle schema,
 official BEIR SciFact acquisition/materialization path, retrieval runner, and
 schema `1.1.0` public-report validator are implemented locally. Final Windows
-and DGX Spark Ubuntu reports from a real immutable implementation revision,
-accepted baseline publication, legacy migrations, bridge consumer changes, and
-release validation remain pending.
+and DGX Spark Ubuntu reports from immutable implementation revision
+`git:9f03f39666edf0d2516cf1f6d9c7171802eabd2c` now pass the public report
+validator with matching source/artifact checksums and deterministic quality
+metrics. Accepted baseline publication, legacy migrations, bridge consumer
+changes, merge, package publish, hosted docs deployment, and release validation
+remain pending.
 
 This revision replaces the earlier unimplemented mixed JSONL proposal with a
 versioned benchmark bundle contract because `llmwiki-agent-bridge` consumes the
@@ -23,8 +26,10 @@ marketed as recognized benchmark evidence.
 Report schema revision `llmwiki-beir-scifact-retrieval-report-v1` version
 `1.1.0` hardens public SciFact aggregate reports with a strict implementation
 revision, fixed external reference rows, and signed product-minus-reference
-deltas. This is a report contract change only; it does not claim that final
-Windows or DGX Spark Ubuntu full-run evidence has been accepted.
+deltas. This is a report contract change only; the committed Windows and DGX
+Spark Ubuntu full-run reports are accepted for branch-level release evidence
+review, not yet merged, published to package registries, or deployed to the
+hosted docs site.
 
 ## Problem
 

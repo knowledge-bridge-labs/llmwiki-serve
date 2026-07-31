@@ -12,12 +12,12 @@
 - [x] Validate approved-only and all-drafts corpus views.
 - [x] Run Windows repository validation and temporary current-default SciFact
   validation.
-- [ ] Run DGX Spark Ubuntu benchmark validation.
+- [x] Run DGX Spark Ubuntu benchmark validation.
 - [x] Confirm normalized input and source bundle checksums, quality metrics,
   result payloads and their checksums, and payload byte quantiles are unchanged.
 - [x] Confirm the report file checksum changes as expected with latency or
   index-build telemetry.
-- [ ] Accept final immutable-revision public Windows and DGX Spark Ubuntu
+- [x] Accept final immutable-revision public Windows and DGX Spark Ubuntu
   reports before publishing release benchmark evidence.
 - [ ] Confirm a documented warm search p95 latency budget after final
   environment runs; index build time must remain reported separately.

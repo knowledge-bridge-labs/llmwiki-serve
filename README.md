@@ -594,6 +594,34 @@ MCP/A2A protocol support, private wiki safety, live network deployment,
 authentication, TLS, or every application-specific
 Obsidian/Logseq/Foam/Dendron/Quartz feature.
 
+### Benchmark Evidence
+
+For `0.2.8`, the repo also includes a reproducible retrieval benchmark on the
+official BEIR SciFact `test` split projected to Markdown and queried through
+`LlmWikiService.search(query, limit=100)`. Both final reports use package
+`0.2.8`, immutable revision
+`git:9f03f39666edf0d2516cf1f6d9c7171802eabd2c`, the opt-in `english`
+analyzer, `5,183` corpus docs, `300` test queries, and `339` qrels. The product
+default analyzer remains `legacy`.
+
+| Environment | nDCG@10 | Recall@100 | Report |
+| --- | ---: | ---: | --- |
+| Windows local | `0.6905159872` | `0.9286666667` | [`beir-scifact-windows-2026-08-01.json`](benchmarks/verified_sources/reports/beir-scifact-windows-2026-08-01.json) |
+| DGX Spark Ubuntu | `0.6905159872` | `0.9286666667` | [`beir-scifact-dgx-spark-ubuntu-2026-08-01.json`](benchmarks/verified_sources/reports/beir-scifact-dgx-spark-ubuntu-2026-08-01.json) |
+
+The reports include product-secondary Recall@5, Hit@5, MRR@10, latency, payload
+bytes, source checksums, license attribution, metric definitions, and fixed
+external reference rows. The external rows cite BEIR paper BM25
+(`0.665` nDCG@10 / `0.908` Recall@100) and Anserini/Pyserini flat BM25
+(`0.6789` nDCG@10 / `0.9253` Recall@100); those rows are contextual published
+references and were not run by `llmwiki-serve`.
+
+Benchmark adapters are repository-level reproducibility tooling under
+`scripts/benchmark_adapters/`, not installed `llmwiki-serve` console commands.
+See
+[`benchmarks/verified_sources/reports/README.md`](benchmarks/verified_sources/reports/README.md)
+for provenance, validation, rerun notes, and limitations.
+
 ## Project Documents
 
 - [Docs portal](https://knowledge-bridge-labs.github.io/llmwiki-docs/)

@@ -88,5 +88,7 @@ analyzer profile.
 
 Because `legacy` remains the default, rollback is limited to disabling or
 withholding the public `english` opt-in path and its reports. Final immutable
-Windows/DGX reports, stale report replacement, and release steps remain
-pending.
+Windows/DGX reports for
+`git:9f03f39666edf0d2516cf1f6d9c7171802eabd2c` now pass public report
+validation. Merge, package publish, hosted docs deployment, and full release
+validation remain pending.

@@ -27,3 +27,9 @@
 - Full SciFact benchmark repeat on DGX Spark Ubuntu.
 - Final immutable-revision public Windows and DGX Spark Ubuntu report
   validation before release evidence is accepted.
+
+Branch-level result: the final Windows and DGX Spark Ubuntu reports for
+`git:9f03f39666edf0d2516cf1f6d9c7171802eabd2c` pass public report validation
+and match deterministic quality metrics. Cross-environment latency remains
+telemetry only until a same-environment performance budget is separately
+accepted.

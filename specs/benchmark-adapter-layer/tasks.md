@@ -103,12 +103,15 @@
   programmatic tests.
 - [x] Validate external reference source URLs, fixed values, labels/status, and
   signed product-minus-reference deltas in public report validation.
-- [ ] Run final full SciFact baselines on Windows local and DGX Spark Ubuntu
+- [x] Run final full SciFact baselines on Windows local and DGX Spark Ubuntu
   from a real immutable implementation revision, requiring identical
   source/artifact checksums and deterministic quality metrics while reporting
   latency separately.
-- [ ] Publish measured numbers with limitations only after the baseline is
-  accepted; do not publish arbitrary pass/fail thresholds before then.
+- [x] Record measured numbers with limitations in repository evidence docs and
+  report README after the validated branch-level baseline; do not publish
+  arbitrary pass/fail thresholds before then.
+- [ ] Merge, package publish, and hosted docs deployment after final release
+  gates.
 
 ## MVP Follow-Up Tasks
 
@@ -146,8 +149,9 @@
 
 The implemented local state includes compact offline validation tooling,
 synthetic fixture tests, a minimal corpus-only local Markdown/LLMWiki
-materializer, and the official SciFact acquisition/materialization/runner/report
-path. Runtime endpoint contracts, generated public corpora, legacy
-migration/sanitizer work, broad case adapters, final immutable-revision public
-reports, and model-backed bridge execution remain intentionally outside the
+materializer, the official SciFact acquisition/materialization/runner/report
+path, and final immutable-revision Windows/DGX sanitized reports that pass the
+public validator. Runtime endpoint contracts, generated public corpora, legacy
+migration/sanitizer work, broad case adapters, package publication, hosted docs
+deployment, and model-backed bridge execution remain intentionally outside the
 accepted release evidence until their pending tasks are complete.

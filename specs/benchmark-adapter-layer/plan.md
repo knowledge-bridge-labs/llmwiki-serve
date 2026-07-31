@@ -37,8 +37,9 @@ smoke set is internal regression evidence only.
   materialization, validation, and retrieval reports.
 - Tests: fixture-only schema, provenance, adapter, migration, metrics, and
   data-safety tests.
-- Docs: this spec set and the cross-repo ADR now; benchmark research notes and
-  public docs after final immutable-revision validated runs.
+- Docs: this spec set, the cross-repo ADR, and repository evidence docs now;
+  benchmark research notes and hosted public docs after final release
+  integration.
 - Contracts: no HTTP, MCP, MCP Streamable HTTP, A2A-style, OpenAPI, or runtime
   source adapter changes.
 - ADR: required for the cross-repo benchmark artifact contract.
@@ -212,6 +213,10 @@ smoke set is internal regression evidence only.
   references separately, signed product-minus-reference deltas, a strict
   implementation revision, and a statement that the Markdown projection is an
   informal same-data comparison.
+- Current branch status: final Windows and DGX Spark Ubuntu sanitized reports
+  for `git:9f03f39666edf0d2516cf1f6d9c7171802eabd2c` pass the public report
+  validator and match deterministic quality metrics. Merge, package publish,
+  and hosted docs deployment remain pending.
 - Baseline policy: create accepted baseline reports before enforcing release
   gates or using pass/fail language.
 - Docs / LLMWiki ingestion: ingest this spec and ADR after review; ingest later

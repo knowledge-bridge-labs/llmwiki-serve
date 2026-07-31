@@ -42,12 +42,13 @@
   profiles and the all-zero implementation-revision placeholder. Tests may use
   a nonzero deterministic fake git hash, but tracked final reports must use a
   real commit.
-- [ ] Generate final immutable Windows/DGX sanitized public benchmark reports
+- [x] Generate final immutable Windows/DGX sanitized public benchmark reports
   from a real release commit. These reports must explicitly select `english`
   and be labeled English opt-in same-data comparisons.
 - [ ] Run the full suite and release validation against the final report
   package.
-- [ ] Add README/docs benchmark evidence and conservative reproduction links.
+- [x] Add README and report README benchmark evidence with conservative
+  reproduction links.
 - [ ] Commit, push, deploy docs, and release after final reports pass
   validation.
 

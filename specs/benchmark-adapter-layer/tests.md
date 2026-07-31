@@ -214,6 +214,13 @@
   package version, environment class, corpus/query/qrel counts, and whether
   bridge metrics were run.
 
+Branch-level result: the final Windows and DGX Spark Ubuntu SciFact aggregate
+reports for `git:9f03f39666edf0d2516cf1f6d9c7171802eabd2c` passed
+`scripts.benchmark_adapters.scifact_runner.validate_public_report` with
+matching deterministic quality metrics and source/artifact checksums. Full
+suite, merge, package publish, and hosted docs deployment remain separate
+release checks.
+
 ## Manual Checks
 
 - Check: `git status --short` after a run shows only intended schema/spec/report

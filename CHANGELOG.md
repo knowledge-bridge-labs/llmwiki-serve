@@ -27,8 +27,11 @@ This project follows a lightweight public-preview changelog format. Dates use
 - Hardened public SciFact report generation so CLI and programmatic paths
   require explicit `analyzer_profile` and `implementation_revision` metadata.
   Public validation rejects non-public profiles and all-zero placeholder
-  revisions. Stale reports, final immutable Windows/DGX reports, and release
-  steps remain pending.
+  revisions. Final sanitized Windows and DGX Spark Ubuntu SciFact reports now
+  validate from immutable revision
+  `git:9f03f39666edf0d2516cf1f6d9c7171802eabd2c` with identical primary
+  quality metrics; merge, PyPI publish, and hosted docs deployment remain
+  pending.
 - Added an in-memory postings index for lexical search to reduce warm p95
   latency while preserving legacy exact-result behavior for the legacy analyzer.
 - Added the official BEIR SciFact benchmark adapter, safe acquisition,
