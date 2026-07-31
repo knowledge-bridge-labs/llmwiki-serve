@@ -41,9 +41,12 @@ from .projection_store import (
     ProjectionStore,
 )
 from .search import (
+    DEFAULT_ANALYZER_PROFILE,
+    AnalyzerProfile,
     SearchCorpus,
     build_search_corpus,
     context_orientation,
+    normalize_analyzer_profile,
     project_search_result,
     search_corpus,
 )
@@ -103,6 +106,7 @@ class LlmWikiService:
         cache_namespace: str = "default",
         source_id: str | None = None,
         managed_context: ManagedContextOption = None,
+        analyzer_profile: AnalyzerProfile = DEFAULT_ANALYZER_PROFILE,
         clock: Callable[[], float] | None = None,
         _managed_context_clock: Callable[[], float] | None = None,
     ) -> None:
@@ -114,6 +118,7 @@ class LlmWikiService:
         self.cache_namespace = cache_namespace
         self.explicit_source_id = source_id
         self.managed_context = ManagedContextRuntime(self.root, managed_context)
+        self.analyzer_profile = normalize_analyzer_profile(analyzer_profile)
         self._clock = clock or time.monotonic
         self._managed_context_clock = _managed_context_clock or time.time
         self._last_refresh_check: float | None = None
@@ -368,8 +373,12 @@ class LlmWikiService:
 
     def _index_views(self, index: WikiIndex | None = None) -> _IndexViews:
         current = index or self.index()
-        if self._views is None or self._views.index is not current:
-            self._views = _IndexViews.build(current)
+        if (
+            self._views is None
+            or self._views.index is not current
+            or self._views.analyzer_profile != self.analyzer_profile
+        ):
+            self._views = _IndexViews.build(current, analyzer_profile=self.analyzer_profile)
         return self._views
 
     def read(
@@ -519,23 +528,35 @@ def project_read_payload(payload: dict[str, Any], fields: Sequence[str] | None) 
 @dataclass
 class _IndexViews:
     index: WikiIndex
+    analyzer_profile: AnalyzerProfile = DEFAULT_ANALYZER_PROFILE
     approved_search: SearchCorpus | None = None
     all_search: SearchCorpus | None = None
     approved_graph: _GraphView | None = None
     all_graph: _GraphView | None = None
 
     @classmethod
-    def build(cls, index: WikiIndex) -> _IndexViews:
-        return cls(index=index)
+    def build(
+        cls,
+        index: WikiIndex,
+        *,
+        analyzer_profile: AnalyzerProfile = DEFAULT_ANALYZER_PROFILE,
+    ) -> _IndexViews:
+        return cls(index=index, analyzer_profile=analyzer_profile)
 
     def search_corpus(self, include_drafts: bool) -> SearchCorpus:
         if include_drafts:
             if self.all_search is None:
-                self.all_search = build_search_corpus(self.index.pages)
+                self.all_search = build_search_corpus(
+                    self.index.pages,
+                    analyzer_profile=self.analyzer_profile,
+                )
             return self.all_search
         if self.approved_search is None:
             approved_pages = [page for page in self.index.pages if page.approved_for_serving]
-            self.approved_search = build_search_corpus(approved_pages)
+            self.approved_search = build_search_corpus(
+                approved_pages,
+                analyzer_profile=self.analyzer_profile,
+            )
         return self.approved_search
 
     def graph_view(self, include_drafts: bool) -> _GraphView:

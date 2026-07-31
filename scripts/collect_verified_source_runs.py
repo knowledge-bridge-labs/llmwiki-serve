@@ -19,7 +19,7 @@ from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, cast
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -103,8 +103,15 @@ class CollectorError(RuntimeError):
 
 
 class CountingTokenizer(Protocol):
-    tokenizer_id: str
-    tokenizer_revision: str
+    @property
+    def tokenizer_id(self) -> str:
+        """Tokenizer identifier used in public run rows."""
+        ...
+
+    @property
+    def tokenizer_revision(self) -> str:
+        """Tokenizer revision used in public run rows."""
+        ...
 
     def count_tokens(self, text: str) -> int:
         """Return a real token count for a serialized benchmark payload."""
@@ -408,7 +415,7 @@ def resolve_source(args: argparse.Namespace, case_manifest: CaseManifest) -> Sou
         root = args.source_root.expanduser().resolve()
         if not root.is_dir():
             raise CollectorError("source_root must exist and be a directory")
-        source_report = {
+        source_report: dict[str, object] = {
             "mode": "explicit-source-root",
             "source_kind": "operator-provided",
         }
@@ -431,13 +438,13 @@ def resolve_source(args: argparse.Namespace, case_manifest: CaseManifest) -> Sou
         if not manifest_source_root.is_dir():
             raise CollectorError("case_manifest.source_root must exist and be a directory")
         case_metadata = manifest_metadata
-        source_report = {"mode": "case-manifest-source-root"}
+        manifest_source_report: dict[str, object] = {"mode": "case-manifest-source-root"}
         if case_metadata is not None:
-            source_report = {**source_report, **case_metadata}
+            manifest_source_report = {**manifest_source_report, **case_metadata}
         return SourceResolution(
             root=manifest_source_root,
             checkout_root=None,
-            source_report=source_report,
+            source_report=manifest_source_report,
             case_metadata=case_metadata,
         )
 
@@ -521,8 +528,12 @@ def validate_checkout_commit(
 
 def checkout_source_root(checkout_dir: Path, source_path: str, *, label: str) -> Path:
     validate_checkout_relative_source_path(source_path, label)
-    return upstream_smoke.case_source_root(
-        checkout_dir, normalize_checkout_source_path(source_path)
+    return cast(
+        Path,
+        upstream_smoke.case_source_root(
+            checkout_dir,
+            normalize_checkout_source_path(source_path),
+        ),
     )
 
 
@@ -612,7 +623,10 @@ def resolve_input_paths(
         corpus=corpus.expanduser().resolve(),
         queries=queries.expanduser().resolve(),
         qrels=qrels.expanduser().resolve(),
-        public_case_manifest=public_case_manifest(source_public_case_metadata(source)),
+        public_case_manifest=public_case_manifest(
+            source_public_case_metadata(source),
+            source_ref_behavior=public_source_ref_behavior(case_manifest),
+        ),
     )
 
 
@@ -794,7 +808,20 @@ def source_public_case_metadata(source: SourceResolution) -> dict[str, object]:
     )
 
 
-def public_case_manifest(case_metadata: Mapping[str, object]) -> dict[str, object]:
+def public_source_ref_behavior(case_manifest: CaseManifest) -> dict[str, object] | None:
+    citation_policy = citation_policy_from_case_manifest(case_manifest)
+    if citation_policy.declared_citation_mode is None:
+        return None
+    behavior: dict[str, object] = {"citation_mode": citation_policy.declared_citation_mode}
+    benchmark.assert_public_safe_value(behavior, "case-manifest.source_ref_behavior")
+    return behavior
+
+
+def public_case_manifest(
+    case_metadata: Mapping[str, object],
+    *,
+    source_ref_behavior: Mapping[str, object] | None = None,
+) -> dict[str, object]:
     manifest = {
         "schema": CASE_MANIFEST_SCHEMA,
         **{field: case_metadata[field] for field in CASE_METADATA_FIELDS},
@@ -804,6 +831,8 @@ def public_case_manifest(case_metadata: Mapping[str, object]) -> dict[str, objec
             "qrels": "qrels.jsonl",
         },
     }
+    if source_ref_behavior is not None:
+        manifest["source_ref_behavior"] = dict(source_ref_behavior)
     benchmark.assert_public_safe_value(manifest, "case-manifest")
     return manifest
 
@@ -842,9 +871,12 @@ def load_counting_tokenizer(args: argparse.Namespace) -> CountingTokenizer:
             "tokenizer; use `uv run --with transformers ...`. Tests may use "
             "--allow-fixture-tokenizer."
         )
-    return benchmark.HuggingFaceQwenTokenizerAdapter.load(
-        args.tokenizer_id,
-        args.tokenizer_revision,
+    return cast(
+        CountingTokenizer,
+        benchmark.HuggingFaceQwenTokenizerAdapter.load(
+            args.tokenizer_id,
+            args.tokenizer_revision,
+        ),
     )
 
 
@@ -1183,11 +1215,11 @@ def collect_surface(
 
     service: LlmWikiService | None = None
     if phase in {"warm", "primed"}:
-        service = service_factory()
+        service = service_factory(None)
         service.index()
     if phase == "primed":
         assert service is not None
-        prime_service(service, surface=surface, queries=queries.values(), limit=limit)
+        prime_service(service, surface=surface, queries=list(queries.values()), limit=limit)
 
     for query in queries.values():
         query_service = service_factory(query.query_id) if phase == "cold" else service
@@ -1324,13 +1356,14 @@ def timed_collect_query(
             corpus[doc_id],
             citation_policy=citation_policy,
         )
+        score = score_value(result_payload.get("score"))
         rows.append(
             {
                 "run_id": run_id,
                 "query_id": query.query_id,
                 "rank": len(rows) + 1,
                 "doc_id": doc_id,
-                "score": float(result_payload.get("score") or 0.0),
+                "score": score,
                 "citation_ids": citation_id_values,
                 "context_tokens": tokenizer.count_tokens(json_text(result_payload)),
                 "payload_tokens": payload_tokens,
@@ -1354,6 +1387,14 @@ def timed_collect_query(
             "evidence_count": query_evidence_count(payload, result_payloads),
         },
     )
+
+
+def score_value(raw_score: object) -> float:
+    if isinstance(raw_score, int | float):
+        return float(raw_score)
+    if isinstance(raw_score, str) and raw_score:
+        return float(raw_score)
+    return 0.0
 
 
 def collect_context_payload(

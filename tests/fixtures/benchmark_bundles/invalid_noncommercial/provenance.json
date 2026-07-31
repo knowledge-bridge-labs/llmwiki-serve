@@ -1,0 +1,29 @@
+{
+  "adapter": {
+    "name": "synthetic-fixture",
+    "version": "0.1.0"
+  },
+  "bundle_id": "synthetic-noncommercial-2026-07-31",
+  "checksums": {
+    "corpus.jsonl": "sha256:88c1ef2f745eeadd72abd46479eeb1b327723c18d61c7ba65c24e630b66853d8",
+    "evidence.jsonl": "sha256:7aac40750b4bff6539543253c8c4c6f350a8f6c0bfb041adaeb4daa22d1220a3",
+    "qrels.jsonl": "sha256:4a1666b49b1b34d240e5724aa8116862e419e05b95420ee70b64379d6f88c4a2",
+    "queries.jsonl": "sha256:522491b117038f4c9b99bd2abefe5c2686a79fed14fe633ce6d8f5f2c1d88954"
+  },
+  "component_licenses": [
+    {
+      "attribution": "Synthetic fixture maintained by llmwiki-serve contributors.",
+      "component": "synthetic-fixture",
+      "license_spdx": "CC-BY-NC-4.0",
+      "license_url": "https://example.invalid/licenses/cc-by-nc-4.0",
+      "license_verified_date": "2026-07-31",
+      "public_report_policy": "non-commercial-research-only",
+      "redistribution_policy": "non-commercial-research-only"
+    }
+  ],
+  "dataset": "synthetic-fixture",
+  "schema_id": "llmwiki-benchmark-bundle-v1",
+  "source_release": "synthetic fixture",
+  "source_revision": "0123456789abcdef0123456789abcdef01234567",
+  "source_url": "https://example.invalid/llmwiki-serve/synthetic-benchmark-fixture"
+}

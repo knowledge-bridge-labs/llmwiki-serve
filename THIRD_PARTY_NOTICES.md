@@ -14,6 +14,7 @@ Exact resolved direct and transitive dependency versions are recorded in
 | psutil | `>=6.1` | BSD-3-Clause | <https://github.com/giampaolo/psutil> |
 | Pydantic | `>=2.11` | MIT | <https://docs.pydantic.dev/> |
 | PyYAML | `>=6.0` | MIT | <https://pyyaml.org/> |
+| snowballstemmer | `>=2.2.0` | BSD-3-Clause | <https://github.com/snowballstem/snowball> |
 | Typer | `>=0.12` | MIT | <https://typer.tiangolo.com/> |
 | Uvicorn | `>=0.49.0` | BSD-3-Clause | <https://www.uvicorn.org/> |
 
@@ -27,6 +28,7 @@ Exact resolved direct and transitive dependency versions are recorded in
 
 | Package | Version range | License | Homepage |
 | --- | --- | --- | --- |
+| certifi | `>=2026.6.17` | MPL-2.0 | <https://github.com/certifi/python-certifi> |
 | HTTPX | `>=0.27` | BSD-3-Clause | <https://www.python-httpx.org/> |
 | mypy | `>=1.10` | MIT | <https://mypy-lang.org/> |
 | pytest | `>=8.2` | MIT | <https://docs.pytest.org/> |

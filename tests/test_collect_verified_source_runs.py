@@ -9,7 +9,7 @@ from collections import defaultdict
 from collections.abc import Iterable, Mapping
 from hashlib import sha256
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -461,7 +461,7 @@ def test_service_context_bundle_orientation_changes_qrel_rank_metrics(
         dict.fromkeys([*orientation_doc_ids, "release", "managed-context", "contract"])
     )
     assert [row["score"] for row in bundle_rows] == [
-        float(payload.get("score") or 0.0) for payload in expected_payloads
+        score_value(payload) for payload in expected_payloads
     ]
     assert [row["context_tokens"] for row in bundle_rows] == [
         tokenizer.count_tokens(collector.json_text(payload)) for payload in expected_payloads
@@ -612,6 +612,7 @@ def test_materialization_stack_does_not_build_generic_shadow_for_native_selectio
     def fail_if_materialized(*args: object, **kwargs: object) -> object:
         calls.append((args, kwargs))
         pytest.fail("generic shadow materializer should not be invoked")
+        raise AssertionError("unreachable after pytest.fail")
 
     monkeypatch.setattr(collector, "materialize_generic_shadow", fail_if_materialized)
     scratch_dir = tmp_path / "llmwiki-bench-native-only"
@@ -934,6 +935,67 @@ def test_deterministic_public_path_citation_mode_fills_empty_service_refs_withou
         assert row["citation_ids"] == corpus_by_doc[row["doc_id"]]["source_ref_ids"]
 
 
+def test_generated_public_case_manifest_round_trips_deterministic_path_citations(
+    tmp_path: Path,
+) -> None:
+    collector = import_collector()
+    fixture = copy_fixture(tmp_path)
+    source_root = fixture / "upstream_cache" / "collector-product" / "wiki"
+    strip_authored_source_refs(fixture)
+    set_citation_mode(fixture, collector.DETERMINISTIC_PUBLIC_PATH_CITATION_MODE)
+    source_manifest_path = fixture / "case_manifest.json"
+    source_manifest = read_json(source_manifest_path)
+    source_manifest["source_ref_behavior"]["private_debug_path"] = str(fixture)
+    write_json_file(source_manifest_path, source_manifest)
+
+    first_output_dir = tmp_path / "collector-path-citation-first-output"
+    first_result = run_cli(
+        fixture,
+        first_output_dir,
+        source_root=source_root,
+        scratch_dir=tmp_path / "llmwiki-bench-path-citation-first",
+        variants=("native",),
+        phases=("cold",),
+        limit=3,
+        extra_args=["--allow-fixture-tokenizer"],
+    )
+
+    assert first_result.returncode == 0, first_result.stdout + first_result.stderr
+    generated_case_manifest_path = first_output_dir / "case-manifest.json"
+    generated_case_manifest = read_json(generated_case_manifest_path)
+    assert generated_case_manifest["source_ref_behavior"] == {
+        "citation_mode": collector.DETERMINISTIC_PUBLIC_PATH_CITATION_MODE
+    }
+    assert_public_safe(generated_case_manifest, fixture, first_output_dir)
+
+    second_output_dir = tmp_path / "collector-path-citation-second-output"
+    second_result = run_cli(
+        fixture,
+        second_output_dir,
+        source_root=source_root,
+        scratch_dir=tmp_path / "llmwiki-bench-path-citation-second",
+        case_manifest_path=generated_case_manifest_path,
+        variants=("native",),
+        phases=("cold",),
+        limit=3,
+        extra_args=["--allow-fixture-tokenizer"],
+    )
+
+    assert second_result.returncode == 0, second_result.stdout + second_result.stderr
+    report = read_json(second_output_dir / "collection-report.json")
+    runs = read_jsonl(second_output_dir / "runs.jsonl")
+
+    assert report["citation_evidence"]["mode"] == "path-derived-deterministic"
+    assert (
+        report["citation_evidence"]["declared_citation_mode"]
+        == collector.DETERMINISTIC_PUBLIC_PATH_CITATION_MODE
+    )
+    assert runs
+    assert all(row["citation_ids"] for row in runs)
+    assert_public_safe(report, fixture, first_output_dir, second_output_dir)
+    assert_public_safe(runs, fixture, first_output_dir, second_output_dir)
+
+
 def test_empty_service_refs_without_deterministic_citation_mode_stay_empty(
     tmp_path: Path,
 ) -> None:
@@ -1076,7 +1138,7 @@ def test_collect_verified_source_runs_cli_accepts_verified_source_metadata_manif
     assert report["inputs"] == {"corpus_records": 5, "query_records": 4, "qrel_records": 4}
 
 
-@pytest.mark.parametrize(
+@pytest.mark.parametrize(  # type: ignore[untyped-decorator]
     ("case_id", "alias", "registry_source_path", "manifest_source_path"),
     (
         ("pratiyush-llm-wiki", "pratiyush", ".", "wiki/"),
@@ -1126,7 +1188,7 @@ def test_upstream_case_manifest_source_path_is_authoritative_for_nested_roots(
     assert source.case_metadata["pinned_commit"] == commit
 
 
-@pytest.mark.parametrize(
+@pytest.mark.parametrize(  # type: ignore[untyped-decorator]
     ("updates", "error_match"),
     (
         ({"source_path": "../wiki"}, "source_path.*dot-dot"),
@@ -1536,7 +1598,10 @@ def upstream_resolve_args(
 
 
 def read_json(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise AssertionError(f"{path} did not contain a JSON object")
+    return cast(dict[str, Any], payload)
 
 
 def read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -1558,6 +1623,15 @@ def write_jsonl_file(path: Path, rows: Iterable[Mapping[str, Any]]) -> None:
 
 def file_digest(path: Path) -> str:
     return sha256(path.read_bytes()).hexdigest()
+
+
+def score_value(payload: Mapping[str, Any]) -> float:
+    raw_score = payload.get("score")
+    if isinstance(raw_score, int | float):
+        return float(raw_score)
+    if isinstance(raw_score, str) and raw_score:
+        return float(raw_score)
+    return 0.0
 
 
 def tree_digest(root: Path) -> str:
@@ -1602,7 +1676,7 @@ def expected_case_metadata(case_manifest: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def expected_public_case_manifest(case_manifest: Mapping[str, Any]) -> dict[str, Any]:
-    return {
+    public_manifest: dict[str, Any] = {
         "schema": "llmwiki-serve-verified-source-collector-case-v1",
         **expected_case_metadata(case_manifest),
         "inputs": {
@@ -1611,6 +1685,11 @@ def expected_public_case_manifest(case_manifest: Mapping[str, Any]) -> dict[str,
             "qrels": "qrels.jsonl",
         },
     }
+    behavior = case_manifest.get("source_ref_behavior")
+    citation_mode = behavior.get("citation_mode") if isinstance(behavior, dict) else None
+    if isinstance(citation_mode, str) and citation_mode:
+        public_manifest["source_ref_behavior"] = {"citation_mode": citation_mode}
+    return public_manifest
 
 
 def assert_private_operational_fields_are_absent(payload: object) -> None:
@@ -1708,7 +1787,7 @@ def assert_run_summaries_cover_queries_and_phases(
 
 def assert_negative_query_has_no_rows(
     run_summaries: list[Mapping[str, Any]],
-    runs: list[Mapping[str, Any]],
+    runs: Iterable[Mapping[str, Any]],
 ) -> None:
     assert all(
         row["query_id"] != "q-negative-private-path"

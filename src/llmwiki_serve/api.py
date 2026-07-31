@@ -35,6 +35,11 @@ from .models import (
     WikiPageProjection,
 )
 from .projection_store import ProjectionStore
+from .search import (
+    DEFAULT_PUBLIC_ANALYZER_PROFILE,
+    PublicAnalyzerProfile,
+    normalize_public_analyzer_profile,
+)
 from .service import DEFAULT_GRAPH_LIMIT, LlmWikiService
 
 QUERY_LIMIT_MIN = 1
@@ -278,6 +283,7 @@ def create_app(
     mcp_server_name: str | None = None,
     mcp_instructions: str | None = None,
     mcp_tool_description_prefix: str | None = None,
+    analyzer_profile: PublicAnalyzerProfile = DEFAULT_PUBLIC_ANALYZER_PROFILE,
 ) -> FastAPI:
     resolved_graph_default_limit = validate_default_limit(
         graph_default_limit,
@@ -296,6 +302,7 @@ def create_app(
     resolved_managed_context = (
         managed_context if managed_context is not None else managed_context_config_from_env()
     )
+    resolved_analyzer_profile = normalize_public_analyzer_profile(analyzer_profile)
     service = LlmWikiService(
         root,
         refresh_interval_seconds=refresh_interval_seconds,
@@ -304,6 +311,7 @@ def create_app(
         cache_namespace=cache_namespace,
         source_id=source_id,
         managed_context=resolved_managed_context,
+        analyzer_profile=resolved_analyzer_profile,
     )
     mcp_stream = create_mcp_stream_server(
         service,

@@ -369,7 +369,7 @@ def test_managed_orientation_abstains_for_unrelated_query(
     assert source_tree_snapshot(root) == before
 
 
-def test_managed_orientation_abstention_does_not_suppress_evidence_search(
+def test_managed_orientation_stopwords_do_not_create_unrelated_evidence(
     tmp_path: Path,
 ) -> None:
     root = tmp_path / "docs"
@@ -379,12 +379,13 @@ def test_managed_orientation_abstention_does_not_suppress_evidence_search(
     service = LlmWikiService(
         root,
         managed_context=ManagedContextConfig(enabled=True, state_dir=state_dir),
+        analyzer_profile="english",
         _managed_context_clock=lambda: 1000.0,
     )
 
     context = service.context("the zzmissingmanagedorientation", limit=2)
 
-    assert context.evidence
+    assert context.evidence == []
     assert context.orientation == []
     assert not state_dir.exists()
 
@@ -393,7 +394,7 @@ def test_managed_orientation_gate_uses_prior_free_evidence_search(
     tmp_path: Path,
 ) -> None:
     root = tmp_path / "docs"
-    write_markdown(root / "z-alpha.md", "# Alpha\n\nthe\n")
+    write_markdown(root / "z-alpha.md", "# Alpha\n\nx\n")
     write_markdown(root / "a-beta.md", "# Beta\n\nzzrare\n")
     state_dir = tmp_path / "state"
     service = LlmWikiService(
@@ -411,8 +412,8 @@ def test_managed_orientation_gate_uses_prior_free_evidence_search(
     for _ in range(4):
         assert service.read("z-alpha")["id"] == "z-alpha"
 
-    assert service.search("the zzrare", limit=1)[0]["page_id"] == "z-alpha"
-    context = service.context("the zzrare", limit=1)
+    assert service.search("x zzrare", limit=1)[0]["page_id"] == "z-alpha"
+    context = service.context("x zzrare", limit=1)
 
     assert context.evidence[0].page_id == "z-alpha"
     assert [item.page_id for item in context.orientation] == ["a-beta"]

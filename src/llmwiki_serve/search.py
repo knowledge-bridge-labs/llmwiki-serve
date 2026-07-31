@@ -3,18 +3,75 @@ from __future__ import annotations
 import math
 import re
 from collections import Counter
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from types import MappingProxyType
+from typing import Final, Literal, TypeAlias
+
+import snowballstemmer  # type: ignore[import-untyped]
 
 from .models import SearchMode, SearchResult, SearchResultProjection, WikiIndex, WikiPage
 
 TOKEN_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*(?:[가-힣]+)?|[가-힣]+")
+ENGLISH_TOKEN_RE = re.compile(r"[A-Za-z0-9]+[가-힣]+|[가-힣]+|[A-Za-z0-9]+(?:['’]s|['’])?")
 ASCII_HANGUL_RE = re.compile(r"^([A-Za-z0-9]+)([가-힣]+)$")
 HANGUL_RE = re.compile(r"^[가-힣]+$")
+EXACT_COMPOUND_TOKEN_RE = re.compile(
+    r"(?<![A-Za-z0-9가-힣])"
+    r"[A-Za-z0-9]+(?:[_.-][A-Za-z0-9]+)+(?:[가-힣]+)?"
+    r"(?![A-Za-z0-9가-힣])"
+)
+SINGLE_COMPOUND_REMAINDER_CHARS = "\"'`“”‘’()[]{}.,;:!?"
 BM25_K1 = 1.2
 BM25_B = 0.75
+EXACT_COMPOUND_SCORE_WEIGHT = 0.85
+EXACT_METADATA_SCORE_WEIGHT = 0.35
 SEARCH_SNIPPET_LIMIT = 280
 SEARCH_SNIPPET_MAX = 2_000
+PublicAnalyzerProfile: TypeAlias = Literal["legacy", "english"]
+AnalyzerProfile: TypeAlias = Literal["legacy", "english"]
+PUBLIC_ANALYZER_PROFILES: tuple[PublicAnalyzerProfile, ...] = ("legacy", "english")
+ANALYZER_PROFILES: tuple[AnalyzerProfile, ...] = PUBLIC_ANALYZER_PROFILES
+DEFAULT_ANALYZER_PROFILE: Final[AnalyzerProfile] = "legacy"
+DEFAULT_PUBLIC_ANALYZER_PROFILE: Final[PublicAnalyzerProfile] = "legacy"
+LUCENE_ENGLISH_STOPWORDS = frozenset(
+    {
+        "a",
+        "an",
+        "and",
+        "are",
+        "as",
+        "at",
+        "be",
+        "but",
+        "by",
+        "for",
+        "if",
+        "in",
+        "into",
+        "is",
+        "it",
+        "no",
+        "not",
+        "of",
+        "on",
+        "or",
+        "such",
+        "that",
+        "the",
+        "their",
+        "then",
+        "there",
+        "these",
+        "they",
+        "this",
+        "to",
+        "was",
+        "will",
+        "with",
+    }
+)
+ENGLISH_STEMMER = snowballstemmer.stemmer("english")
 SEARCH_RESULT_FIELD_ORDER = (
     "page_id",
     "title",
@@ -27,6 +84,7 @@ SEARCH_RESULT_FIELD_ORDER = (
 )
 SEARCH_RESULT_FIELDS = set(SEARCH_RESULT_FIELD_ORDER)
 ManagedPrior = Callable[[SearchResult], float]
+TokenPostings = Mapping[str, tuple[tuple[int, int], ...]]
 
 
 @dataclass(frozen=True)
@@ -41,6 +99,12 @@ class SearchCorpus:
     pages: list[WikiPage]
     documents: list[SearchDocument]
     doc_freq: Counter[str]
+    doc_lengths: tuple[int, ...]
+    average_doc_length_value: float
+    postings: TokenPostings
+    exact_compound_postings: TokenPostings
+    exact_metadata_postings: TokenPostings
+    analyzer_profile: AnalyzerProfile = DEFAULT_ANALYZER_PROFILE
 
     @property
     def total(self) -> int:
@@ -48,9 +112,7 @@ class SearchCorpus:
 
     @property
     def average_doc_length(self) -> float:
-        if not self.documents:
-            return 1.0
-        return max(1.0, sum(len(document.tokens) for document in self.documents) / self.total)
+        return self.average_doc_length_value
 
 
 def search(
@@ -65,10 +127,11 @@ def search(
     exclude_page_ids: Sequence[str] | None = None,
     managed_prior: ManagedPrior | None = None,
     managed_tie_band: float = 0.0,
+    analyzer_profile: AnalyzerProfile = DEFAULT_ANALYZER_PROFILE,
 ) -> list[SearchResult]:
     pages = visible_pages(index.pages, include_drafts)
     return search_corpus(
-        build_search_corpus(pages),
+        build_search_corpus(pages, analyzer_profile=analyzer_profile),
         query,
         limit=limit,
         mode=mode,
@@ -80,15 +143,59 @@ def search(
     )
 
 
-def build_search_corpus(pages: list[WikiPage]) -> SearchCorpus:
+def build_search_corpus(
+    pages: list[WikiPage],
+    *,
+    analyzer_profile: AnalyzerProfile = DEFAULT_ANALYZER_PROFILE,
+) -> SearchCorpus:
+    profile = normalize_analyzer_profile(analyzer_profile)
     documents: list[SearchDocument] = []
     doc_freq: Counter[str] = Counter()
-    for page in pages:
-        tokens = tuple(tokenize(page_text(page)))
+    doc_lengths: list[int] = []
+    mutable_postings: dict[str, list[tuple[int, int]]] = {}
+    mutable_exact_compound_postings: dict[str, list[tuple[int, int]]] = {}
+    mutable_exact_metadata_postings: dict[str, list[tuple[int, int]]] = {}
+    for doc_index, page in enumerate(pages):
+        tokens = tuple(tokenize(page_text_for_profile(page, profile), analyzer_profile=profile))
         counts = Counter(tokens)
         doc_freq.update(set(tokens))
+        doc_lengths.append(len(tokens))
+        for token, frequency in counts.items():
+            mutable_postings.setdefault(token, []).append((doc_index, frequency))
+        if profile == "english":
+            index_exact_channel(
+                mutable_exact_compound_postings,
+                doc_index,
+                authored_page_text(page),
+            )
+            index_exact_channel(
+                mutable_exact_metadata_postings,
+                doc_index,
+                exact_metadata_text(page),
+            )
         documents.append(SearchDocument(page=page, tokens=tokens, counts=counts))
-    return SearchCorpus(pages=pages, documents=documents, doc_freq=doc_freq)
+    total = max(1, len(documents))
+    average_doc_length = 1.0
+    if documents:
+        average_doc_length = max(1.0, sum(doc_lengths) / total)
+    postings = {token: tuple(entries) for token, entries in mutable_postings.items()}
+    exact_compound_postings = {
+        token: tuple(entries) for token, entries in mutable_exact_compound_postings.items()
+    }
+    exact_metadata_postings = {
+        token: tuple(entries) for token, entries in mutable_exact_metadata_postings.items()
+    }
+    return SearchCorpus(
+        pages=pages,
+        documents=documents,
+        doc_freq=doc_freq,
+        doc_lengths=tuple(doc_lengths),
+        average_doc_length_value=average_doc_length,
+        postings=MappingProxyType(postings),
+        exact_compound_postings=MappingProxyType(exact_compound_postings),
+        exact_metadata_postings=MappingProxyType(exact_metadata_postings),
+        analyzer_profile=profile,
+    )
 
 
 def search_corpus(
@@ -114,42 +221,78 @@ def search_corpus(
             managed_prior=managed_prior,
             managed_tie_band=managed_tie_band,
         )
-    tokens = unique_tokens(tokenize(query))
+    tokens = unique_tokens(tokenize(query, analyzer_profile=corpus.analyzer_profile))
+    exact_query_token = single_exact_compound_query_token(query, corpus.analyzer_profile)
+    exact_query_tokens = (
+        [exact_query_token]
+        if exact_query_token
+        else exact_compound_tokens(query, corpus.analyzer_profile)
+    )
+    required_exact_docs = exact_required_doc_indexes(
+        corpus,
+        exact_query_token,
+    )
     excluded = page_exclusion_set(exclude_page_ids)
     if not tokens:
+        if not lexical_empty_query_uses_overview(query, corpus.analyzer_profile):
+            return []
         return overview_results(
             corpus.pages,
             limit,
             snippet_chars=snippet_chars,
             exclude_page_ids=exclude_page_ids,
         )
+    if required_exact_docs == set():
+        return []
 
-    results: list[SearchResult] = []
+    candidate_scores: dict[int, float] = {}
     average_doc_length = corpus.average_doc_length
-    for document in corpus.documents:
-        if page_is_excluded(document.page, excluded):
+    for token in tokens:
+        doc_frequency = corpus.doc_freq[token]
+        if not doc_frequency:
             continue
-        text_score = 0.0
-        for token in tokens:
-            frequency = document.counts[token]
-            if not frequency:
+        idf = math.log(1 + (corpus.total - doc_frequency + 0.5) / (doc_frequency + 0.5))
+        token_weight = query_token_weight(token)
+        for doc_index, frequency in corpus.postings.get(token, ()):
+            if required_exact_docs is not None and doc_index not in required_exact_docs:
                 continue
-            idf = math.log(
-                1 + (corpus.total - corpus.doc_freq[token] + 0.5) / (corpus.doc_freq[token] + 0.5)
-            )
-            text_score += (
+            candidate_scores[doc_index] = candidate_scores.get(doc_index, 0.0) + (
                 idf
                 * bm25_term_frequency(
                     frequency,
-                    doc_length=len(document.tokens),
+                    doc_length=corpus.doc_lengths[doc_index],
                     average_doc_length=average_doc_length,
                 )
-                * query_token_weight(token)
+                * token_weight
             )
+    if exact_query_token:
+        add_exact_channel_scores(
+            candidate_scores,
+            corpus=corpus,
+            postings=corpus.exact_compound_postings,
+            query_tokens=[exact_query_token],
+            weight=EXACT_COMPOUND_SCORE_WEIGHT,
+            required_docs=required_exact_docs,
+        )
+    add_exact_channel_scores(
+        candidate_scores,
+        corpus=corpus,
+        postings=corpus.exact_metadata_postings,
+        query_tokens=exact_query_tokens,
+        weight=EXACT_METADATA_SCORE_WEIGHT,
+        required_docs=required_exact_docs,
+    )
+
+    results: list[SearchResult] = []
+    for doc_index in sorted(candidate_scores):
+        document = corpus.documents[doc_index]
+        if page_is_excluded(document.page, excluded):
+            continue
+        text_score = candidate_scores[doc_index]
         if text_score <= 0:
             continue
         page = document.page
-        score = text_score * role_multiplier(page)
+        score = text_score * analyzer_role_multiplier(page, corpus.analyzer_profile)
         if min_score is not None and score < min_score:
             continue
         results.append(
@@ -339,8 +482,28 @@ def visible_pages(pages: list[WikiPage], include_drafts: bool) -> list[WikiPage]
 
 def page_text(page: WikiPage) -> str:
     return " ".join(
-        [page.title, page.summary, page.text, " ".join(page.tags), " ".join(page.source_refs)]
+        [
+            page.title,
+            page.summary,
+            page.text,
+            " ".join(page.tags),
+            " ".join(page.source_refs),
+        ]
     )
+
+
+def authored_page_text(page: WikiPage) -> str:
+    return " ".join([page.title, page.summary, page.text, " ".join(page.tags)])
+
+
+def exact_metadata_text(page: WikiPage) -> str:
+    return " ".join([page.path, " ".join(page.source_refs)])
+
+
+def page_text_for_profile(page: WikiPage, analyzer_profile: AnalyzerProfile) -> str:
+    if analyzer_profile == "english":
+        return authored_page_text(page)
+    return page_text(page)
 
 
 def literal_page_text(page: WikiPage) -> str:
@@ -379,7 +542,16 @@ def literal_score(page: WikiPage, folded_query: str, occurrences: int) -> float:
     return score
 
 
-def tokenize(text: str) -> list[str]:
+def tokenize(
+    text: str, *, analyzer_profile: AnalyzerProfile = DEFAULT_ANALYZER_PROFILE
+) -> list[str]:
+    profile = normalize_analyzer_profile(analyzer_profile)
+    if profile == "english":
+        return tokenize_english(text)
+    return tokenize_legacy(text)
+
+
+def tokenize_legacy(text: str) -> list[str]:
     tokens: list[str] = []
     for match in TOKEN_RE.finditer(text):
         token = match.group(0).lower()
@@ -391,6 +563,123 @@ def tokenize(text: str) -> list[str]:
         if HANGUL_RE.match(token) and len(token) > 2:
             tokens.extend(token[index : index + 2] for index in range(len(token) - 1))
     return tokens
+
+
+def tokenize_english(text: str) -> list[str]:
+    tokens: list[str] = []
+    for match in ENGLISH_TOKEN_RE.finditer(text):
+        token = match.group(0).lower()
+        compound = ASCII_HANGUL_RE.match(token)
+        if compound:
+            tokens.append(token)
+            tokens.extend(part for part in compound.groups() if part)
+            continue
+        if HANGUL_RE.match(token):
+            tokens.append(token)
+            if len(token) > 2:
+                tokens.extend(token[index : index + 2] for index in range(len(token) - 1))
+            continue
+        analyzed = english_analyzed_token(token)
+        if analyzed:
+            tokens.append(analyzed)
+    return tokens
+
+
+def english_analyzed_token(token: str) -> str:
+    normalized = normalize_english_possessive(token)
+    if not normalized or normalized in LUCENE_ENGLISH_STOPWORDS:
+        return ""
+    if normalized.isdigit():
+        return normalized
+    return str(ENGLISH_STEMMER.stemWord(normalized))
+
+
+def normalize_english_possessive(token: str) -> str:
+    normalized = token.casefold()
+    if normalized.endswith("'s") or normalized.endswith("’s"):
+        return normalized[:-2]
+    if normalized.endswith("'") or normalized.endswith("’"):
+        return normalized[:-1]
+    return normalized
+
+
+def index_exact_channel(
+    postings: dict[str, list[tuple[int, int]]],
+    doc_index: int,
+    text: str,
+) -> None:
+    counts = Counter(exact_compound_tokens(text, "english"))
+    for token, frequency in counts.items():
+        postings.setdefault(token, []).append((doc_index, frequency))
+
+
+def exact_compound_tokens(
+    text: str,
+    analyzer_profile: AnalyzerProfile = DEFAULT_ANALYZER_PROFILE,
+) -> list[str]:
+    if analyzer_profile != "english":
+        return []
+    return unique_tokens(
+        [match.group(0).casefold() for match in EXACT_COMPOUND_TOKEN_RE.finditer(text)]
+    )
+
+
+def single_exact_compound_query_token(
+    query: str,
+    analyzer_profile: AnalyzerProfile,
+) -> str:
+    if analyzer_profile != "english":
+        return ""
+    tokens = exact_compound_tokens(query, analyzer_profile)
+    if len(tokens) != 1:
+        return ""
+    remainder = EXACT_COMPOUND_TOKEN_RE.sub("", query, count=1).strip()
+    if remainder.strip(SINGLE_COMPOUND_REMAINDER_CHARS).strip():
+        return ""
+    return tokens[0]
+
+
+def exact_required_doc_indexes(corpus: SearchCorpus, exact_query_token: str) -> set[int] | None:
+    if not exact_query_token:
+        return None
+    doc_indexes = {
+        doc_index
+        for doc_index, _frequency in corpus.exact_compound_postings.get(exact_query_token, ())
+    }
+    doc_indexes.update(
+        doc_index
+        for doc_index, _frequency in corpus.exact_metadata_postings.get(exact_query_token, ())
+    )
+    return doc_indexes
+
+
+def add_exact_channel_scores(
+    candidate_scores: dict[int, float],
+    *,
+    corpus: SearchCorpus,
+    postings: TokenPostings,
+    query_tokens: Sequence[str],
+    weight: float,
+    required_docs: set[int] | None,
+) -> None:
+    for token in query_tokens:
+        entries = postings.get(token, ())
+        doc_frequency = len(entries)
+        if not doc_frequency:
+            continue
+        idf = math.log(1 + (corpus.total - doc_frequency + 0.5) / (doc_frequency + 0.5))
+        for doc_index, frequency in entries:
+            if required_docs is not None and doc_index not in required_docs:
+                continue
+            candidate_scores[doc_index] = candidate_scores.get(doc_index, 0.0) + (
+                idf * (1.0 + math.log1p(frequency)) * weight
+            )
+
+
+def lexical_empty_query_uses_overview(query: str, analyzer_profile: AnalyzerProfile) -> bool:
+    if not query.strip():
+        return True
+    return analyzer_profile == "legacy"
 
 
 def unique_tokens(tokens: list[str]) -> list[str]:
@@ -423,8 +712,25 @@ def role_multiplier(page: WikiPage) -> float:
     return {"hot": 1.15, "index": 1.06, "overview": 1.03}.get(page.role, 1.0)
 
 
+def analyzer_role_multiplier(page: WikiPage, analyzer_profile: AnalyzerProfile) -> float:
+    _ = analyzer_profile
+    return role_multiplier(page)
+
+
 def role_rank(role: str) -> int:
     return {"hot": 0, "index": 1, "overview": 2}.get(role, 3)
+
+
+def normalize_analyzer_profile(value: str) -> AnalyzerProfile:
+    if value in ANALYZER_PROFILES:
+        return value
+    raise ValueError(f"unknown analyzer profile: {value!r}")
+
+
+def normalize_public_analyzer_profile(value: str) -> PublicAnalyzerProfile:
+    if value in PUBLIC_ANALYZER_PROFILES:
+        return value
+    raise ValueError(f"unknown public analyzer profile: {value!r}")
 
 
 def to_result(

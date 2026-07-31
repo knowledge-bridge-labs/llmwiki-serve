@@ -36,6 +36,7 @@ from .projection_store import (
     RedisFailurePolicy,
     create_projection_store,
 )
+from .search import DEFAULT_PUBLIC_ANALYZER_PROFILE, PublicAnalyzerProfile
 from .service import LlmWikiService
 
 app = typer.Typer(help="Serve or inspect an LLMWiki Markdown folder.")
@@ -44,6 +45,11 @@ app = typer.Typer(help="Serve or inspect an LLMWiki Markdown folder.")
 class SearchModeChoice(StrEnum):
     lexical = "lexical"
     literal = "literal"
+
+
+class AnalyzerProfileChoice(StrEnum):
+    legacy = "legacy"
+    english = "english"
 
 
 WikiRootArgument: TypeAlias = Annotated[
@@ -72,6 +78,13 @@ SearchModeOption: TypeAlias = Annotated[
     typer.Option(
         "--mode",
         help="Search mode: lexical ranking or literal exact-substring matching.",
+    ),
+]
+AnalyzerProfileOption: TypeAlias = Annotated[
+    AnalyzerProfileChoice,
+    typer.Option(
+        "--analyzer-profile",
+        help="Analyzer profile for lexical query/search ranking: legacy or english.",
     ),
 ]
 SearchFieldsOption: TypeAlias = Annotated[
@@ -257,6 +270,7 @@ def query(
     text: str,
     limit: QueryLimitOption = 8,
     mode: SearchModeOption = SearchModeChoice.lexical,
+    analyzer_profile: AnalyzerProfileOption = AnalyzerProfileChoice.legacy,
     fields: SearchFieldsOption = None,
     snippet_chars: SnippetCharsOption = None,
     min_score: MinScoreOption = None,
@@ -266,7 +280,7 @@ def query(
     try:
         result_fields = split_cli_values(fields)
         typer.echo(
-            cli_service(root)
+            cli_service(root, analyzer_profile=analyzer_profile_value(analyzer_profile))
             .context(
                 text,
                 limit=limit,
@@ -288,6 +302,7 @@ def search_pages(
     text: str,
     limit: QueryLimitOption = 8,
     mode: SearchModeOption = SearchModeChoice.lexical,
+    analyzer_profile: AnalyzerProfileOption = AnalyzerProfileChoice.legacy,
     fields: SearchFieldsOption = None,
     snippet_chars: SnippetCharsOption = None,
     min_score: MinScoreOption = None,
@@ -298,7 +313,10 @@ def search_pages(
         typer.echo(
             json.dumps(
                 {
-                    "results": cli_service(root).search(
+                    "results": cli_service(
+                        root,
+                        analyzer_profile=analyzer_profile_value(analyzer_profile),
+                    ).search(
                         text,
                         limit=limit,
                         mode=search_mode_value(mode),
@@ -485,6 +503,7 @@ def serve(
     ] = None,
     graph_default_limit: GraphDefaultLimitOption = None,
     context_default_limit: ContextDefaultLimitOption = None,
+    analyzer_profile: AnalyzerProfileOption = AnalyzerProfileChoice.legacy,
     mcp_server_name: McpServerNameOption = None,
     mcp_instructions: McpInstructionsOption = None,
     mcp_tool_description_prefix: McpToolDescriptionPrefixOption = None,
@@ -546,6 +565,7 @@ def serve(
             state_dir=managed_context_state_dir,
             namespace=managed_context_namespace,
         )
+        resolved_analyzer_profile = analyzer_profile_value(analyzer_profile)
         projection_store = create_projection_store(
             projection_backend,
             redis_url=resolved_redis_url,
@@ -559,6 +579,7 @@ def serve(
             cache_namespace=resolved_namespace,
             source_id=resolved_source_id,
             managed_context=resolved_managed_context,
+            analyzer_profile=resolved_analyzer_profile,
         )
         preflight_service.index()
         fastapi_app = create_app(
@@ -578,6 +599,7 @@ def serve(
             mcp_server_name=resolved_mcp_server_name,
             mcp_instructions=resolved_mcp_instructions,
             mcp_tool_description_prefix=resolved_mcp_tool_description_prefix,
+            analyzer_profile=resolved_analyzer_profile,
         )
     except FileNotFoundError as exc:
         exit_with_error(str(exc))
@@ -622,8 +644,16 @@ def resolve_projection_store_backend(
     return "memory"
 
 
-def cli_service(root: Path) -> LlmWikiService:
-    return LlmWikiService(root, managed_context=managed_context_config_from_env())
+def cli_service(
+    root: Path,
+    *,
+    analyzer_profile: PublicAnalyzerProfile = DEFAULT_PUBLIC_ANALYZER_PROFILE,
+) -> LlmWikiService:
+    return LlmWikiService(
+        root,
+        managed_context=managed_context_config_from_env(),
+        analyzer_profile=analyzer_profile,
+    )
 
 
 def resolve_int_option_env(value: int | None, env_name: str) -> int | None:
@@ -678,6 +708,10 @@ def validate_probe_ports(values: list[int], *, source: str) -> list[int]:
 
 def search_mode_value(mode: SearchModeChoice) -> SearchMode:
     return "literal" if mode is SearchModeChoice.literal else "lexical"
+
+
+def analyzer_profile_value(profile: AnalyzerProfileChoice) -> PublicAnalyzerProfile:
+    return "english" if profile is AnalyzerProfileChoice.english else "legacy"
 
 
 def print_instance_discovery(

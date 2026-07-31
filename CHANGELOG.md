@@ -7,6 +7,38 @@ This project follows a lightweight public-preview changelog format. Dates use
 
 ## Unreleased
 
+## 0.2.8 - 2026-08-01
+
+- Recorded the final analyzer release decision: legacy lexical ranking remains
+  the product default because OpenWiki generic-shadow class gates regress under
+  English. The English-aware Snowball analyzer is public explicit opt-in through
+  `--analyzer-profile legacy|english` on `serve`, `query`, and `search`, and
+  through Python `create_app` and `LlmWikiService`. Release runtime and public
+  Python surfaces support exactly `legacy|english`; HTTP/MCP request schemas
+  stay unchanged.
+- Recorded evaluated experimental candidates `english_additive` and
+  `english_flatlike` as decision evidence only, not shipped or supported
+  runtime profiles, and deferred hybrid/fusion ranking to a separate future
+  spec.
+- For the English opt-in profile, excluded `source_refs` from broad stemmed
+  BM25 content. Exact authored compound lookup and exact path/source-reference
+  token matching remain available when the query contains the same original
+  token.
+- Hardened public SciFact report generation so CLI and programmatic paths
+  require explicit `analyzer_profile` and `implementation_revision` metadata.
+  Public validation rejects non-public profiles and all-zero placeholder
+  revisions. Stale reports, final immutable Windows/DGX reports, and release
+  steps remain pending.
+- Added an in-memory postings index for lexical search to reduce warm p95
+  latency while preserving legacy exact-result behavior for the legacy analyzer.
+- Added the official BEIR SciFact benchmark adapter, safe acquisition,
+  materialization, and runner path for the full 5,183-document corpus,
+  300-query test split, and 339 qrels, with source checksums, license checks,
+  public-safety report gates, implementation-revision capture, and contextual
+  same-data reference rows only for BEIR BM25 and Anserini flat BM25.
+- Added reproduction CLI support for downloading, validating, materializing, and
+  running the SciFact benchmark workflow without committing raw benchmark data.
+
 ## 0.2.7 - 2026-07-30
 
 - Added opt-in managed context for generic Markdown folders, using an external
