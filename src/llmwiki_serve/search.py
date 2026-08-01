@@ -13,9 +13,9 @@ import snowballstemmer  # type: ignore[import-untyped]
 from .models import SearchMode, SearchResult, SearchResultProjection, WikiIndex, WikiPage
 
 TOKEN_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*(?:[가-힣]+)?|[가-힣]+")
-ENGLISH_TOKEN_RE = re.compile(r"[A-Za-z0-9]+[가-힣]+|[가-힣]+|[A-Za-z0-9]+(?:['’]s|['’])?")
 ASCII_HANGUL_RE = re.compile(r"^([A-Za-z0-9]+)([가-힣]+)$")
 HANGUL_RE = re.compile(r"^[가-힣]+$")
+ENGLISH_APOSTROPHES = frozenset("'’")
 EXACT_COMPOUND_SEPARATORS = frozenset("._-")
 SINGLE_COMPOUND_REMAINDER_CHARS = "\"'`“”‘’()[]{}.,;:!?"
 BM25_K1 = 1.2
@@ -563,8 +563,8 @@ def tokenize_legacy(text: str) -> list[str]:
 
 def tokenize_english(text: str) -> list[str]:
     tokens: list[str] = []
-    for match in ENGLISH_TOKEN_RE.finditer(text):
-        token = match.group(0).lower()
+    for raw_token in scan_english_raw_tokens(text):
+        token = raw_token.lower()
         compound = ASCII_HANGUL_RE.match(token)
         if compound:
             tokens.append(token)
@@ -635,6 +635,33 @@ def consume_hangul_syllables(text: str, start: int) -> int:
     while cursor < length and is_hangul_syllable(text[cursor]):
         cursor += 1
     return cursor
+
+
+def scan_english_raw_tokens(text: str) -> list[str]:
+    tokens: list[str] = []
+    index = 0
+    length = len(text)
+    while index < length:
+        char = text[index]
+        if is_ascii_alnum(char):
+            start = index
+            index = consume_ascii_alnum(text, index)
+            if index < length and is_hangul_syllable(text[index]):
+                index = consume_hangul_syllables(text, index)
+            elif index < length and text[index] in ENGLISH_APOSTROPHES:
+                index += 1
+                # Preserve authored-case semantics before the later lowercase step.
+                if index < length and text[index] == "s":
+                    index += 1
+            tokens.append(text[start:index])
+            continue
+        if is_hangul_syllable(char):
+            start = index
+            index = consume_hangul_syllables(text, index)
+            tokens.append(text[start:index])
+            continue
+        index += 1
+    return tokens
 
 
 def consume_exact_boundary_word_chars(text: str, start: int) -> int:

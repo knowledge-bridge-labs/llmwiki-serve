@@ -12,10 +12,12 @@ supported runtime profiles. Public report generation now requires explicit
 analyzer profile and implementation revision metadata, and validation rejects
 non-public profiles and all-zero placeholder revisions. Focused tests/checks
 have passed. Final immutable Windows/DGX reports for
-`git:9f03f39666edf0d2516cf1f6d9c7171802eabd2c` now pass public report
-validation, and repository README/report evidence is updated. Full
-suite/release validation, merge, hosted docs deployment, and package release
-remain pending.
+`git:0f38fcbdf0c5a90c07a5f23e057df48e0bc3ef08` now pass public report
+validation, and repository README/report evidence is updated. Linux and
+Windows CI jobs pass after analyzer parsing and CLI contract hardening. The
+English tokenizer and exact-compound paths now use explicit linear scanners;
+the PR's separate CodeQL security result is pending rerun. Full release
+validation, merge, hosted docs deployment, and package release remain pending.
 
 ## Context
 
@@ -100,9 +102,11 @@ Trailing sentence punctuation is not part of an exact compound token. For
 example, authored text ending in `release.v1-beta.` contributes the exact token
 `release.v1-beta`, not `release.v1-beta.`.
 
-Exact compound token extraction is implemented as a bounded linear scanner over
-page and query text. It must not apply a backtracking regular expression to
-untrusted text because the exact channel runs over authored page content and
+English raw-token extraction and exact compound token extraction are implemented
+as linear scanners over page and query text. The tokenizer performs one pass
+over supported Unicode code points and preserves the existing normalization,
+stopword, stemming, and mixed ASCII/Hangul pipeline. Neither path may apply a
+backtracking regular expression to untrusted authored content or
 operator-provided queries.
 
 Expose only `legacy|english` publicly:

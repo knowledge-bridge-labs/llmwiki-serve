@@ -12,10 +12,12 @@ are not shipped or supported runtime profiles. Public report generation now
 requires explicit analyzer profile and implementation revision metadata, and
 validation rejects non-public profiles and all-zero placeholder revisions.
 Focused tests/checks have passed. Final immutable Windows/DGX reports for
-`git:9f03f39666edf0d2516cf1f6d9c7171802eabd2c` now pass public report
-validation, and repository README/report evidence is updated. Full
-suite/release validation, merge, hosted docs deployment, and package release
-remain pending.
+`git:0f38fcbdf0c5a90c07a5f23e057df48e0bc3ef08` now pass public report
+validation, and repository README/report evidence is updated. Linux and
+Windows CI jobs pass after analyzer parsing and CLI contract hardening. The
+English tokenizer and exact-compound paths now use explicit linear scanners;
+the PR's separate CodeQL security result is pending rerun. Full release
+validation, merge, hosted docs deployment, and package release remain pending.
 
 ## Problem
 
@@ -156,7 +158,7 @@ create broad hub matches through split words.
   evidence, and orientation remains separate from lexical evidence ranking.
 - `REQ-ELA-018`: Final immutable Windows/DGX reports must be regenerated from
   a real release implementation before public evidence is claimed. As of this
-  revision, the `git:9f03f39666edf0d2516cf1f6d9c7171802eabd2c` reports pass
+  revision, the `git:0f38fcbdf0c5a90c07a5f23e057df48e0bc3ef08` reports pass
   public validation; release steps remain pending.
 - `REQ-ELA-019`: CLI and programmatic public report generation must require an
   explicit `analyzer_profile` and explicit `implementation_revision`.
@@ -167,6 +169,11 @@ create broad hub matches through split words.
 - `REQ-ELA-021`: Exact compound token extraction must use a bounded linear
   scanner rather than applying a backtracking regular expression to untrusted
   page text or query text.
+- `REQ-ELA-022`: English raw-token extraction must use an explicit single-pass
+  O(n) scanner over ASCII alphanumerics, Hangul syllables, and supported
+  apostrophes. It must preserve existing token ordering, boundaries,
+  possessive handling, and the downstream casefold, stopword, stemming, and
+  mixed ASCII/Hangul expansion pipeline.
 
 ## Data Safety
 

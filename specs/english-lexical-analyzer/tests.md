@@ -40,6 +40,11 @@
   exact metadata match; split English components alone do not return results.
 - Exact compound extraction handles long adversarial page/query text with
   bounded output and without regex backtracking risk.
+- English token extraction preserves existing ASCII/Hangul, underscore,
+  apostrophe, Unicode-boundary, ordering, casefold, stopword, and stemming
+  behavior through an explicit linear scanner.
+- Repeated-zero and long-separator adversarial inputs complete with bounded
+  behavior and preserve the prior token sequence.
 - Source-reference metadata is not stemmed into English BM25 content, while an
   exact source-reference or path token can still retrieve the owning page.
 - Empty-after-stopwords queries use an explicit fallback and do not become
@@ -48,9 +53,11 @@
   nonmatching read-prior pages.
 - Hybrid/fusion ranking is not implemented or accepted by this spec.
 - Stale reports have been replaced by final immutable Windows/DGX reports from
-  `git:9f03f39666edf0d2516cf1f6d9c7171802eabd2c`.
+  `git:0f38fcbdf0c5a90c07a5f23e057df48e0bc3ef08`.
 - Final immutable Windows/DGX reports pass public report validation; release
   steps remain pending.
+- Linux and Windows CI jobs pass at the report revision. Local scanner security
+  regressions pass; the PR's separate CodeQL security result is pending rerun.
 
 ## Validation Commands
 

@@ -76,6 +76,60 @@ def test_hangul_numeric_mixed_terms_keep_legacy_compatibility() -> None:
     assert "한국" in tokens
 
 
+def test_english_scanner_preserves_unicode_boundaries_and_authored_apostrophes() -> None:
+    assert tokenize(
+        "abc한글_xyz 123차_456 éAlphaβBeta中Gamma_델타",
+        analyzer_profile="english",
+    ) == [
+        "abc한글",
+        "abc",
+        "한글",
+        "xyz",
+        "123차",
+        "123",
+        "차",
+        "456",
+        "alpha",
+        "beta",
+        "gamma",
+        "델타",
+    ]
+    assert tokenize("dog's dogs’ DOG'S O'Neil", analyzer_profile="english") == [
+        "dog",
+        "dog",
+        "dog",
+        "s",
+        "o",
+        "neil",
+    ]
+    assert tokenize("abc한글def한국", analyzer_profile="english") == [
+        "abc한글",
+        "abc",
+        "한글",
+        "def한국",
+        "def",
+        "한국",
+    ]
+
+
+def test_english_scanner_handles_repeated_zero_and_long_separator_inputs() -> None:
+    repeated_zero = "0" * 100_000
+    separated_zeros = "0-" * 25_000 + "0"
+    separators_only = "-_. '’" * 20_000
+
+    started = time.perf_counter()
+    repeated_tokens = tokenize(repeated_zero, analyzer_profile="english")
+    separated_tokens = tokenize(separated_zeros, analyzer_profile="english")
+    separator_tokens = tokenize(separators_only, analyzer_profile="english")
+    elapsed_seconds = time.perf_counter() - started
+
+    assert repeated_tokens == [repeated_zero]
+    assert len(separated_tokens) == 25_001
+    assert set(separated_tokens) == {"0"}
+    assert separator_tokens == []
+    assert elapsed_seconds < 3.0
+
+
 def test_single_compound_query_requires_authored_exact_match() -> None:
     corpus = build_search_corpus(
         [

@@ -89,6 +89,8 @@ analyzer profile.
 Because `legacy` remains the default, rollback is limited to disabling or
 withholding the public `english` opt-in path and its reports. Final immutable
 Windows/DGX reports for
-`git:9f03f39666edf0d2516cf1f6d9c7171802eabd2c` now pass public report
-validation. Merge, package publish, hosted docs deployment, and full release
-validation remain pending.
+`git:0f38fcbdf0c5a90c07a5f23e057df48e0bc3ef08` now pass public report
+validation. Linux and Windows CI jobs pass on that revision, while the PR's
+English tokenizer and exact-compound paths now use explicit linear scanners.
+The separate CodeQL security result is pending rerun. Merge, package publish,
+hosted docs deployment, and full release validation remain pending.
