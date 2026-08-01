@@ -214,7 +214,7 @@ smoke set is internal regression evidence only.
   implementation revision, and a statement that the Markdown projection is an
   informal same-data comparison.
 - Current branch status: final Windows and DGX Spark Ubuntu sanitized reports
-  for `git:9f03f39666edf0d2516cf1f6d9c7171802eabd2c` pass the public report
+  for `git:8d04e8a46487827ee488a7ddab005aaab8dd885d` pass the public report
   validator and match deterministic quality metrics. Merge, package publish,
   and hosted docs deployment remain pending.
 - Baseline policy: create accepted baseline reports before enforcing release

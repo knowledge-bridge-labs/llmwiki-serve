@@ -29,7 +29,7 @@
   validation before release evidence is accepted.
 
 Branch-level result: the final Windows and DGX Spark Ubuntu reports for
-`git:9f03f39666edf0d2516cf1f6d9c7171802eabd2c` pass public report validation
+`git:8d04e8a46487827ee488a7ddab005aaab8dd885d` pass public report validation
 and match deterministic quality metrics. Cross-environment latency remains
 telemetry only until a same-environment performance budget is separately
 accepted.

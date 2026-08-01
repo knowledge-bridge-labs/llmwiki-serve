@@ -71,8 +71,8 @@
     "refresh_interval_seconds": 86400.0,
     "service_configuration": "LlmWikiService refresh_interval_seconds is fixed for the benchmark default factory so per-query service.search timing excludes source freshness scans."
   },
-  "implementation_revision": "git:9f03f39666edf0d2516cf1f6d9c7171802eabd2c",
-  "index_build_ms": 2311.269,
+  "implementation_revision": "git:8d04e8a46487827ee488a7ddab005aaab8dd885d",
+  "index_build_ms": 2458.894,
   "judged_query_count": 300,
   "limitations": [
     "Markdown projection and llmwiki-serve tokenization differ from BEIR/Anserini retrieval pipelines.",
@@ -174,8 +174,8 @@
   "search_latency_ms_top100_result_payloads": {
     "label": "per-query service.search top-100 result payload latency",
     "method": "linear interpolation over per-query values",
-    "p50": 55.054,
-    "p95": 113.213,
+    "p50": 58.054,
+    "p95": 118.213,
     "unit": "ms"
   },
   "serialized_search_payload_bytes_top100_result_payloads": {

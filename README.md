@@ -600,7 +600,7 @@ For `0.2.8`, the repo also includes a reproducible retrieval benchmark on the
 official BEIR SciFact `test` split projected to Markdown and queried through
 `LlmWikiService.search(query, limit=100)`. Both final reports use package
 `0.2.8`, immutable revision
-`git:9f03f39666edf0d2516cf1f6d9c7171802eabd2c`, the opt-in `english`
+`git:8d04e8a46487827ee488a7ddab005aaab8dd885d`, the opt-in `english`
 analyzer, `5,183` corpus docs, `300` test queries, and `339` qrels. The product
 default analyzer remains `legacy`.
 

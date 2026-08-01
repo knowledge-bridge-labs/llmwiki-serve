@@ -53,11 +53,11 @@
   nonmatching read-prior pages.
 - Hybrid/fusion ranking is not implemented or accepted by this spec.
 - Stale reports have been replaced by final immutable Windows/DGX reports from
-  `git:0f38fcbdf0c5a90c07a5f23e057df48e0bc3ef08`.
+  `git:8d04e8a46487827ee488a7ddab005aaab8dd885d`.
 - Final immutable Windows/DGX reports pass public report validation; release
   steps remain pending.
-- Linux and Windows CI jobs pass at the report revision. Local scanner security
-  regressions pass; the PR's separate CodeQL security result is pending rerun.
+- On PR #35, Linux and Windows Python 3.11/3.12 CI jobs and both CodeQL checks
+  pass at the report revision.
 
 ## Validation Commands
 

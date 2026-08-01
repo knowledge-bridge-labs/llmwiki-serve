@@ -6,7 +6,7 @@ Implemented locally for this feature branch. Derived in-memory postings are in
 the search corpus path, literal mode remains unchanged, and Windows repository
 validation plus SciFact runs have passed. Final immutable-revision Windows and
 DGX Spark Ubuntu public reports for
-`git:9f03f39666edf0d2516cf1f6d9c7171802eabd2c` pass public report validation
+`git:8d04e8a46487827ee488a7ddab005aaab8dd885d` pass public report validation
 with identical deterministic quality metrics. Release validation, merge,
 package publish, and hosted docs deployment remain pending.
 

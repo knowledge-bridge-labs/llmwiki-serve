@@ -6,7 +6,7 @@ Implementation contract accepted for this feature branch. The bundle schema,
 official BEIR SciFact acquisition/materialization path, retrieval runner, and
 schema `1.1.0` public-report validator are implemented locally. Final Windows
 and DGX Spark Ubuntu reports from immutable implementation revision
-`git:9f03f39666edf0d2516cf1f6d9c7171802eabd2c` now pass the public report
+`git:8d04e8a46487827ee488a7ddab005aaab8dd885d` now pass the public report
 validator with matching source/artifact checksums and deterministic quality
 metrics. Accepted baseline publication, legacy migrations, bridge consumer
 changes, merge, package publish, hosted docs deployment, and release validation

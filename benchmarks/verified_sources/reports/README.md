@@ -18,7 +18,7 @@ Markdown through `LlmWikiService.search(query, limit=100)`.
 Both reports use:
 
 - package version `0.2.8`
-- implementation revision `git:9f03f39666edf0d2516cf1f6d9c7171802eabd2c`
+- implementation revision `git:8d04e8a46487827ee488a7ddab005aaab8dd885d`
 - report schema `llmwiki-beir-scifact-retrieval-report-v1` version `1.1.0`
 - runner `beir-scifact-retrieval-runner` version `0.2.0`
 - official BEIR SciFact archive URL
@@ -125,8 +125,8 @@ reported per environment and differ by machine:
 
 | Environment | Index build ms | Search p50 ms | Search p95 ms | Payload p50 bytes | Payload p95 bytes |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Windows local | `65340.052` | `251.538` | `504.044` | `64537.5` | `66021.5` |
-| DGX Spark Ubuntu | `2311.269` | `55.054` | `113.213` | `64537.5` | `66021.5` |
+| Windows local | `65413.866` | `272.541` | `535.246` | `64537.5` | `66021.5` |
+| DGX Spark Ubuntu | `2458.894` | `58.054` | `118.213` | `64537.5` | `66021.5` |
 
 The latency rows are telemetry for these runs only. They are not a cross-device
 performance claim or a release gate.

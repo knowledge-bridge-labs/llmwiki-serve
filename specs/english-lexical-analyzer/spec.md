@@ -12,12 +12,12 @@ are not shipped or supported runtime profiles. Public report generation now
 requires explicit analyzer profile and implementation revision metadata, and
 validation rejects non-public profiles and all-zero placeholder revisions.
 Focused tests/checks have passed. Final immutable Windows/DGX reports for
-`git:0f38fcbdf0c5a90c07a5f23e057df48e0bc3ef08` now pass public report
-validation, and repository README/report evidence is updated. Linux and
-Windows CI jobs pass after analyzer parsing and CLI contract hardening. The
-English tokenizer and exact-compound paths now use explicit linear scanners;
-the PR's separate CodeQL security result is pending rerun. Full release
-validation, merge, hosted docs deployment, and package release remain pending.
+`git:8d04e8a46487827ee488a7ddab005aaab8dd885d` now pass public report
+validation, and repository README/report evidence is updated. The English
+tokenizer and exact-compound paths use explicit linear scanners. On PR #35,
+Linux and Windows Python 3.11/3.12 CI jobs and both CodeQL checks pass at that
+head. Full release validation, merge, hosted docs deployment, and package
+release remain pending.
 
 ## Problem
 
@@ -158,7 +158,7 @@ create broad hub matches through split words.
   evidence, and orientation remains separate from lexical evidence ranking.
 - `REQ-ELA-018`: Final immutable Windows/DGX reports must be regenerated from
   a real release implementation before public evidence is claimed. As of this
-  revision, the `git:0f38fcbdf0c5a90c07a5f23e057df48e0bc3ef08` reports pass
+  revision, the `git:8d04e8a46487827ee488a7ddab005aaab8dd885d` reports pass
   public validation; release steps remain pending.
 - `REQ-ELA-019`: CLI and programmatic public report generation must require an
   explicit `analyzer_profile` and explicit `implementation_revision`.

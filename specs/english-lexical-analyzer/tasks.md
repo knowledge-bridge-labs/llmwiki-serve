@@ -38,9 +38,9 @@
   scanner and add repeated-zero, long-separator, and boundary regressions.
 - [x] Resolve the prior Linux/Windows CI failures with analyzer parsing and CLI
   contract hardening; both CI matrices pass at
-  `git:0f38fcbdf0c5a90c07a5f23e057df48e0bc3ef08`.
-- [ ] Confirm the PR's CodeQL security gate passes after rerunning it against
-  both linear-scanner implementations.
+  `git:8d04e8a46487827ee488a7ddab005aaab8dd885d`.
+- [x] Confirm both PR #35 CodeQL checks pass against both linear-scanner
+  implementations at `git:8d04e8a46487827ee488a7ddab005aaab8dd885d`.
 - [x] Exclude source references from English BM25 and add exact metadata
   postings for path/source-reference tokens.
 - [x] Update managed-context compatibility tests so stopwords do not create

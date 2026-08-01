@@ -29,9 +29,10 @@ This project follows a lightweight public-preview changelog format. Dates use
   Public validation rejects non-public profiles and all-zero placeholder
   revisions. Final sanitized Windows and DGX Spark Ubuntu SciFact reports now
   validate from immutable revision
-  `git:9f03f39666edf0d2516cf1f6d9c7171802eabd2c` with identical primary
-  quality metrics; merge, PyPI publish, and hosted docs deployment remain
-  pending.
+  `git:8d04e8a46487827ee488a7ddab005aaab8dd885d` with identical primary
+  quality metrics. On PR #35, Linux and Windows Python 3.11/3.12 CI jobs and
+  both CodeQL checks pass at that head. Merge, PyPI publish, and hosted docs
+  deployment remain pending.
 - Added an in-memory postings index for lexical search to reduce warm p95
   latency while preserving legacy exact-result behavior for the legacy analyzer.
 - Added the official BEIR SciFact benchmark adapter, safe acquisition,
