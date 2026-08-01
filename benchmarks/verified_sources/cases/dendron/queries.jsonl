@@ -1,0 +1,12 @@
+{"query_id":"q-dendron-global-alternatives","text":"Which Dendron page compares alternative note tools such as Notion, Obsidian, Roam, and Foam?","class":"global-map","locale":"en","expected_behavior":"answerable"}
+{"query_id":"q-dendron-local-note-lookup","text":"Which page covers Dendron note lookup behavior for existing notes and direct child lookup?","class":"known-item","locale":"en","expected_behavior":"answerable"}
+{"query_id":"q-dendron-multihop-backlinks-targets","text":"Which backlinks page is linked from the target A, target B, and target C notes?","class":"multi-hop","locale":"en","expected_behavior":"answerable"}
+{"query_id":"q-dendron-negative-payroll-token","text":"Which Dendron page contains a payroll token named zzz_private_payroll_token?","class":"negative","locale":"en","expected_behavior":"unanswerable"}
+{"query_id":"q-dendron-property-frontmatter-tags","text":"Which Dendron frontmatter tag pages cover the single, multi, and multi-array tag cases?","class":"known-item","locale":"en","expected_behavior":"answerable"}
+{"query_id":"q-dendron-numeric-journal-2020-07-12","text":"Which Dendron journal pages belong to 2020 07 12 and its foo or bar children?","class":"korean-numeric","locale":"en","expected_behavior":"answerable"}
+{"query_id":"q-dendron-citation-heading-anchors","text":"Which projected page IDs should be cited for the Dendron heading anchor examples and the different-page anchor example?","class":"citation","locale":"en","expected_behavior":"answerable"}
+{"query_id":"q-dendron-global-blog-series","text":"Which Dendron blog pages form the one, two, and three entry series?","class":"global-map","locale":"en","expected_behavior":"answerable"}
+{"query_id":"q-dendron-local-convert-link","text":"Which page covers the Dendron Convert Link command cases for tags and user links?","class":"known-item","locale":"en","expected_behavior":"answerable"}
+{"query_id":"q-dendron-multihop-schema-integer","text":"Which Dendron command page links the schema-from-hierarchy workflow to the Python integer hierarchy note?","class":"multi-hop","locale":"en","expected_behavior":"answerable"}
+{"query_id":"q-dendron-property-canonical-url","text":"Which Dendron page is the canonicalUrl property reference?","class":"known-item","locale":"en","expected_behavior":"answerable"}
+{"query_id":"q-dendron-citation-assets-links","text":"Which projected page IDs should be cited for Dendron asset link handling and related link references?","class":"citation","locale":"en","expected_behavior":"answerable"}

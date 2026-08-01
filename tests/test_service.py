@@ -8,8 +8,10 @@ import shutil
 from pathlib import Path
 from typing import Any
 
+import click
 import pytest
 from fastapi.testclient import TestClient
+from typer.main import get_command
 from typer.testing import CliRunner
 
 from llmwiki_serve.adapters import (
@@ -384,7 +386,7 @@ def test_global_and_local_questions_use_same_context_contract() -> None:
         assert all(item["route"] == "search" for item in context["evidence"])
         assert context["graph"]["nodes"]
 
-    assert {item["page_id"] for item in global_context["evidence"]} >= {"index", "hot"}
+    assert global_context["evidence"][0]["page_id"] == "index"
     assert local_context["evidence"][0]["page_id"] == "hot"
 
 
@@ -3374,6 +3376,34 @@ def test_malformed_network_inputs_use_client_errors_or_safe_defaults() -> None:
     assert str(FIXTURE.resolve()) not in encoded
 
 
+def test_create_app_analyzer_profile_is_public_opt_in(tmp_path: Path) -> None:
+    root = tmp_path / "wiki"
+    root.mkdir()
+    write_markdown(
+        root / "index.md",
+        """
+---
+review_state: approved
+---
+# Research Index
+
+Clinical studies continue.
+""",
+    )
+
+    default_client = TestClient(create_app(root))
+    english_client = TestClient(create_app(root, analyzer_profile="english"))
+
+    assert default_client.post("/search", json={"query": "study"}).json()["results"] == []
+    assert (
+        english_client.post("/search", json={"query": "study"}).json()["results"][0]["page_id"]
+        == "index"
+    )
+    for value in ("english_additive", "english_flatlike", "unknown"):
+        with pytest.raises(ValueError, match="unknown public analyzer profile"):
+            create_app(root, analyzer_profile=value)  # type: ignore[arg-type]
+
+
 def test_quickstart_http_request_body_smoke() -> None:
     client = TestClient(create_app(FIXTURE))
 
@@ -3471,6 +3501,143 @@ def test_search_projection_controls_across_http_mcp_and_cli() -> None:
     cli_payload = json.loads(cli_result.output)
     assert set(cli_payload["results"][0]) == {"page_id", "title", "route"}
     assert cli_payload["results"][0]["route"] == "literal"
+
+
+def test_cli_analyzer_profile_help_is_limited_to_search_commands() -> None:
+    click_app = get_command(cli_app)
+    context = click.Context(click_app)
+
+    for command in ("serve", "query", "search"):
+        click_command = click_app.get_command(context, command)
+        assert click_command is not None
+        analyzer_options = [
+            param
+            for param in click_command.params
+            if "--analyzer-profile" in getattr(param, "opts", ())
+        ]
+
+        assert len(analyzer_options) == 1
+        analyzer_option = analyzer_options[0]
+        assert analyzer_option.name == "analyzer_profile"
+        assert analyzer_option.default == "legacy"
+        assert tuple(getattr(analyzer_option.type, "choices", ())) == ("legacy", "english")
+        assert analyzer_option.help == (
+            "Analyzer profile for lexical query/search ranking: legacy or english."
+        )
+
+        result = CliRunner().invoke(cli_app, [command, "--help"], color=False)
+
+        assert result.exit_code == 0, result.output
+
+    for command in ("manifest", "source-refs", "source-bundle", "ls", "status"):
+        click_command = click_app.get_command(context, command)
+        assert click_command is not None
+        assert not any(
+            "--analyzer-profile" in getattr(param, "opts", ()) for param in click_command.params
+        )
+
+        result = CliRunner().invoke(cli_app, [command, "--help"], color=False)
+
+        assert result.exit_code == 0, result.output
+
+
+def test_cli_query_and_search_analyzer_profile_are_public_opt_in(tmp_path: Path) -> None:
+    root = tmp_path / "wiki"
+    root.mkdir()
+    write_markdown(
+        root / "index.md",
+        """
+---
+review_state: approved
+---
+# Research Index
+
+Clinical studies continue.
+""",
+    )
+
+    default_search = CliRunner().invoke(cli_app, ["search", str(root), "study"])
+    english_search = CliRunner().invoke(
+        cli_app,
+        ["search", str(root), "study", "--analyzer-profile", "english"],
+    )
+    english_query = CliRunner().invoke(
+        cli_app,
+        ["query", str(root), "study", "--analyzer-profile", "english"],
+    )
+
+    assert default_search.exit_code == 0, default_search.output
+    assert json.loads(default_search.output)["results"] == []
+    assert english_search.exit_code == 0, english_search.output
+    assert json.loads(english_search.output)["results"][0]["page_id"] == "index"
+    assert english_query.exit_code == 0, english_query.output
+    assert json.loads(english_query.output)["evidence"][0]["page_id"] == "index"
+
+    for analyzer_profile in ("english_additive", "english_flatlike"):
+        for command in (
+            ["search", str(root), "study", "--analyzer-profile", analyzer_profile],
+            ["query", str(root), "study", "--analyzer-profile", analyzer_profile],
+            ["serve", str(root), "--analyzer-profile", analyzer_profile],
+        ):
+            invalid = CliRunner().invoke(cli_app, command)
+
+            assert invalid.exit_code != 0, invalid.output
+            assert "Invalid value" in invalid.output
+            assert analyzer_profile in invalid.output
+
+
+def test_cli_serve_analyzer_profile_reaches_preflight_and_app(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    import uvicorn
+
+    import llmwiki_serve.api as api_module
+    import llmwiki_serve.cli as cli_module
+
+    root = tmp_path / "wiki"
+    root.mkdir()
+    write_markdown(
+        root / "index.md",
+        """
+---
+review_state: approved
+---
+# Research Index
+
+Clinical studies continue.
+""",
+    )
+    profiles: list[str] = []
+    responses: list[dict[str, Any]] = []
+
+    class TrackingService(LlmWikiService):
+        def __init__(
+            self,
+            *args: Any,
+            analyzer_profile: Any = "legacy",
+            **kwargs: Any,
+        ) -> None:
+            profiles.append(str(analyzer_profile))
+            super().__init__(*args, analyzer_profile=analyzer_profile, **kwargs)
+
+    def fake_run(app: Any, *, host: str, port: int) -> None:
+        responses.append(TestClient(app).post("/search", json={"query": "study"}).json())
+
+    monkeypatch.setattr(cli_module, "LlmWikiService", TrackingService)
+    monkeypatch.setattr(api_module, "LlmWikiService", TrackingService)
+    monkeypatch.setattr(cli_module, "register_instance", lambda _record: None)
+    monkeypatch.setattr(cli_module, "unregister_instance", lambda _path: None)
+    monkeypatch.setattr(uvicorn, "run", fake_run)
+
+    result = CliRunner().invoke(
+        cli_app,
+        ["serve", str(root), "--analyzer-profile", "english"],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert profiles == ["english", "english"]
+    assert responses[0]["results"][0]["page_id"] == "index"
 
 
 def test_mcp_tools_list_contains_context_and_graph() -> None:

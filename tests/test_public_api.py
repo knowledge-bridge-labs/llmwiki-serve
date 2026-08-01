@@ -107,6 +107,7 @@ def test_openapi_contract_covers_core_http_response_models() -> None:
         "min_score",
         "exclude_page_ids",
     } <= set(query_request_schema["properties"])
+    assert "analyzer_profile" not in query_request_schema["properties"]
     assert query_request_schema["properties"]["mode"]["enum"] == ["lexical", "literal"]
     assert (
         schema["paths"]["/read/{page_id}"]["get"]["responses"]["404"]["content"][

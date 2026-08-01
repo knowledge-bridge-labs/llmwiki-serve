@@ -1,0 +1,6 @@
+{"query_id":"q-known-release","doc_id":"release","relevance":3,"support_spans":[{"start":0,"end":80}],"citation_required":true}
+{"query_id":"q-multihop-onboarding-release","doc_id":"onboarding","relevance":3,"support_spans":[{"start":0,"end":90}],"citation_required":true}
+{"query_id":"q-multihop-onboarding-release","doc_id":"release","relevance":2,"support_spans":[{"start":0,"end":80}],"citation_required":true}
+{"query_id":"q-negative-private-token","doc_id":"release","relevance":0,"support_spans":[],"citation_required":false}
+{"query_id":"q-korean-contract","doc_id":"billing","relevance":3,"support_spans":[{"start":0,"end":64}],"citation_required":true}
+{"query_id":"q-citation-source","doc_id":"source-map","relevance":3,"support_spans":[{"start":0,"end":72}],"citation_required":true}

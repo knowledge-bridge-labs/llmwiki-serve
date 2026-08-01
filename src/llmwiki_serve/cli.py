@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from dataclasses import replace
 from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, NoReturn, TypeAlias
@@ -24,12 +25,18 @@ from .instances import (
     register_instance,
     unregister_instance,
 )
+from .managed_context import (
+    ManagedContextConfig,
+    managed_context_config_from_env,
+    validate_managed_context_config,
+)
 from .models import SearchMode
 from .projection_store import (
     ProjectionStoreBackend,
     RedisFailurePolicy,
     create_projection_store,
 )
+from .search import DEFAULT_PUBLIC_ANALYZER_PROFILE, PublicAnalyzerProfile
 from .service import LlmWikiService
 
 app = typer.Typer(help="Serve or inspect an LLMWiki Markdown folder.")
@@ -38,6 +45,11 @@ app = typer.Typer(help="Serve or inspect an LLMWiki Markdown folder.")
 class SearchModeChoice(StrEnum):
     lexical = "lexical"
     literal = "literal"
+
+
+class AnalyzerProfileChoice(StrEnum):
+    legacy = "legacy"
+    english = "english"
 
 
 WikiRootArgument: TypeAlias = Annotated[
@@ -66,6 +78,13 @@ SearchModeOption: TypeAlias = Annotated[
     typer.Option(
         "--mode",
         help="Search mode: lexical ranking or literal exact-substring matching.",
+    ),
+]
+AnalyzerProfileOption: TypeAlias = Annotated[
+    AnalyzerProfileChoice,
+    typer.Option(
+        "--analyzer-profile",
+        help="Analyzer profile for lexical query/search ranking: legacy or english.",
     ),
 ]
 SearchFieldsOption: TypeAlias = Annotated[
@@ -240,8 +259,8 @@ ProbeTimeoutOption: TypeAlias = Annotated[
 def manifest(root: WikiRootArgument) -> None:
     """Print wiki manifest JSON."""
     try:
-        typer.echo(LlmWikiService(root).manifest().model_dump_json(indent=2))
-    except FileNotFoundError as exc:
+        typer.echo(cli_service(root).manifest().model_dump_json(indent=2))
+    except (FileNotFoundError, ValueError) as exc:
         exit_with_error(str(exc))
 
 
@@ -251,6 +270,7 @@ def query(
     text: str,
     limit: QueryLimitOption = 8,
     mode: SearchModeOption = SearchModeChoice.lexical,
+    analyzer_profile: AnalyzerProfileOption = AnalyzerProfileChoice.legacy,
     fields: SearchFieldsOption = None,
     snippet_chars: SnippetCharsOption = None,
     min_score: MinScoreOption = None,
@@ -260,7 +280,7 @@ def query(
     try:
         result_fields = split_cli_values(fields)
         typer.echo(
-            LlmWikiService(root)
+            cli_service(root, analyzer_profile=analyzer_profile_value(analyzer_profile))
             .context(
                 text,
                 limit=limit,
@@ -272,7 +292,7 @@ def query(
             )
             .model_dump_json(indent=2, exclude_unset=result_fields is not None)
         )
-    except FileNotFoundError as exc:
+    except (FileNotFoundError, ValueError) as exc:
         exit_with_error(str(exc))
 
 
@@ -282,6 +302,7 @@ def search_pages(
     text: str,
     limit: QueryLimitOption = 8,
     mode: SearchModeOption = SearchModeChoice.lexical,
+    analyzer_profile: AnalyzerProfileOption = AnalyzerProfileChoice.legacy,
     fields: SearchFieldsOption = None,
     snippet_chars: SnippetCharsOption = None,
     min_score: MinScoreOption = None,
@@ -292,7 +313,10 @@ def search_pages(
         typer.echo(
             json.dumps(
                 {
-                    "results": LlmWikiService(root).search(
+                    "results": cli_service(
+                        root,
+                        analyzer_profile=analyzer_profile_value(analyzer_profile),
+                    ).search(
                         text,
                         limit=limit,
                         mode=search_mode_value(mode),
@@ -306,7 +330,7 @@ def search_pages(
                 indent=2,
             )
         )
-    except FileNotFoundError as exc:
+    except (FileNotFoundError, ValueError) as exc:
         exit_with_error(str(exc))
 
 
@@ -314,8 +338,8 @@ def search_pages(
 def source_refs(root: WikiRootArgument) -> None:
     """Print typed source-reference handles JSON."""
     try:
-        typer.echo(LlmWikiService(root).source_refs().model_dump_json(indent=2))
-    except FileNotFoundError as exc:
+        typer.echo(cli_service(root).source_refs().model_dump_json(indent=2))
+    except (FileNotFoundError, ValueError) as exc:
         exit_with_error(str(exc))
 
 
@@ -323,8 +347,8 @@ def source_refs(root: WikiRootArgument) -> None:
 def source_bundle(root: WikiRootArgument) -> None:
     """Print source bundle manifest JSON."""
     try:
-        typer.echo(LlmWikiService(root).source_bundle().model_dump_json(indent=2))
-    except FileNotFoundError as exc:
+        typer.echo(cli_service(root).source_bundle().model_dump_json(indent=2))
+    except (FileNotFoundError, ValueError) as exc:
         exit_with_error(str(exc))
 
 
@@ -479,9 +503,37 @@ def serve(
     ] = None,
     graph_default_limit: GraphDefaultLimitOption = None,
     context_default_limit: ContextDefaultLimitOption = None,
+    analyzer_profile: AnalyzerProfileOption = AnalyzerProfileChoice.legacy,
     mcp_server_name: McpServerNameOption = None,
     mcp_instructions: McpInstructionsOption = None,
     mcp_tool_description_prefix: McpToolDescriptionPrefixOption = None,
+    managed_context: Annotated[
+        bool | None,
+        typer.Option(
+            "--managed-context/--no-managed-context",
+            help=(
+                "Enable managed generic Markdown context. Disabled by default. "
+                "Env: LLMWIKI_MANAGED_CONTEXT."
+            ),
+        ),
+    ] = None,
+    managed_context_state_dir: Annotated[
+        Path | None,
+        typer.Option(
+            "--managed-context-state-dir",
+            help=(
+                "External local managed-context sidecar directory. "
+                "Must be outside the served root. Env: LLMWIKI_MANAGED_CONTEXT_STATE_DIR."
+            ),
+        ),
+    ] = None,
+    managed_context_namespace: Annotated[
+        str | None,
+        typer.Option(
+            "--managed-context-namespace",
+            help="Managed-context sidecar namespace. Env: LLMWIKI_MANAGED_CONTEXT_NAMESPACE.",
+        ),
+    ] = None,
 ) -> None:
     """Run the HTTP, MCP-style JSON-RPC, and MCP Streamable HTTP server."""
     import uvicorn
@@ -508,6 +560,12 @@ def serve(
         resolved_mcp_tool_description_prefix = mcp_tool_description_prefix or os.getenv(
             "LLMWIKI_MCP_TOOL_DESCRIPTION_PREFIX"
         )
+        resolved_managed_context = resolve_managed_context_cli_config(
+            enabled=managed_context,
+            state_dir=managed_context_state_dir,
+            namespace=managed_context_namespace,
+        )
+        resolved_analyzer_profile = analyzer_profile_value(analyzer_profile)
         projection_store = create_projection_store(
             projection_backend,
             redis_url=resolved_redis_url,
@@ -520,6 +578,8 @@ def serve(
             projection_store=projection_store,
             cache_namespace=resolved_namespace,
             source_id=resolved_source_id,
+            managed_context=resolved_managed_context,
+            analyzer_profile=resolved_analyzer_profile,
         )
         preflight_service.index()
         fastapi_app = create_app(
@@ -533,11 +593,13 @@ def serve(
             projection_store=projection_store,
             cache_namespace=resolved_namespace,
             source_id=resolved_source_id,
+            managed_context=resolved_managed_context,
             graph_default_limit=resolved_graph_default_limit,
             context_default_limit=resolved_context_default_limit,
             mcp_server_name=resolved_mcp_server_name,
             mcp_instructions=resolved_mcp_instructions,
             mcp_tool_description_prefix=resolved_mcp_tool_description_prefix,
+            analyzer_profile=resolved_analyzer_profile,
         )
     except FileNotFoundError as exc:
         exit_with_error(str(exc))
@@ -582,6 +644,18 @@ def resolve_projection_store_backend(
     return "memory"
 
 
+def cli_service(
+    root: Path,
+    *,
+    analyzer_profile: PublicAnalyzerProfile = DEFAULT_PUBLIC_ANALYZER_PROFILE,
+) -> LlmWikiService:
+    return LlmWikiService(
+        root,
+        managed_context=managed_context_config_from_env(),
+        analyzer_profile=analyzer_profile,
+    )
+
+
 def resolve_int_option_env(value: int | None, env_name: str) -> int | None:
     if value is not None:
         return value
@@ -592,6 +666,22 @@ def resolve_int_option_env(value: int | None, env_name: str) -> int | None:
         return int(env_value)
     except ValueError as exc:
         raise ValueError(f"{env_name} must be an integer") from exc
+
+
+def resolve_managed_context_cli_config(
+    *,
+    enabled: bool | None,
+    state_dir: Path | None,
+    namespace: str | None,
+) -> ManagedContextConfig:
+    config = managed_context_config_from_env()
+    if enabled is not None:
+        config = replace(config, enabled=enabled)
+    if state_dir is not None:
+        config = replace(config, state_dir=state_dir)
+    if namespace is not None:
+        config = replace(config, namespace=namespace)
+    return validate_managed_context_config(config)
 
 
 def split_cli_values(values: list[str] | None) -> list[str] | None:
@@ -618,6 +708,10 @@ def validate_probe_ports(values: list[int], *, source: str) -> list[int]:
 
 def search_mode_value(mode: SearchModeChoice) -> SearchMode:
     return "literal" if mode is SearchModeChoice.literal else "lexical"
+
+
+def analyzer_profile_value(profile: AnalyzerProfileChoice) -> PublicAnalyzerProfile:
+    return "english" if profile is AnalyzerProfileChoice.english else "legacy"
 
 
 def print_instance_discovery(

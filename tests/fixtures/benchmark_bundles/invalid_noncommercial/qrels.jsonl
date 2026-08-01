@@ -1,0 +1,3 @@
+{"query_id":"q-answerable","corpus_id":"doc-alpha","relevance":2}
+{"query_id":"q-answerable","corpus_id":"doc-beta","relevance":1}
+{"query_id":"q-unknown","corpus_id":"doc-beta","relevance":1}

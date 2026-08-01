@@ -1,0 +1,222 @@
+{
+  "schema": "llmwiki-serve-verified-source-case-manifest-v1",
+  "case_id": "dendron-test-workspace",
+  "product": "dendronhq/dendron",
+  "official_url": "https://github.com/dendronhq/dendron",
+  "official_link": "https://github.com/dendronhq/dendron",
+  "repo_url": "https://github.com/dendronhq/dendron.git",
+  "source_kind": "actual-pinned",
+  "commit": "4420715a421756518863c47005c8c49a38e37621",
+  "full_commit": "4420715a421756518863c47005c8c49a38e37621",
+  "source_path": "test-workspace",
+  "license_evidence": "Apache-2.0",
+  "license": "Apache-2.0",
+  "evidence_type": "Actual pinned static Dendron test workspace; projection compatibility only.",
+  "expected_adapter": "dendron",
+  "expected_implementation": "dendronhq/dendron",
+  "projection": {
+    "adapter": "dendron",
+    "implementation": "dendronhq/dendron",
+    "page_count": 154,
+    "approved_page_count": 154,
+    "graph_node_count": 403,
+    "graph_edge_count": 440,
+    "source_root": ".",
+    "vault_roots": [
+      "dependencies/localhost/vault3",
+      "vault2",
+      "vault",
+      "assets"
+    ],
+    "source_ref_count": 0
+  },
+  "source_ref_behavior": {
+    "projected_source_refs": "empty",
+    "citation_mode": "deterministic-public-path-id",
+    "reason": "The dedicated Dendron adapter projects page IDs and paths from the pinned workspace, but no authored source_refs are present in the served pages. Corpus source_ref_ids therefore use dendron:<projected-path>."
+  },
+  "document_hub": {
+    "hot_page": "",
+    "index_page": "",
+    "overview_page": "",
+    "absent": true
+  },
+  "hub_absence": {
+    "hot": {
+      "present": false,
+      "page": ""
+    },
+    "index": {
+      "present": false,
+      "page": ""
+    },
+    "overview": {
+      "present": false,
+      "page": ""
+    },
+    "absence": true
+  },
+  "managed_context_expectation": {
+    "dedicated_adapter_no_hub_control": true,
+    "expected_effect": "no-op",
+    "reason": "The source is projected by the dedicated Dendron adapter and has no hot.md, index.md, or overview.md hub page."
+  },
+  "managed_context": {
+    "native_adapter": true,
+    "native_adapter_managed_on_no_op": true,
+    "native_adapter_managed_off_no_op": true,
+    "reason": "Dedicated Dendron projection has no hub pages, so managed context on or off is a no-op."
+  },
+  "qrel_granularity": {
+    "level": "page-id",
+    "source_refs": "none projected",
+    "support_spans": "empty by policy; benchmark artifacts do not copy upstream text"
+  },
+  "query_count": 12,
+  "qrel_count": 25,
+  "query_coverage_counts": {
+    "global": 2,
+    "local": 2,
+    "multi-hop": 2,
+    "negative": 1,
+    "property": 2,
+    "numeric-or-literal": 1,
+    "citation": 2
+  },
+  "benchmark_schema_query_class_counts": {
+    "global-map": 2,
+    "known-item": 4,
+    "multi-hop": 2,
+    "negative": 1,
+    "korean-numeric": 1,
+    "citation": 2
+  },
+  "query_coverage": [
+    {
+      "query_id": "q-dendron-global-alternatives",
+      "coverage_class": "global",
+      "benchmark_class": "global-map",
+      "judged_page_ids": [
+        "MJqERMm373Xgom3n46DvW"
+      ]
+    },
+    {
+      "query_id": "q-dendron-local-note-lookup",
+      "coverage_class": "local",
+      "benchmark_class": "known-item",
+      "judged_page_ids": [
+        "bNkYI2WWK6Jhm2eeVwqrh"
+      ]
+    },
+    {
+      "query_id": "q-dendron-multihop-backlinks-targets",
+      "coverage_class": "multi-hop",
+      "benchmark_class": "multi-hop",
+      "judged_page_ids": [
+        "QUB1KiYq1NRtwofUFmsJu",
+        "8Ig0xWc7dTI1LgvPkbUDJ",
+        "ov6EWXwwYloaW0uwjZRy0",
+        "K9A3l5bIVNpyI9FLBuhzn"
+      ]
+    },
+    {
+      "query_id": "q-dendron-negative-payroll-token",
+      "coverage_class": "negative",
+      "benchmark_class": "negative",
+      "judged_page_ids": [
+        "e86ac3ab-dbe1-47a1-bcd7-9df0d0490b40"
+      ]
+    },
+    {
+      "query_id": "q-dendron-property-frontmatter-tags",
+      "coverage_class": "property",
+      "benchmark_class": "known-item",
+      "judged_page_ids": [
+        "pxde4MoefS0J7lHK",
+        "NmIheXJWFEjOFUE3",
+        "HyqmR36gQFN45GCI"
+      ]
+    },
+    {
+      "query_id": "q-dendron-numeric-journal-2020-07-12",
+      "coverage_class": "numeric-or-literal",
+      "benchmark_class": "korean-numeric",
+      "judged_page_ids": [
+        "17e29e0e-336f-4c7b-a13e-7a9adf5df402",
+        "dendron.journal.2020.07.12.foo",
+        "dendron.journal.2020.07.12.bar"
+      ]
+    },
+    {
+      "query_id": "q-dendron-citation-heading-anchors",
+      "coverage_class": "citation",
+      "benchmark_class": "citation",
+      "judged_page_ids": [
+        "FSi3bKWQeQXYTjE1PoTB0",
+        "bou78C3Ldc5w98Y2OX6gG"
+      ]
+    },
+    {
+      "query_id": "q-dendron-global-blog-series",
+      "coverage_class": "global",
+      "benchmark_class": "global-map",
+      "judged_page_ids": [
+        "dendron-blog",
+        "dendron-blog-one",
+        "dendron-blog-two",
+        "dendron-blog-three"
+      ]
+    },
+    {
+      "query_id": "q-dendron-local-convert-link",
+      "coverage_class": "local",
+      "benchmark_class": "known-item",
+      "judged_page_ids": [
+        "bZPZdSnnUgvCWuZcDUCHe"
+      ]
+    },
+    {
+      "query_id": "q-dendron-multihop-schema-integer",
+      "coverage_class": "multi-hop",
+      "benchmark_class": "multi-hop",
+      "judged_page_ids": [
+        "WhVbhkBCANk5K2M6PPMVz",
+        "6tG2OW2u9mYlzf9F09u4j"
+      ]
+    },
+    {
+      "query_id": "q-dendron-property-canonical-url",
+      "coverage_class": "property",
+      "benchmark_class": "known-item",
+      "judged_page_ids": [
+        "sHRD6D7exOAcYWlTfRtMm"
+      ]
+    },
+    {
+      "query_id": "q-dendron-citation-assets-links",
+      "coverage_class": "citation",
+      "benchmark_class": "citation",
+      "judged_page_ids": [
+        "Hf27I1UR3HvKyd6HRh8C0",
+        "73eb67ea-0291-45e7-8f2f-193fd6f00643"
+      ]
+    }
+  ],
+  "benchmark_artifacts": {
+    "corpus": {
+      "path": "corpus.jsonl",
+      "record_count": 154,
+      "sha256": "d4bb34aa3f47201e8e2830e131a17606dd71ce716304912dfeef6ef2499375e3"
+    },
+    "native_queries": {
+      "path": "queries.jsonl",
+      "record_count": 12,
+      "sha256": "e5bc1787fcd79ab6872a5c9581d53173dd6f7032ad285609113c885d72c9c273"
+    },
+    "native_qrels": {
+      "path": "qrels.jsonl",
+      "record_count": 25,
+      "sha256": "dc8cf7af842624fe5ccb559e97a3f43f61c21bfca93bfdbe40a57f0e1de1b950"
+    }
+  }
+}

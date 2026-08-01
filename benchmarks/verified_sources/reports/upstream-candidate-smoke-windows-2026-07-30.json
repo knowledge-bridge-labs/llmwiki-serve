@@ -1,0 +1,390 @@
+{
+  "case_count": 12,
+  "cases": [
+    {
+      "adapter": "llmwiki-markdown",
+      "approved_page_count": 8,
+      "case_id": "atomic-compiler-basic",
+      "commit": "69701f609ae166e9da194c2d340699eb43abf77e",
+      "evidence_type": "Actual pinned static LLMWiki Markdown sample; projection compatibility only.",
+      "graph_edges": 96,
+      "graph_nodes": 65,
+      "implementation": "llmwiki-markdown",
+      "license_evidence": "MIT",
+      "minimums": {
+        "approved_pages": 8,
+        "graph_edges": 1,
+        "graph_nodes": 1,
+        "pages": 8
+      },
+      "mutation_check": {
+        "checkout_status_unchanged": true,
+        "source_hash_unchanged": true
+      },
+      "official_link": "https://github.com/atomicstrata/llm-wiki-compiler",
+      "page_count": 8,
+      "product": "atomicstrata/llm-wiki-compiler",
+      "quality_scope": {
+        "answer_quality": "not-certified",
+        "retrieval_quality": "not-certified"
+      },
+      "source_file_count": 8,
+      "source_kind": "actual-pinned",
+      "source_path": "examples/basic/wiki"
+    },
+    {
+      "adapter": "llmwiki-markdown",
+      "approved_page_count": 3,
+      "case_id": "samuraigpt-agent",
+      "commit": "11f66f1166994b35de2d7d3d0b246cb28847bbf2",
+      "evidence_type": "Actual pinned static agent-maintained Markdown snapshot; projection compatibility only.",
+      "graph_edges": 9,
+      "graph_nodes": 11,
+      "implementation": "llmwiki-markdown",
+      "license_evidence": "MIT",
+      "minimums": {
+        "approved_pages": 3,
+        "graph_edges": 1,
+        "graph_nodes": 1,
+        "pages": 3
+      },
+      "mutation_check": {
+        "checkout_status_unchanged": true,
+        "source_hash_unchanged": true
+      },
+      "official_link": "https://github.com/SamurAIGPT/llm-wiki-agent",
+      "page_count": 3,
+      "product": "SamurAIGPT/llm-wiki-agent",
+      "quality_scope": {
+        "answer_quality": "not-certified",
+        "retrieval_quality": "not-certified"
+      },
+      "source_file_count": 30,
+      "source_kind": "actual-pinned",
+      "source_path": "."
+    },
+    {
+      "adapter": "llmwiki-markdown",
+      "approved_page_count": 22,
+      "case_id": "pratiyush-llm-wiki",
+      "commit": "b1088890ee0743810a92577aecad946c6b3eb2d2",
+      "evidence_type": "Actual pinned static Markdown knowledge-base snapshot; projection compatibility only.",
+      "graph_edges": 108,
+      "graph_nodes": 86,
+      "implementation": "llmwiki-markdown",
+      "license_evidence": "MIT",
+      "minimums": {
+        "approved_pages": 10,
+        "graph_edges": 1,
+        "graph_nodes": 1,
+        "pages": 10
+      },
+      "mutation_check": {
+        "checkout_status_unchanged": true,
+        "source_hash_unchanged": true
+      },
+      "official_link": "https://github.com/Pratiyush/llm-wiki",
+      "page_count": 22,
+      "product": "Pratiyush/llm-wiki",
+      "quality_scope": {
+        "answer_quality": "not-certified",
+        "retrieval_quality": "not-certified"
+      },
+      "source_file_count": 563,
+      "source_kind": "actual-pinned",
+      "source_path": "."
+    },
+    {
+      "adapter": "logseq",
+      "approved_page_count": 54,
+      "case_id": "logseq-exporter-test-graph",
+      "commit": "a9a67f61ab29972d2e2b6c7a5864e6e3306c0d9a",
+      "evidence_type": "Actual pinned static Logseq graph-parser fixture; projection compatibility only.",
+      "graph_edges": 73,
+      "graph_nodes": 105,
+      "implementation": "logseq/logseq",
+      "license_evidence": "AGPL-3.0",
+      "minimums": {
+        "approved_pages": 50,
+        "graph_edges": 50,
+        "graph_nodes": 80,
+        "pages": 50
+      },
+      "mutation_check": {
+        "checkout_status_unchanged": true,
+        "source_hash_unchanged": true
+      },
+      "official_link": "https://github.com/logseq/logseq",
+      "page_count": 54,
+      "product": "logseq/logseq",
+      "quality_scope": {
+        "answer_quality": "not-certified",
+        "retrieval_quality": "not-certified"
+      },
+      "source_file_count": 73,
+      "source_kind": "actual-pinned",
+      "source_path": "deps/graph-parser/test/resources/exporter-test-graph"
+    },
+    {
+      "adapter": "foam",
+      "approved_page_count": 79,
+      "case_id": "foam-template",
+      "commit": "84fa1844270d214520aca32c01d4e27c6728d12e",
+      "evidence_type": "Actual pinned static Foam template workspace; projection compatibility only.",
+      "graph_edges": 940,
+      "graph_nodes": 785,
+      "implementation": "foambubble/foam",
+      "license_evidence": "needs-review: no explicit repository content license found at pinned commit",
+      "minimums": {
+        "approved_pages": 10,
+        "graph_edges": 1,
+        "graph_nodes": 1,
+        "pages": 10
+      },
+      "mutation_check": {
+        "checkout_status_unchanged": true,
+        "source_hash_unchanged": true
+      },
+      "official_link": "https://github.com/foambubble/foam-template",
+      "page_count": 79,
+      "product": "foambubble/foam-template",
+      "quality_scope": {
+        "answer_quality": "not-certified",
+        "retrieval_quality": "not-certified"
+      },
+      "source_file_count": 116,
+      "source_kind": "actual-pinned",
+      "source_path": "."
+    },
+    {
+      "adapter": "dendron",
+      "approved_page_count": 154,
+      "case_id": "dendron-test-workspace",
+      "commit": "4420715a421756518863c47005c8c49a38e37621",
+      "evidence_type": "Actual pinned static Dendron test workspace; projection compatibility only.",
+      "graph_edges": 440,
+      "graph_nodes": 403,
+      "implementation": "dendronhq/dendron",
+      "license_evidence": "Apache-2.0",
+      "minimums": {
+        "approved_pages": 100,
+        "graph_edges": 1,
+        "graph_nodes": 1,
+        "pages": 100
+      },
+      "mutation_check": {
+        "checkout_status_unchanged": true,
+        "source_hash_unchanged": true
+      },
+      "official_link": "https://github.com/dendronhq/dendron",
+      "page_count": 154,
+      "product": "dendronhq/dendron",
+      "quality_scope": {
+        "answer_quality": "not-certified",
+        "retrieval_quality": "not-certified"
+      },
+      "source_file_count": 202,
+      "source_kind": "actual-pinned",
+      "source_path": "test-workspace"
+    },
+    {
+      "adapter": "llmwiki-markdown",
+      "approved_page_count": 19,
+      "case_id": "karpathy-llm-wiki-vault",
+      "commit": "18f4e71518af7d0c51a2fc65f5e3ec3043668e54",
+      "evidence_type": "Actual pinned static LLMWiki Markdown vault; projection compatibility only.",
+      "graph_edges": 315,
+      "graph_nodes": 163,
+      "implementation": "llmwiki-markdown",
+      "license_evidence": "needs-review: no explicit repository content license found at pinned commit",
+      "minimums": {
+        "approved_pages": 15,
+        "graph_edges": 150,
+        "graph_nodes": 100,
+        "pages": 15
+      },
+      "mutation_check": {
+        "checkout_status_unchanged": true,
+        "source_hash_unchanged": true
+      },
+      "official_link": "https://github.com/jason-effi-lab/karpathy-llm-wiki-vault",
+      "page_count": 19,
+      "product": "jason-effi-lab/karpathy-llm-wiki-vault",
+      "quality_scope": {
+        "answer_quality": "not-certified",
+        "retrieval_quality": "not-certified"
+      },
+      "source_file_count": 19,
+      "source_kind": "actual-pinned",
+      "source_path": "wiki"
+    },
+    {
+      "adapter": "llmwiki-markdown",
+      "approved_page_count": 13,
+      "case_id": "langchain-openwiki-self-docs",
+      "commit": "9c253af17f264ac2589ab6781e79e9bb5b5d1238",
+      "evidence_type": "Actual pinned OpenWiki 0.2.4 self-docs; proves static generated docs and setup-contract compatibility, not provider-backed generation.",
+      "graph_edges": 125,
+      "graph_nodes": 116,
+      "implementation": "llmwiki-markdown",
+      "license_evidence": "MIT",
+      "minimums": {
+        "approved_pages": 6,
+        "graph_edges": 50,
+        "graph_nodes": 50,
+        "pages": 6
+      },
+      "mutation_check": {
+        "checkout_status_unchanged": true,
+        "source_hash_unchanged": true
+      },
+      "official_link": "https://github.com/langchain-ai/openwiki",
+      "page_count": 13,
+      "product": "langchain-ai/openwiki",
+      "quality_scope": {
+        "answer_quality": "not-certified",
+        "retrieval_quality": "not-certified"
+      },
+      "source_file_count": 14,
+      "source_kind": "actual-pinned",
+      "source_path": "openwiki"
+    },
+    {
+      "adapter": "generic-markdown",
+      "approved_page_count": 5,
+      "case_id": "microsoft-llmwiki-fixtures",
+      "commit": "74a8a5bf0011b1092f135e5cbc51bbb44c1e07e7",
+      "evidence_type": "Actual pinned Microsoft LLMWiki committed Markdown page fixture plus generated `.wiki/wiki` setup contract; projection compatibility only.",
+      "graph_edges": 8,
+      "graph_nodes": 13,
+      "implementation": "generic-markdown",
+      "license_evidence": "MIT",
+      "minimums": {
+        "approved_pages": 5,
+        "graph_edges": 5,
+        "graph_nodes": 10,
+        "pages": 5
+      },
+      "mutation_check": {
+        "checkout_status_unchanged": true,
+        "source_hash_unchanged": true
+      },
+      "official_link": "https://github.com/microsoft/llmwiki",
+      "page_count": 5,
+      "product": "microsoft/llmwiki",
+      "quality_scope": {
+        "answer_quality": "not-certified",
+        "retrieval_quality": "not-certified"
+      },
+      "source_file_count": 5,
+      "source_kind": "actual-pinned",
+      "source_path": "tests/fixtures/wiki"
+    },
+    {
+      "adapter": "llmwiki-markdown",
+      "approved_page_count": 11,
+      "case_id": "luotwo-llm-wiki",
+      "commit": "9ab20ee0e9db3ca0bc7998b1b4a97ba7c821279f",
+      "evidence_type": "Actual pinned static nested LLMWiki source root; projection compatibility only.",
+      "graph_edges": 95,
+      "graph_nodes": 51,
+      "implementation": "llmwiki-markdown",
+      "license_evidence": "needs-review: no explicit repository content license found at pinned commit",
+      "minimums": {
+        "approved_pages": 10,
+        "graph_edges": 50,
+        "graph_nodes": 40,
+        "pages": 10
+      },
+      "mutation_check": {
+        "checkout_status_unchanged": true,
+        "source_hash_unchanged": true
+      },
+      "official_link": "https://github.com/luotwo/llm-wiki",
+      "page_count": 11,
+      "product": "luotwo/llm-wiki",
+      "quality_scope": {
+        "answer_quality": "not-certified",
+        "retrieval_quality": "not-certified"
+      },
+      "source_file_count": 15,
+      "source_kind": "actual-pinned",
+      "source_path": "."
+    },
+    {
+      "adapter": "quartz",
+      "approved_page_count": 129,
+      "case_id": "nishio-llm-wiki-about-delite",
+      "commit": "4181dd42ff78d72a5e5a05512a59dc37d7ef97a2",
+      "evidence_type": "Actual pinned static Quartz source tree; projection compatibility only.",
+      "graph_edges": 648,
+      "graph_nodes": 261,
+      "implementation": "jackyzha0/quartz",
+      "license_evidence": "needs-review: no explicit repository content license found at pinned commit; Quartz/tooling license is not treated as sampled content license",
+      "minimums": {
+        "approved_pages": 100,
+        "graph_edges": 300,
+        "graph_nodes": 200,
+        "pages": 100
+      },
+      "mutation_check": {
+        "checkout_status_unchanged": true,
+        "source_hash_unchanged": true
+      },
+      "official_link": "https://github.com/nishio/llm-wiki-about-delite",
+      "page_count": 129,
+      "product": "nishio/llm-wiki-about-delite",
+      "quality_scope": {
+        "answer_quality": "not-certified",
+        "retrieval_quality": "not-certified"
+      },
+      "source_file_count": 318,
+      "source_kind": "actual-pinned",
+      "source_path": "."
+    },
+    {
+      "adapter": "obsidian",
+      "approved_page_count": 4,
+      "case_id": "iblinkq-llm-wiki-obsidian-blink",
+      "commit": "a9e8399cc29dbcce75fb47f61f1f2034a9dfc199",
+      "evidence_type": "Actual pinned static Obsidian vault; projection compatibility only.",
+      "graph_edges": 30,
+      "graph_nodes": 33,
+      "implementation": "Obsidian vault",
+      "license_evidence": "needs-review: no explicit repository content license found at pinned commit",
+      "minimums": {
+        "approved_pages": 4,
+        "graph_edges": 15,
+        "graph_nodes": 20,
+        "pages": 4
+      },
+      "mutation_check": {
+        "checkout_status_unchanged": true,
+        "source_hash_unchanged": true
+      },
+      "official_link": "https://github.com/iBlinkQ/llm-wiki-obsidian-blink",
+      "page_count": 4,
+      "product": "iBlinkQ/llm-wiki-obsidian-blink",
+      "quality_scope": {
+        "answer_quality": "not-certified",
+        "retrieval_quality": "not-certified"
+      },
+      "source_file_count": 34,
+      "source_kind": "actual-pinned",
+      "source_path": "."
+    }
+  ],
+  "certification_scope": {
+    "answer_quality": "not-certified",
+    "compatibility_smoke": "passed",
+    "retrieval_quality": "not-certified",
+    "upstream_producer": "not-certified"
+  },
+  "evidence_track": "compatibility-smoke",
+  "mode": "smoke",
+  "run_environment": {
+    "architecture": "AMD64",
+    "os": "Windows"
+  },
+  "schema": "llmwiki-serve-upstream-candidate-smoke-v1"
+}

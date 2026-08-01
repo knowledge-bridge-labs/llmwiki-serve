@@ -1,0 +1,2 @@
+{"corpus_id":"doc-alpha","text":"Synthetic alpha passage for bundle validator tests.","title":"Alpha","metadata":{"dataset":"synthetic","language":"en","source_component":"fixture"}}
+{"corpus_id":"doc-beta","text":"Synthetic beta passage for bundle validator tests.","title":"Beta","metadata":{"dataset":"synthetic","language":"en","source_component":"fixture"}}

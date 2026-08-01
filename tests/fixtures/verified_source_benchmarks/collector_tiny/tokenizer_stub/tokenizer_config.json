@@ -1,0 +1,7 @@
+{
+  "schema": "llmwiki-serve-tokenizer-stub-v1",
+  "tokenizer_id": "Qwen/Qwen3-collector-fixture-tokenizer",
+  "tokenizer_revision": "fixture-rev-collector",
+  "implementation": "pytest-whitespace-tokenizer",
+  "byte_proxy_allowed": false
+}

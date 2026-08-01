@@ -32,12 +32,16 @@ enterprise auth, model runtime hosting, or certified MCP/A2A platform claims.
 | [Release checklist](docs/release.md)
 | [Docs portal](https://knowledge-bridge-labs.github.io/llmwiki-docs/)
 | [Release status](https://knowledge-bridge-labs.github.io/llmwiki-docs/status)
+| [Evidence](https://knowledge-bridge-labs.github.io/llmwiki-docs/evidence)
 | [Contributing](CONTRIBUTING.md)
 | [Security](SECURITY.md)
 | [Support](SUPPORT.md)
 | [Changelog](CHANGELOG.md)
 
-> Public-preview note: PyPI install is available for `llmwiki-serve==0.2.5`.
+> Public-preview note: PyPI install availability and the current package baseline
+> are tracked in the
+> [Release Status & Compatibility](https://knowledge-bridge-labs.github.io/llmwiki-docs/status)
+> matrix.
 > Source checkout remains supported for local development and release smoke tests.
 
 ## Start Here
@@ -132,8 +136,9 @@ uv tool install llmwiki-serve
 pipx install llmwiki-serve
 ```
 
-Pin `llmwiki-serve==0.2.5` when you need to reproduce this public-preview
-release exactly.
+Pin the version listed in the
+[Release Status & Compatibility](https://knowledge-bridge-labs.github.io/llmwiki-docs/status)
+matrix when you need a reproducible public-preview package install.
 
 ## What It Serves
 
@@ -320,6 +325,13 @@ Named producer repositories in the architecture guide are compatible Markdown
 output targets, not endorsed integrations or per-release support claims.
 `llmwiki-serve` reads their generated or stored Markdown when it matches the
 native folder contract or a supported adapter shape.
+
+Do not confuse optional `graph/graph.json` graph facts with experimental
+managed context. Native `hot.md`, `index.md`, `overview.md`, and root
+`quickstart.md` files remain source-owned and untouched. Managed context is
+generic-Markdown only, stores an external opaque sidecar outside the source
+root, and is not a source page, not `graph/graph.json`, and not a replacement
+for authored structure.
 
 ## Compared With
 
@@ -530,10 +542,11 @@ payloads.
 knowledge folders. It is Apache-2.0 licensed and is not an official project from
 Andrej Karpathy or any upstream producer named in compatibility examples.
 
-This repository is in public preview. PyPI install is available for
-`llmwiki-serve==0.2.5`, and source checkout remains supported for local
-development and release smoke tests. Use the hosted docs and Release Status &
-Compatibility matrix for the current package and protocol posture.
+This repository is in public preview. PyPI install availability and the current
+package baseline are tracked in the hosted
+[Release Status & Compatibility](https://knowledge-bridge-labs.github.io/llmwiki-docs/status)
+matrix, and source checkout remains supported for local development and release
+smoke tests.
 
 The current protocol surface is HTTP plus MCP-style JSON-RPC, MCP Streamable
 HTTP, and opt-in A2A-style message shapes. The Streamable HTTP endpoint uses the
@@ -570,16 +583,50 @@ packaged wheel CLI installation.
 
 Optional validation paths are documented in [docs/release.md](docs/release.md):
 real local-server curl checks, pinned public upstream sample snapshot smoke, and
-generated candidate sample artifacts. These are compatibility probes for the
-current serving contract. They do not certify upstream producer versions, full
+generated candidate sample artifacts. Current public compatibility-smoke
+evidence, including the 12-case actual-pinned Windows report, is summarized on
+the
+[Evidence](https://knowledge-bridge-labs.github.io/llmwiki-docs/evidence)
+page. These are compatibility-smoke records for the current serving contract,
+not quality certification or upstream producer certification. They do not
+certify retrieval quality, answer quality, upstream producer versions, full
 MCP/A2A protocol support, private wiki safety, live network deployment,
 authentication, TLS, or every application-specific
 Obsidian/Logseq/Foam/Dendron/Quartz feature.
+
+### Benchmark Evidence
+
+For `0.2.8`, the repo also includes a reproducible retrieval benchmark on the
+official BEIR SciFact `test` split projected to Markdown and queried through
+`LlmWikiService.search(query, limit=100)`. Both final reports use package
+`0.2.8`, immutable revision
+`git:8d04e8a46487827ee488a7ddab005aaab8dd885d`, the opt-in `english`
+analyzer, `5,183` corpus docs, `300` test queries, and `339` qrels. The product
+default analyzer remains `legacy`.
+
+| Environment | nDCG@10 | Recall@100 | Report |
+| --- | ---: | ---: | --- |
+| Windows local | `0.6905159872` | `0.9286666667` | [`beir-scifact-windows-2026-08-01.json`](benchmarks/verified_sources/reports/beir-scifact-windows-2026-08-01.json) |
+| DGX Spark Ubuntu | `0.6905159872` | `0.9286666667` | [`beir-scifact-dgx-spark-ubuntu-2026-08-01.json`](benchmarks/verified_sources/reports/beir-scifact-dgx-spark-ubuntu-2026-08-01.json) |
+
+The reports include product-secondary Recall@5, Hit@5, MRR@10, latency, payload
+bytes, source checksums, license attribution, metric definitions, and fixed
+external reference rows. The external rows cite BEIR paper BM25
+(`0.665` nDCG@10 / `0.908` Recall@100) and Anserini/Pyserini flat BM25
+(`0.6789` nDCG@10 / `0.9253` Recall@100); those rows are contextual published
+references and were not run by `llmwiki-serve`.
+
+Benchmark adapters are repository-level reproducibility tooling under
+`scripts/benchmark_adapters/`, not installed `llmwiki-serve` console commands.
+See
+[`benchmarks/verified_sources/reports/README.md`](benchmarks/verified_sources/reports/README.md)
+for provenance, validation, rerun notes, and limitations.
 
 ## Project Documents
 
 - [Docs portal](https://knowledge-bridge-labs.github.io/llmwiki-docs/)
 - [Release Status & Compatibility](https://knowledge-bridge-labs.github.io/llmwiki-docs/status)
+- [Evidence](https://knowledge-bridge-labs.github.io/llmwiki-docs/evidence)
 - [Architecture](docs/architecture.md)
 - [Examples](examples/README.md)
 - [Release checklist](docs/release.md)

@@ -1,0 +1,105 @@
+{
+  "schema": "llmwiki-serve-verified-source-case-manifest-v1",
+  "case_id": "pratiyush-llm-wiki",
+  "product": "Pratiyush/llm-wiki",
+  "official_url": "https://github.com/Pratiyush/llm-wiki",
+  "official_link": "https://github.com/Pratiyush/llm-wiki",
+  "repo_url": "https://github.com/Pratiyush/llm-wiki.git",
+  "source_kind": "actual-pinned",
+  "commit": "b1088890ee0743810a92577aecad946c6b3eb2d2",
+  "full_commit": "b1088890ee0743810a92577aecad946c6b3eb2d2",
+  "source_path": "wiki/",
+  "license_evidence": "MIT",
+  "license": "MIT",
+  "evidence_type": "Actual pinned authored llm-wiki knowledge base.",
+  "authored_hub_files": [
+    "index.md",
+    "overview.md",
+    "CRITICAL_FACTS.md",
+    "categories/_context.md",
+    "comparisons/_context.md",
+    "concepts/_context.md",
+    "entities/_context.md",
+    "questions/_context.md",
+    "sources/_context.md",
+    "syntheses/_context.md"
+  ],
+  "expected_adapter": "llmwiki-markdown",
+  "expected_implementation": "llmwiki-markdown",
+  "projection": {
+    "adapter": "llmwiki-markdown",
+    "implementation": "llmwiki-markdown",
+    "page_count": 22,
+    "approved_page_count": 22,
+    "source_root": ".",
+    "source_ref_count": 0
+  },
+  "source_ref_behavior": {
+    "projected_source_refs": "empty",
+    "citation_mode": "deterministic-public-path-id",
+    "reason": "The pinned authored Markdown pages project stable page IDs and paths but do not author source_refs. Corpus source_ref_ids therefore use pratiyush:<projected-path>."
+  },
+  "qrel_granularity": {
+    "level": "page-id",
+    "support_spans": "empty by policy; benchmark artifacts do not copy upstream text"
+  },
+  "query_count": 60,
+  "query_coverage_counts": {
+    "global": 5,
+    "local": 16,
+    "multi-hop": 12,
+    "negative": 5,
+    "numeric-or-literal": 8,
+    "citation": 10,
+    "native-hub": 4
+  },
+  "benchmark_schema_query_class_counts": {
+    "global-map": 5,
+    "known-item": 16,
+    "multi-hop": 12,
+    "citation": 10,
+    "korean-numeric": 8,
+    "negative": 5,
+    "native-llmwiki": 4
+  },
+  "shadow_query_count": 55,
+  "qrel_count": 172,
+  "shadow_qrel_count": 144,
+  "shadow_benchmark_schema_query_class_counts": {
+    "global-map": 5,
+    "known-item": 16,
+    "multi-hop": 12,
+    "citation": 9,
+    "korean-numeric": 8,
+    "negative": 5
+  },
+  "benchmark_artifacts": {
+    "corpus": {
+      "path": "corpus.jsonl",
+      "record_count": 22,
+      "sha256": "1d9f021f0ce393dd780c8354512e8c92d5718d8842408a6c7034c4d9c1b88ece"
+    },
+    "native_queries": {
+      "path": "queries.jsonl",
+      "record_count": 60,
+      "sha256": "8fc7e3817edf425d3a2cd9ad7817ff83633c8a02aa90109f5e37972175a1f12a"
+    },
+    "native_qrels": {
+      "path": "qrels.jsonl",
+      "record_count": 172,
+      "sha256": "e26eee81006904591694fac5ccb598f52100fa66855161f7d61e4495ed8e66fe"
+    },
+    "shadow_queries": {
+      "path": "queries-shadow.jsonl",
+      "record_count": 55,
+      "sha256": "f96014b8738db9a1832b871906144d035bb844e3d28febad42a7cc9072c332c0"
+    },
+    "shadow_qrels": {
+      "path": "qrels-shadow.jsonl",
+      "record_count": 144,
+      "sha256": "30fb41f1a8bca563c0cf5a1192437de9c5e79fa97623db876477126eec57c078"
+    }
+  },
+  "answerable_query_count": 55,
+  "shadow_answerable_query_count": 50
+}

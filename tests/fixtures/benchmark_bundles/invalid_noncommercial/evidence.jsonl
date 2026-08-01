@@ -1,0 +1,2 @@
+{"evidence_id":"ev-alpha","query_id":"q-answerable","corpus_id":"doc-alpha","locator":{"granularity":"char_span","start":0,"end":10,"section":null,"paragraph":null},"required_group":"hop-1","hop_index":0,"depends_on":[],"supports_claim_ids":["claim-alpha"]}
+{"evidence_id":"ev-beta","query_id":"q-answerable","corpus_id":"doc-beta","locator":{"granularity":"document","start":null,"end":null,"section":null,"paragraph":null},"required_group":"hop-2","hop_index":1,"depends_on":["ev-alpha"],"supports_claim_ids":["claim-alpha"]}

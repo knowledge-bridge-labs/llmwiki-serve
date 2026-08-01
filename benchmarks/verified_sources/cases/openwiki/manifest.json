@@ -1,0 +1,103 @@
+{
+  "schema": "llmwiki-serve-verified-source-case-manifest-v1",
+  "case_id": "langchain-openwiki-self-docs",
+  "product": "langchain-ai/openwiki",
+  "official_url": "https://github.com/langchain-ai/openwiki",
+  "official_link": "https://github.com/langchain-ai/openwiki",
+  "repo_url": "https://github.com/langchain-ai/openwiki.git",
+  "source_kind": "actual-pinned",
+  "commit": "9c253af17f264ac2589ab6781e79e9bb5b5d1238",
+  "full_commit": "9c253af17f264ac2589ab6781e79e9bb5b5d1238",
+  "source_path": "openwiki/",
+  "license_evidence": "MIT",
+  "license": "MIT",
+  "evidence_type": "Actual pinned OpenWiki-generated repository documentation.",
+  "authored_hub_files": [
+    "index.md",
+    "quickstart.md",
+    "INSTRUCTIONS.md",
+    "agent/index.md",
+    "architecture/index.md",
+    "cli/index.md",
+    "integrations/index.md",
+    "operations/index.md"
+  ],
+  "expected_adapter": "llmwiki-markdown",
+  "expected_implementation": "llmwiki-markdown",
+  "projection": {
+    "adapter": "llmwiki-markdown",
+    "implementation": "llmwiki-markdown",
+    "page_count": 13,
+    "approved_page_count": 13,
+    "source_root": ".",
+    "source_ref_count": 0
+  },
+  "source_ref_behavior": {
+    "projected_source_refs": "empty",
+    "citation_mode": "deterministic-public-path-id",
+    "reason": "The pinned generated Markdown pages project stable page IDs and paths but do not author source_refs. Corpus source_ref_ids therefore use openwiki:<projected-path>."
+  },
+  "qrel_granularity": {
+    "level": "page-id",
+    "support_spans": "empty by policy; benchmark artifacts do not copy upstream text"
+  },
+  "query_count": 57,
+  "qrel_count": 164,
+  "shadow_query_count": 55,
+  "shadow_qrel_count": 141,
+  "answerable_query_count": 52,
+  "shadow_answerable_query_count": 50,
+  "query_coverage_counts": {
+    "global": 5,
+    "local": 13,
+    "multi-hop": 12,
+    "negative": 5,
+    "numeric-or-literal": 10,
+    "citation": 10,
+    "native-hub": 2
+  },
+  "benchmark_schema_query_class_counts": {
+    "global-map": 5,
+    "known-item": 13,
+    "multi-hop": 12,
+    "citation": 10,
+    "korean-numeric": 10,
+    "negative": 5,
+    "native-llmwiki": 2
+  },
+  "shadow_benchmark_schema_query_class_counts": {
+    "global-map": 5,
+    "known-item": 13,
+    "multi-hop": 12,
+    "citation": 10,
+    "korean-numeric": 10,
+    "negative": 5
+  },
+  "benchmark_artifacts": {
+    "corpus": {
+      "path": "corpus.jsonl",
+      "record_count": 13,
+      "sha256": "e8490364fb57d70401b0dd8627e68db827735cf51f075c0007aac181402bbf12"
+    },
+    "native_queries": {
+      "path": "queries.jsonl",
+      "record_count": 57,
+      "sha256": "327e6e7971724ba9956092f0a8e79afe2781e46a9e88939af9cb968bd7a42735"
+    },
+    "native_qrels": {
+      "path": "qrels.jsonl",
+      "record_count": 164,
+      "sha256": "20aa08ab981480cb5e9ceb41eaa1ade98fe43b724fc3e030b8623649f1249132"
+    },
+    "shadow_queries": {
+      "path": "queries-shadow.jsonl",
+      "record_count": 55,
+      "sha256": "f873b260ecd65986d0261f5a21477dc7381ee5fa740cfa1a6105d7572263cb18"
+    },
+    "shadow_qrels": {
+      "path": "qrels-shadow.jsonl",
+      "record_count": 141,
+      "sha256": "16713ef95374c5ebe5f65067c93391c232d7c53cade5a6d597b40731523e77d0"
+    }
+  }
+}

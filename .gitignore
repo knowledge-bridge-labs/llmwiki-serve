@@ -15,4 +15,5 @@ build/
 .env
 .DS_Store
 .runtime-logs/
+.codex-subagents/
 .llmwiki-work/

@@ -1,0 +1,6062 @@
+{
+  "bootstrap_samples": 1000,
+  "deltas": {},
+  "environment": {
+    "hardware_bucket": "windows-local",
+    "machine_class": "AMD64",
+    "os_family": "windows",
+    "os_release_family": "11",
+    "package_version": "0.2.7",
+    "python_version": "3.13.5"
+  },
+  "evidence_track": "quality-benchmark",
+  "hard_failures": [],
+  "hardware_bucket": "windows-local",
+  "input_artifacts": {
+    "corpus.jsonl": "1d9f021f0ce393dd780c8354512e8c92d5718d8842408a6c7034c4d9c1b88ece",
+    "qrels.jsonl": "30fb41f1a8bca563c0cf5a1192437de9c5e79fa97623db876477126eec57c078",
+    "queries.jsonl": "f96014b8738db9a1832b871906144d035bb844e3d28febad42a7cc9072c332c0",
+    "runs.jsonl": "866a672453892b2c65b5266961897f4106747ddccb087c4d72f1ec479e929383"
+  },
+  "inputs": {
+    "corpus_records": 22,
+    "qrel_records": 144,
+    "query_records": 55,
+    "run_ids": [
+      "generic_shadow_managed_off_cold_service_context",
+      "generic_shadow_managed_off_cold_service_context_bundle",
+      "generic_shadow_managed_off_cold_service_context_orientation",
+      "generic_shadow_managed_off_cold_service_search_read",
+      "generic_shadow_managed_off_primed_service_context",
+      "generic_shadow_managed_off_primed_service_context_bundle",
+      "generic_shadow_managed_off_primed_service_context_orientation",
+      "generic_shadow_managed_off_primed_service_search_read",
+      "generic_shadow_managed_off_warm_service_context",
+      "generic_shadow_managed_off_warm_service_context_bundle",
+      "generic_shadow_managed_off_warm_service_context_orientation",
+      "generic_shadow_managed_off_warm_service_search_read",
+      "generic_shadow_managed_on_cold_service_context",
+      "generic_shadow_managed_on_cold_service_context_bundle",
+      "generic_shadow_managed_on_cold_service_context_orientation",
+      "generic_shadow_managed_on_cold_service_search_read",
+      "generic_shadow_managed_on_primed_service_context",
+      "generic_shadow_managed_on_primed_service_context_bundle",
+      "generic_shadow_managed_on_primed_service_context_orientation",
+      "generic_shadow_managed_on_primed_service_search_read",
+      "generic_shadow_managed_on_warm_service_context",
+      "generic_shadow_managed_on_warm_service_context_bundle",
+      "generic_shadow_managed_on_warm_service_context_orientation",
+      "generic_shadow_managed_on_warm_service_search_read"
+    ]
+  },
+  "metrics": {
+    "generic_shadow_managed_off_cold_service_context": {
+      "citation_precision": 0.36466165413533835,
+      "citation_recall": 0.7404580152671756,
+      "context_tokens": {
+        "count": 55,
+        "mean": 533.4,
+        "p50": 551.0,
+        "p95": 572.0
+      },
+      "evaluation_mode": "retrieval",
+      "hit_at_5": 0.96,
+      "judged_query_count": 50,
+      "latency_ms": {
+        "count": 55,
+        "mean": 133.62067272722595,
+        "p50": 122.97500000568107,
+        "p95": 283.68500000215136
+      },
+      "mrr": 0.8533333333333333,
+      "ndcg_at_10": 0.803672085960677,
+      "negative_false_positive_rate": 1.0,
+      "payload_bytes": {
+        "count": 55,
+        "mean": 26104.70909090909,
+        "p50": 26623.0,
+        "p95": 26679.0
+      },
+      "payload_tokens": {
+        "count": 55,
+        "mean": 6826.509090909091,
+        "p50": 6963.0,
+        "p95": 6991.0
+      },
+      "query_classes": {
+        "citation": {
+          "citation_precision": 0.4888888888888889,
+          "citation_recall": 0.9166666666666666,
+          "context_tokens": {
+            "count": 9,
+            "mean": 550.0,
+            "p50": 547.0,
+            "p95": 581.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 9,
+          "latency_ms": {
+            "count": 9,
+            "mean": 152.09014444715447,
+            "p50": 124.39520000771154,
+            "p95": 296.9948999962071
+          },
+          "mrr": 0.9444444444444444,
+          "ndcg_at_10": 0.8992709030444319,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 9,
+            "mean": 26636.666666666668,
+            "p50": 26635.0,
+            "p95": 26691.0
+          },
+          "payload_tokens": {
+            "count": 9,
+            "mean": 6961.555555555556,
+            "p50": 6956.0,
+            "p95": 6991.0
+          },
+          "query_class": "citation",
+          "query_count": 9,
+          "recall_at_5": 0.9351851851851851,
+          "run_row_count": 45
+        },
+        "global-map": {
+          "citation_precision": 0.44,
+          "citation_recall": 0.4583333333333333,
+          "context_tokens": {
+            "count": 5,
+            "mean": 545.0,
+            "p50": 541.0,
+            "p95": 562.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 5,
+          "latency_ms": {
+            "count": 5,
+            "mean": 137.91251999791712,
+            "p50": 138.3717999997316,
+            "p95": 149.0466999966884
+          },
+          "mrr": 0.5166666666666667,
+          "ndcg_at_10": 0.4005847571724505,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26621.0,
+            "p50": 26626.0,
+            "p95": 26660.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6954.8,
+            "p50": 6953.0,
+            "p95": 6972.0
+          },
+          "query_class": "global-map",
+          "query_count": 5,
+          "recall_at_5": 0.5785714285714285,
+          "run_row_count": 25
+        },
+        "known-item": {
+          "citation_precision": 0.3125,
+          "citation_recall": 0.9615384615384616,
+          "context_tokens": {
+            "count": 16,
+            "mean": 553.4375,
+            "p50": 554.0,
+            "p95": 567.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 16,
+          "latency_ms": {
+            "count": 16,
+            "mean": 146.08824374863616,
+            "p50": 122.97500000568107,
+            "p95": 283.68500000215136
+          },
+          "mrr": 0.9270833333333334,
+          "ndcg_at_10": 0.887475551107509,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 16,
+            "mean": 26603.0,
+            "p50": 26593.0,
+            "p95": 26674.0
+          },
+          "payload_tokens": {
+            "count": 16,
+            "mean": 6960.125,
+            "p50": 6965.0,
+            "p95": 6975.0
+          },
+          "query_class": "known-item",
+          "query_count": 16,
+          "recall_at_5": 0.9791666666666666,
+          "run_row_count": 80
+        },
+        "korean-numeric": {
+          "citation_precision": 0.3548387096774194,
+          "citation_recall": 0.7333333333333333,
+          "context_tokens": {
+            "count": 8,
+            "mean": 439.75,
+            "p50": 560.0,
+            "p95": 578.0
+          },
+          "hit_at_5": 0.875,
+          "judged_query_count": 8,
+          "latency_ms": {
+            "count": 8,
+            "mean": 83.00226250139531,
+            "p50": 82.02020000317134,
+            "p95": 118.34660000749864
+          },
+          "mrr": 0.8125,
+          "ndcg_at_10": 0.8143499121567886,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 8,
+            "mean": 23076.25,
+            "p50": 26582.0,
+            "p95": 26630.0
+          },
+          "payload_tokens": {
+            "count": 8,
+            "mean": 6053.625,
+            "p50": 6979.0,
+            "p95": 6994.0
+          },
+          "query_class": "korean-numeric",
+          "query_count": 8,
+          "recall_at_5": 0.8333333333333334,
+          "run_row_count": 31
+        },
+        "multi-hop": {
+          "citation_precision": 0.4666666666666667,
+          "citation_recall": 0.6666666666666666,
+          "context_tokens": {
+            "count": 12,
+            "mean": 551.4166666666666,
+            "p50": 551.0,
+            "p95": 572.0
+          },
+          "hit_at_5": 0.9166666666666666,
+          "judged_query_count": 12,
+          "latency_ms": {
+            "count": 12,
+            "mean": 135.48349999958495,
+            "p50": 121.65270000696182,
+            "p95": 200.004500002251
+          },
+          "mrr": 0.8541666666666666,
+          "ndcg_at_10": 0.7810695224831049,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 12,
+            "mean": 26627.166666666668,
+            "p50": 26628.0,
+            "p95": 26688.0
+          },
+          "payload_tokens": {
+            "count": 12,
+            "mean": 6962.583333333333,
+            "p50": 6965.0,
+            "p95": 6985.0
+          },
+          "query_class": "multi-hop",
+          "query_count": 12,
+          "recall_at_5": 0.7673611111111112,
+          "run_row_count": 60
+        },
+        "negative": {
+          "citation_precision": 0.0,
+          "citation_recall": null,
+          "context_tokens": {
+            "count": 5,
+            "mean": 534.4,
+            "p50": 531.0,
+            "p95": 548.0
+          },
+          "hit_at_5": null,
+          "judged_query_count": 0,
+          "latency_ms": {
+            "count": 5,
+            "mean": 132.70621999981813,
+            "p50": 123.21799999335781,
+            "p95": 171.1840000061784
+          },
+          "mrr": null,
+          "ndcg_at_10": null,
+          "negative_false_positive_rate": 1.0,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26628.0,
+            "p50": 26623.0,
+            "p95": 26652.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6937.6,
+            "p50": 6934.0,
+            "p95": 6950.0
+          },
+          "query_class": "negative",
+          "query_count": 5,
+          "recall_at_5": null,
+          "run_row_count": 25
+        }
+      },
+      "query_count": 55,
+      "recall_at_5": 0.8570238095238095,
+      "run_id": "generic_shadow_managed_off_cold_service_context",
+      "run_row_count": 266,
+      "surface": "service-context"
+    },
+    "generic_shadow_managed_off_cold_service_context_bundle": {
+      "evaluation_mode": "telemetry-only",
+      "latency_ms": {
+        "count": 55,
+        "mean": 131.75530545519325,
+        "p50": 122.7663999889046,
+        "p95": 183.76810000336263
+      },
+      "payload_bytes": {
+        "count": 55,
+        "mean": 26552.418181818182,
+        "p50": 26623.0,
+        "p95": 26679.0
+      },
+      "payload_tokens": {
+        "count": 55,
+        "mean": 6943.436363636363,
+        "p50": 6963.0,
+        "p95": 6991.0
+      },
+      "query_classes": {
+        "citation": {
+          "latency_ms": {
+            "count": 9,
+            "mean": 124.09635555781682,
+            "p50": 116.38710000261199,
+            "p95": 183.76810000336263
+          },
+          "payload_bytes": {
+            "count": 9,
+            "mean": 26636.666666666668,
+            "p50": 26635.0,
+            "p95": 26691.0
+          },
+          "payload_tokens": {
+            "count": 9,
+            "mean": 6961.555555555556,
+            "p50": 6956.0,
+            "p95": 6991.0
+          },
+          "query_class": "citation",
+          "query_count": 9,
+          "run_row_count": 69
+        },
+        "global-map": {
+          "latency_ms": {
+            "count": 5,
+            "mean": 140.13627999811433,
+            "p50": 136.80930000555236,
+            "p95": 182.59369999577757
+          },
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26621.0,
+            "p50": 26626.0,
+            "p95": 26660.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6954.8,
+            "p50": 6953.0,
+            "p95": 6972.0
+          },
+          "query_class": "global-map",
+          "query_count": 5,
+          "run_row_count": 39
+        },
+        "known-item": {
+          "latency_ms": {
+            "count": 16,
+            "mean": 145.09528125199722,
+            "p50": 135.8959000062896,
+            "p95": 293.30570000456646
+          },
+          "payload_bytes": {
+            "count": 16,
+            "mean": 26603.0,
+            "p50": 26593.0,
+            "p95": 26674.0
+          },
+          "payload_tokens": {
+            "count": 16,
+            "mean": 6960.125,
+            "p50": 6965.0,
+            "p95": 6975.0
+          },
+          "query_class": "known-item",
+          "query_count": 16,
+          "run_row_count": 121
+        },
+        "korean-numeric": {
+          "latency_ms": {
+            "count": 8,
+            "mean": 127.23024999650079,
+            "p50": 98.7714000075357,
+            "p95": 328.5245000006398
+          },
+          "payload_bytes": {
+            "count": 8,
+            "mean": 26154.25,
+            "p50": 26582.0,
+            "p95": 26630.0
+          },
+          "payload_tokens": {
+            "count": 8,
+            "mean": 6857.5,
+            "p50": 6979.0,
+            "p95": 6994.0
+          },
+          "query_class": "korean-numeric",
+          "query_count": 8,
+          "run_row_count": 53
+        },
+        "multi-hop": {
+          "latency_ms": {
+            "count": 12,
+            "mean": 129.26000833370685,
+            "p50": 125.15380000695586,
+            "p95": 161.68710000056308
+          },
+          "payload_bytes": {
+            "count": 12,
+            "mean": 26627.166666666668,
+            "p50": 26628.0,
+            "p95": 26688.0
+          },
+          "payload_tokens": {
+            "count": 12,
+            "mean": 6962.583333333333,
+            "p50": 6965.0,
+            "p95": 6985.0
+          },
+          "query_class": "multi-hop",
+          "query_count": 12,
+          "run_row_count": 93
+        },
+        "negative": {
+          "latency_ms": {
+            "count": 5,
+            "mean": 107.70132000325248,
+            "p50": 104.81380000419449,
+            "p95": 120.56749999464955
+          },
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26628.0,
+            "p50": 26623.0,
+            "p95": 26652.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6937.6,
+            "p50": 6934.0,
+            "p95": 6950.0
+          },
+          "query_class": "negative",
+          "query_count": 5,
+          "run_row_count": 35
+        }
+      },
+      "query_count": 55,
+      "run_id": "generic_shadow_managed_off_cold_service_context_bundle",
+      "run_row_count": 410,
+      "surface": "service-context-bundle"
+    },
+    "generic_shadow_managed_off_cold_service_context_orientation": {
+      "citation_precision": 0.0,
+      "citation_recall": 0.0,
+      "context_tokens": {
+        "count": 55,
+        "mean": 306.0,
+        "p50": 306.0,
+        "p95": 306.0
+      },
+      "evaluation_mode": "retrieval",
+      "hit_at_5": 0.0,
+      "judged_query_count": 50,
+      "latency_ms": {
+        "count": 55,
+        "mean": 140.17246727254877,
+        "p50": 141.42059998994227,
+        "p95": 183.92310000490397
+      },
+      "mrr": 0.0,
+      "ndcg_at_10": 0.0,
+      "negative_false_positive_rate": 1.0,
+      "payload_bytes": {
+        "count": 55,
+        "mean": 26552.418181818182,
+        "p50": 26623.0,
+        "p95": 26679.0
+      },
+      "payload_tokens": {
+        "count": 55,
+        "mean": 6943.436363636363,
+        "p50": 6963.0,
+        "p95": 6991.0
+      },
+      "query_classes": {
+        "citation": {
+          "citation_precision": 0.0,
+          "citation_recall": 0.0,
+          "context_tokens": {
+            "count": 9,
+            "mean": 306.0,
+            "p50": 306.0,
+            "p95": 306.0
+          },
+          "hit_at_5": 0.0,
+          "judged_query_count": 9,
+          "latency_ms": {
+            "count": 9,
+            "mean": 127.69474444050704,
+            "p50": 130.849399996805,
+            "p95": 151.8729999952484
+          },
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 9,
+            "mean": 26636.666666666668,
+            "p50": 26635.0,
+            "p95": 26691.0
+          },
+          "payload_tokens": {
+            "count": 9,
+            "mean": 6961.555555555556,
+            "p50": 6956.0,
+            "p95": 6991.0
+          },
+          "query_class": "citation",
+          "query_count": 9,
+          "recall_at_5": 0.0,
+          "run_row_count": 27
+        },
+        "global-map": {
+          "citation_precision": 0.0,
+          "citation_recall": 0.0,
+          "context_tokens": {
+            "count": 5,
+            "mean": 306.0,
+            "p50": 306.0,
+            "p95": 306.0
+          },
+          "hit_at_5": 0.0,
+          "judged_query_count": 5,
+          "latency_ms": {
+            "count": 5,
+            "mean": 157.36696000385564,
+            "p50": 157.3112000041874,
+            "p95": 176.88780000025872
+          },
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26621.0,
+            "p50": 26626.0,
+            "p95": 26660.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6954.8,
+            "p50": 6953.0,
+            "p95": 6972.0
+          },
+          "query_class": "global-map",
+          "query_count": 5,
+          "recall_at_5": 0.0,
+          "run_row_count": 15
+        },
+        "known-item": {
+          "citation_precision": 0.0,
+          "citation_recall": 0.0,
+          "context_tokens": {
+            "count": 16,
+            "mean": 306.0,
+            "p50": 306.0,
+            "p95": 306.0
+          },
+          "hit_at_5": 0.0,
+          "judged_query_count": 16,
+          "latency_ms": {
+            "count": 16,
+            "mean": 141.2882249996983,
+            "p50": 138.2037000003038,
+            "p95": 251.86889999895357
+          },
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 16,
+            "mean": 26603.0,
+            "p50": 26593.0,
+            "p95": 26674.0
+          },
+          "payload_tokens": {
+            "count": 16,
+            "mean": 6960.125,
+            "p50": 6965.0,
+            "p95": 6975.0
+          },
+          "query_class": "known-item",
+          "query_count": 16,
+          "recall_at_5": 0.0,
+          "run_row_count": 48
+        },
+        "korean-numeric": {
+          "citation_precision": 0.0,
+          "citation_recall": 0.0,
+          "context_tokens": {
+            "count": 8,
+            "mean": 306.0,
+            "p50": 306.0,
+            "p95": 306.0
+          },
+          "hit_at_5": 0.0,
+          "judged_query_count": 8,
+          "latency_ms": {
+            "count": 8,
+            "mean": 140.91766249839566,
+            "p50": 135.4793999926187,
+            "p95": 186.77580000075977
+          },
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 8,
+            "mean": 26154.25,
+            "p50": 26582.0,
+            "p95": 26630.0
+          },
+          "payload_tokens": {
+            "count": 8,
+            "mean": 6857.5,
+            "p50": 6979.0,
+            "p95": 6994.0
+          },
+          "query_class": "korean-numeric",
+          "query_count": 8,
+          "recall_at_5": 0.0,
+          "run_row_count": 24
+        },
+        "multi-hop": {
+          "citation_precision": 0.0,
+          "citation_recall": 0.0,
+          "context_tokens": {
+            "count": 12,
+            "mean": 306.0,
+            "p50": 306.0,
+            "p95": 306.0
+          },
+          "hit_at_5": 0.0,
+          "judged_query_count": 12,
+          "latency_ms": {
+            "count": 12,
+            "mean": 137.65470000119726,
+            "p50": 137.8123000031337,
+            "p95": 163.1035000027623
+          },
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 12,
+            "mean": 26627.166666666668,
+            "p50": 26628.0,
+            "p95": 26688.0
+          },
+          "payload_tokens": {
+            "count": 12,
+            "mean": 6962.583333333333,
+            "p50": 6965.0,
+            "p95": 6985.0
+          },
+          "query_class": "multi-hop",
+          "query_count": 12,
+          "recall_at_5": 0.0,
+          "run_row_count": 36
+        },
+        "negative": {
+          "citation_precision": 0.0,
+          "citation_recall": null,
+          "context_tokens": {
+            "count": 5,
+            "mean": 306.0,
+            "p50": 306.0,
+            "p95": 306.0
+          },
+          "hit_at_5": null,
+          "judged_query_count": 0,
+          "latency_ms": {
+            "count": 5,
+            "mean": 146.71778000192717,
+            "p50": 146.0164000018267,
+            "p95": 154.04080000007525
+          },
+          "mrr": null,
+          "ndcg_at_10": null,
+          "negative_false_positive_rate": 1.0,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26628.0,
+            "p50": 26623.0,
+            "p95": 26652.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6937.6,
+            "p50": 6934.0,
+            "p95": 6950.0
+          },
+          "query_class": "negative",
+          "query_count": 5,
+          "recall_at_5": null,
+          "run_row_count": 15
+        }
+      },
+      "query_count": 55,
+      "recall_at_5": 0.0,
+      "run_id": "generic_shadow_managed_off_cold_service_context_orientation",
+      "run_row_count": 165,
+      "surface": "service-context-orientation"
+    },
+    "generic_shadow_managed_off_cold_service_search_read": {
+      "citation_precision": 0.36466165413533835,
+      "citation_recall": 0.7404580152671756,
+      "context_tokens": {
+        "count": 55,
+        "mean": 1551.5272727272727,
+        "p50": 1577.0,
+        "p95": 1875.0
+      },
+      "evaluation_mode": "retrieval",
+      "hit_at_5": 0.96,
+      "judged_query_count": 50,
+      "latency_ms": {
+        "count": 55,
+        "mean": 343.9825854534072,
+        "p50": 321.77470000169706,
+        "p95": 633.7723000033293
+      },
+      "mrr": 0.8533333333333333,
+      "ndcg_at_10": 0.803672085960677,
+      "negative_false_positive_rate": 1.0,
+      "payload_bytes": {
+        "count": 55,
+        "mean": 5868.6,
+        "p50": 6023.0,
+        "p95": 7040.0
+      },
+      "payload_tokens": {
+        "count": 55,
+        "mean": 1543.8909090909092,
+        "p50": 1569.0,
+        "p95": 1867.0
+      },
+      "query_classes": {
+        "citation": {
+          "citation_precision": 0.4888888888888889,
+          "citation_recall": 0.9166666666666666,
+          "context_tokens": {
+            "count": 9,
+            "mean": 1550.6666666666667,
+            "p50": 1551.0,
+            "p95": 1866.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 9,
+          "latency_ms": {
+            "count": 9,
+            "mean": 351.6814777766639,
+            "p50": 340.29789999476634,
+            "p95": 437.1275000012247
+          },
+          "mrr": 0.9444444444444444,
+          "ndcg_at_10": 0.8992709030444319,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 9,
+            "mean": 5902.555555555556,
+            "p50": 6021.0,
+            "p95": 6916.0
+          },
+          "payload_tokens": {
+            "count": 9,
+            "mean": 1542.6666666666667,
+            "p50": 1543.0,
+            "p95": 1858.0
+          },
+          "query_class": "citation",
+          "query_count": 9,
+          "recall_at_5": 0.9351851851851851,
+          "run_row_count": 45
+        },
+        "global-map": {
+          "citation_precision": 0.44,
+          "citation_recall": 0.4583333333333333,
+          "context_tokens": {
+            "count": 5,
+            "mean": 1545.2,
+            "p50": 1563.0,
+            "p95": 1669.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 5,
+          "latency_ms": {
+            "count": 5,
+            "mean": 218.74052000057418,
+            "p50": 215.4003999894485,
+            "p95": 255.83830001414753
+          },
+          "mrr": 0.5166666666666667,
+          "ndcg_at_10": 0.4005847571724505,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 5936.2,
+            "p50": 6075.0,
+            "p95": 6146.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 1537.2,
+            "p50": 1555.0,
+            "p95": 1661.0
+          },
+          "query_class": "global-map",
+          "query_count": 5,
+          "recall_at_5": 0.5785714285714285,
+          "run_row_count": 25
+        },
+        "known-item": {
+          "citation_precision": 0.3125,
+          "citation_recall": 0.9615384615384616,
+          "context_tokens": {
+            "count": 16,
+            "mean": 1612.8125,
+            "p50": 1641.0,
+            "p95": 1967.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 16,
+          "latency_ms": {
+            "count": 16,
+            "mean": 356.4637187491826,
+            "p50": 318.6132999981055,
+            "p95": 578.4873999946285
+          },
+          "mrr": 0.9270833333333334,
+          "ndcg_at_10": 0.887475551107509,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 16,
+            "mean": 6060.875,
+            "p50": 6076.0,
+            "p95": 7230.0
+          },
+          "payload_tokens": {
+            "count": 16,
+            "mean": 1604.8125,
+            "p50": 1633.0,
+            "p95": 1959.0
+          },
+          "query_class": "known-item",
+          "query_count": 16,
+          "recall_at_5": 0.9791666666666666,
+          "run_row_count": 80
+        },
+        "korean-numeric": {
+          "citation_precision": 0.3548387096774194,
+          "citation_recall": 0.7333333333333333,
+          "context_tokens": {
+            "count": 8,
+            "mean": 1387.125,
+            "p50": 1804.0,
+            "p95": 1929.0
+          },
+          "hit_at_5": 0.875,
+          "judged_query_count": 8,
+          "latency_ms": {
+            "count": 8,
+            "mean": 368.65552499875776,
+            "p50": 264.04639999964274,
+            "p95": 807.9540000035195
+          },
+          "mrr": 0.8125,
+          "ndcg_at_10": 0.8143499121567886,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 8,
+            "mean": 5093.75,
+            "p50": 6526.0,
+            "p95": 7051.0
+          },
+          "payload_tokens": {
+            "count": 8,
+            "mean": 1381.625,
+            "p50": 1796.0,
+            "p95": 1921.0
+          },
+          "query_class": "korean-numeric",
+          "query_count": 8,
+          "recall_at_5": 0.8333333333333334,
+          "run_row_count": 31
+        },
+        "multi-hop": {
+          "citation_precision": 0.4666666666666667,
+          "citation_recall": 0.6666666666666666,
+          "context_tokens": {
+            "count": 12,
+            "mean": 1623.8333333333333,
+            "p50": 1555.0,
+            "p95": 1875.0
+          },
+          "hit_at_5": 0.9166666666666666,
+          "judged_query_count": 12,
+          "latency_ms": {
+            "count": 12,
+            "mean": 352.8358916628349,
+            "p50": 335.9070000005886,
+            "p95": 447.6721999963047
+          },
+          "mrr": 0.8541666666666666,
+          "ndcg_at_10": 0.7810695224831049,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 12,
+            "mean": 6135.833333333333,
+            "p50": 5782.0,
+            "p95": 7040.0
+          },
+          "payload_tokens": {
+            "count": 12,
+            "mean": 1615.8333333333333,
+            "p50": 1547.0,
+            "p95": 1867.0
+          },
+          "query_class": "multi-hop",
+          "query_count": 12,
+          "recall_at_5": 0.7673611111111112,
+          "run_row_count": 60
+        },
+        "negative": {
+          "citation_precision": 0.0,
+          "citation_recall": null,
+          "context_tokens": {
+            "count": 5,
+            "mean": 1452.8,
+            "p50": 1445.0,
+            "p95": 1560.0
+          },
+          "hit_at_5": null,
+          "judged_query_count": 0,
+          "latency_ms": {
+            "count": 5,
+            "mean": 354.7023800027091,
+            "p50": 241.85730000317562,
+            "p95": 633.7723000033293
+          },
+          "mrr": null,
+          "ndcg_at_10": null,
+          "negative_false_positive_rate": 1.0,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 5723.0,
+            "p50": 5717.0,
+            "p95": 6005.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 1444.8,
+            "p50": 1437.0,
+            "p95": 1552.0
+          },
+          "query_class": "negative",
+          "query_count": 5,
+          "recall_at_5": null,
+          "run_row_count": 25
+        }
+      },
+      "query_count": 55,
+      "recall_at_5": 0.8570238095238095,
+      "run_id": "generic_shadow_managed_off_cold_service_search_read",
+      "run_row_count": 266,
+      "surface": "service-search-read"
+    },
+    "generic_shadow_managed_off_primed_service_context": {
+      "citation_precision": 0.36466165413533835,
+      "citation_recall": 0.7404580152671756,
+      "context_tokens": {
+        "count": 55,
+        "mean": 533.4,
+        "p50": 551.0,
+        "p95": 572.0
+      },
+      "evaluation_mode": "retrieval",
+      "hit_at_5": 0.96,
+      "judged_query_count": 50,
+      "latency_ms": {
+        "count": 55,
+        "mean": 38.215203636156566,
+        "p50": 32.72689999721479,
+        "p95": 77.34030000574421
+      },
+      "mrr": 0.8533333333333333,
+      "ndcg_at_10": 0.803672085960677,
+      "negative_false_positive_rate": 1.0,
+      "payload_bytes": {
+        "count": 55,
+        "mean": 26104.70909090909,
+        "p50": 26623.0,
+        "p95": 26679.0
+      },
+      "payload_tokens": {
+        "count": 55,
+        "mean": 6826.509090909091,
+        "p50": 6963.0,
+        "p95": 6991.0
+      },
+      "query_classes": {
+        "citation": {
+          "citation_precision": 0.4888888888888889,
+          "citation_recall": 0.9166666666666666,
+          "context_tokens": {
+            "count": 9,
+            "mean": 550.0,
+            "p50": 547.0,
+            "p95": 581.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 9,
+          "latency_ms": {
+            "count": 9,
+            "mean": 36.33391111280717,
+            "p50": 35.89690000808332,
+            "p95": 45.81049999978859
+          },
+          "mrr": 0.9444444444444444,
+          "ndcg_at_10": 0.8992709030444319,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 9,
+            "mean": 26636.666666666668,
+            "p50": 26635.0,
+            "p95": 26691.0
+          },
+          "payload_tokens": {
+            "count": 9,
+            "mean": 6961.555555555556,
+            "p50": 6956.0,
+            "p95": 6991.0
+          },
+          "query_class": "citation",
+          "query_count": 9,
+          "recall_at_5": 0.9351851851851851,
+          "run_row_count": 45
+        },
+        "global-map": {
+          "citation_precision": 0.44,
+          "citation_recall": 0.4583333333333333,
+          "context_tokens": {
+            "count": 5,
+            "mean": 545.0,
+            "p50": 541.0,
+            "p95": 562.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 5,
+          "latency_ms": {
+            "count": 5,
+            "mean": 60.076780000235885,
+            "p50": 57.52990000473801,
+            "p95": 77.34030000574421
+          },
+          "mrr": 0.5166666666666667,
+          "ndcg_at_10": 0.4005847571724505,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26621.0,
+            "p50": 26626.0,
+            "p95": 26660.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6954.8,
+            "p50": 6953.0,
+            "p95": 6972.0
+          },
+          "query_class": "global-map",
+          "query_count": 5,
+          "recall_at_5": 0.5785714285714285,
+          "run_row_count": 25
+        },
+        "known-item": {
+          "citation_precision": 0.3125,
+          "citation_recall": 0.9615384615384616,
+          "context_tokens": {
+            "count": 16,
+            "mean": 553.4375,
+            "p50": 554.0,
+            "p95": 567.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 16,
+          "latency_ms": {
+            "count": 16,
+            "mean": 42.92984375024389,
+            "p50": 31.59100000630133,
+            "p95": 85.15250000345986
+          },
+          "mrr": 0.9270833333333334,
+          "ndcg_at_10": 0.887475551107509,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 16,
+            "mean": 26603.0,
+            "p50": 26593.0,
+            "p95": 26674.0
+          },
+          "payload_tokens": {
+            "count": 16,
+            "mean": 6960.125,
+            "p50": 6965.0,
+            "p95": 6975.0
+          },
+          "query_class": "known-item",
+          "query_count": 16,
+          "recall_at_5": 0.9791666666666666,
+          "run_row_count": 80
+        },
+        "korean-numeric": {
+          "citation_precision": 0.3548387096774194,
+          "citation_recall": 0.7333333333333333,
+          "context_tokens": {
+            "count": 8,
+            "mean": 439.75,
+            "p50": 560.0,
+            "p95": 578.0
+          },
+          "hit_at_5": 0.875,
+          "judged_query_count": 8,
+          "latency_ms": {
+            "count": 8,
+            "mean": 29.643149999174057,
+            "p50": 32.21710000070743,
+            "p95": 39.2606999957934
+          },
+          "mrr": 0.8125,
+          "ndcg_at_10": 0.8143499121567886,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 8,
+            "mean": 23076.25,
+            "p50": 26582.0,
+            "p95": 26630.0
+          },
+          "payload_tokens": {
+            "count": 8,
+            "mean": 6053.625,
+            "p50": 6979.0,
+            "p95": 6994.0
+          },
+          "query_class": "korean-numeric",
+          "query_count": 8,
+          "recall_at_5": 0.8333333333333334,
+          "run_row_count": 31
+        },
+        "multi-hop": {
+          "citation_precision": 0.4666666666666667,
+          "citation_recall": 0.6666666666666666,
+          "context_tokens": {
+            "count": 12,
+            "mean": 551.4166666666666,
+            "p50": 551.0,
+            "p95": 572.0
+          },
+          "hit_at_5": 0.9166666666666666,
+          "judged_query_count": 12,
+          "latency_ms": {
+            "count": 12,
+            "mean": 33.72934999788413,
+            "p50": 30.052700007217936,
+            "p95": 46.58509998989757
+          },
+          "mrr": 0.8541666666666666,
+          "ndcg_at_10": 0.7810695224831049,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 12,
+            "mean": 26627.166666666668,
+            "p50": 26628.0,
+            "p95": 26688.0
+          },
+          "payload_tokens": {
+            "count": 12,
+            "mean": 6962.583333333333,
+            "p50": 6965.0,
+            "p95": 6985.0
+          },
+          "query_class": "multi-hop",
+          "query_count": 12,
+          "recall_at_5": 0.7673611111111112,
+          "run_row_count": 60
+        },
+        "negative": {
+          "citation_precision": 0.0,
+          "citation_recall": null,
+          "context_tokens": {
+            "count": 5,
+            "mean": 534.4,
+            "p50": 531.0,
+            "p95": 548.0
+          },
+          "hit_at_5": null,
+          "judged_query_count": 0,
+          "latency_ms": {
+            "count": 5,
+            "mean": 29.134440000052564,
+            "p50": 29.279599999426864,
+            "p95": 29.447900000377558
+          },
+          "mrr": null,
+          "ndcg_at_10": null,
+          "negative_false_positive_rate": 1.0,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26628.0,
+            "p50": 26623.0,
+            "p95": 26652.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6937.6,
+            "p50": 6934.0,
+            "p95": 6950.0
+          },
+          "query_class": "negative",
+          "query_count": 5,
+          "recall_at_5": null,
+          "run_row_count": 25
+        }
+      },
+      "query_count": 55,
+      "recall_at_5": 0.8570238095238095,
+      "run_id": "generic_shadow_managed_off_primed_service_context",
+      "run_row_count": 266,
+      "surface": "service-context"
+    },
+    "generic_shadow_managed_off_primed_service_context_bundle": {
+      "evaluation_mode": "telemetry-only",
+      "latency_ms": {
+        "count": 55,
+        "mean": 40.373147272674196,
+        "p50": 33.78969999903347,
+        "p95": 90.49590000358876
+      },
+      "payload_bytes": {
+        "count": 55,
+        "mean": 26552.418181818182,
+        "p50": 26623.0,
+        "p95": 26679.0
+      },
+      "payload_tokens": {
+        "count": 55,
+        "mean": 6943.436363636363,
+        "p50": 6963.0,
+        "p95": 6991.0
+      },
+      "query_classes": {
+        "citation": {
+          "latency_ms": {
+            "count": 9,
+            "mean": 30.229444444153664,
+            "p50": 29.339200002141297,
+            "p95": 35.61429999535903
+          },
+          "payload_bytes": {
+            "count": 9,
+            "mean": 26636.666666666668,
+            "p50": 26635.0,
+            "p95": 26691.0
+          },
+          "payload_tokens": {
+            "count": 9,
+            "mean": 6961.555555555556,
+            "p50": 6956.0,
+            "p95": 6991.0
+          },
+          "query_class": "citation",
+          "query_count": 9,
+          "run_row_count": 69
+        },
+        "global-map": {
+          "latency_ms": {
+            "count": 5,
+            "mean": 62.00111999933142,
+            "p50": 70.66849998955149,
+            "p95": 71.95299999148119
+          },
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26621.0,
+            "p50": 26626.0,
+            "p95": 26660.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6954.8,
+            "p50": 6953.0,
+            "p95": 6972.0
+          },
+          "query_class": "global-map",
+          "query_count": 5,
+          "run_row_count": 39
+        },
+        "known-item": {
+          "latency_ms": {
+            "count": 16,
+            "mean": 49.332950000462006,
+            "p50": 36.18860000278801,
+            "p95": 94.43240000109654
+          },
+          "payload_bytes": {
+            "count": 16,
+            "mean": 26603.0,
+            "p50": 26593.0,
+            "p95": 26674.0
+          },
+          "payload_tokens": {
+            "count": 16,
+            "mean": 6960.125,
+            "p50": 6965.0,
+            "p95": 6975.0
+          },
+          "query_class": "known-item",
+          "query_count": 16,
+          "run_row_count": 121
+        },
+        "korean-numeric": {
+          "latency_ms": {
+            "count": 8,
+            "mean": 34.353837496382766,
+            "p50": 32.127699989359826,
+            "p95": 38.2231999974465
+          },
+          "payload_bytes": {
+            "count": 8,
+            "mean": 26154.25,
+            "p50": 26582.0,
+            "p95": 26630.0
+          },
+          "payload_tokens": {
+            "count": 8,
+            "mean": 6857.5,
+            "p50": 6979.0,
+            "p95": 6994.0
+          },
+          "query_class": "korean-numeric",
+          "query_count": 8,
+          "run_row_count": 53
+        },
+        "multi-hop": {
+          "latency_ms": {
+            "count": 12,
+            "mean": 34.332575002432954,
+            "p50": 33.14309999404941,
+            "p95": 41.18900001049042
+          },
+          "payload_bytes": {
+            "count": 12,
+            "mean": 26627.166666666668,
+            "p50": 26628.0,
+            "p95": 26688.0
+          },
+          "payload_tokens": {
+            "count": 12,
+            "mean": 6962.583333333333,
+            "p50": 6965.0,
+            "p95": 6985.0
+          },
+          "query_class": "multi-hop",
+          "query_count": 12,
+          "run_row_count": 93
+        },
+        "negative": {
+          "latency_ms": {
+            "count": 5,
+            "mean": 32.460739999078214,
+            "p50": 33.21549999236595,
+            "p95": 40.87040000013076
+          },
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26628.0,
+            "p50": 26623.0,
+            "p95": 26652.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6937.6,
+            "p50": 6934.0,
+            "p95": 6950.0
+          },
+          "query_class": "negative",
+          "query_count": 5,
+          "run_row_count": 35
+        }
+      },
+      "query_count": 55,
+      "run_id": "generic_shadow_managed_off_primed_service_context_bundle",
+      "run_row_count": 410,
+      "surface": "service-context-bundle"
+    },
+    "generic_shadow_managed_off_primed_service_context_orientation": {
+      "citation_precision": 0.0,
+      "citation_recall": 0.0,
+      "context_tokens": {
+        "count": 55,
+        "mean": 306.0,
+        "p50": 306.0,
+        "p95": 306.0
+      },
+      "evaluation_mode": "retrieval",
+      "hit_at_5": 0.0,
+      "judged_query_count": 50,
+      "latency_ms": {
+        "count": 55,
+        "mean": 47.96841090904888,
+        "p50": 39.09089999797288,
+        "p95": 83.64100000471808
+      },
+      "mrr": 0.0,
+      "ndcg_at_10": 0.0,
+      "negative_false_positive_rate": 1.0,
+      "payload_bytes": {
+        "count": 55,
+        "mean": 26552.418181818182,
+        "p50": 26623.0,
+        "p95": 26679.0
+      },
+      "payload_tokens": {
+        "count": 55,
+        "mean": 6943.436363636363,
+        "p50": 6963.0,
+        "p95": 6991.0
+      },
+      "query_classes": {
+        "citation": {
+          "citation_precision": 0.0,
+          "citation_recall": 0.0,
+          "context_tokens": {
+            "count": 9,
+            "mean": 306.0,
+            "p50": 306.0,
+            "p95": 306.0
+          },
+          "hit_at_5": 0.0,
+          "judged_query_count": 9,
+          "latency_ms": {
+            "count": 9,
+            "mean": 34.01558889082581,
+            "p50": 30.258900005719624,
+            "p95": 49.66229999263305
+          },
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 9,
+            "mean": 26636.666666666668,
+            "p50": 26635.0,
+            "p95": 26691.0
+          },
+          "payload_tokens": {
+            "count": 9,
+            "mean": 6961.555555555556,
+            "p50": 6956.0,
+            "p95": 6991.0
+          },
+          "query_class": "citation",
+          "query_count": 9,
+          "recall_at_5": 0.0,
+          "run_row_count": 27
+        },
+        "global-map": {
+          "citation_precision": 0.0,
+          "citation_recall": 0.0,
+          "context_tokens": {
+            "count": 5,
+            "mean": 306.0,
+            "p50": 306.0,
+            "p95": 306.0
+          },
+          "hit_at_5": 0.0,
+          "judged_query_count": 5,
+          "latency_ms": {
+            "count": 5,
+            "mean": 79.10632000421174,
+            "p50": 75.42589999502525,
+            "p95": 93.9801000058651
+          },
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26621.0,
+            "p50": 26626.0,
+            "p95": 26660.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6954.8,
+            "p50": 6953.0,
+            "p95": 6972.0
+          },
+          "query_class": "global-map",
+          "query_count": 5,
+          "recall_at_5": 0.0,
+          "run_row_count": 15
+        },
+        "known-item": {
+          "citation_precision": 0.0,
+          "citation_recall": 0.0,
+          "context_tokens": {
+            "count": 16,
+            "mean": 306.0,
+            "p50": 306.0,
+            "p95": 306.0
+          },
+          "hit_at_5": 0.0,
+          "judged_query_count": 16,
+          "latency_ms": {
+            "count": 16,
+            "mean": 51.5428812477694,
+            "p50": 39.09089999797288,
+            "p95": 79.43040000100154
+          },
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 16,
+            "mean": 26603.0,
+            "p50": 26593.0,
+            "p95": 26674.0
+          },
+          "payload_tokens": {
+            "count": 16,
+            "mean": 6960.125,
+            "p50": 6965.0,
+            "p95": 6975.0
+          },
+          "query_class": "known-item",
+          "query_count": 16,
+          "recall_at_5": 0.0,
+          "run_row_count": 48
+        },
+        "korean-numeric": {
+          "citation_precision": 0.0,
+          "citation_recall": 0.0,
+          "context_tokens": {
+            "count": 8,
+            "mean": 306.0,
+            "p50": 306.0,
+            "p95": 306.0
+          },
+          "hit_at_5": 0.0,
+          "judged_query_count": 8,
+          "latency_ms": {
+            "count": 8,
+            "mean": 40.775324998321594,
+            "p50": 37.500699996598996,
+            "p95": 68.69800000276882
+          },
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 8,
+            "mean": 26154.25,
+            "p50": 26582.0,
+            "p95": 26630.0
+          },
+          "payload_tokens": {
+            "count": 8,
+            "mean": 6857.5,
+            "p50": 6979.0,
+            "p95": 6994.0
+          },
+          "query_class": "korean-numeric",
+          "query_count": 8,
+          "recall_at_5": 0.0,
+          "run_row_count": 24
+        },
+        "multi-hop": {
+          "citation_precision": 0.0,
+          "citation_recall": 0.0,
+          "context_tokens": {
+            "count": 12,
+            "mean": 306.0,
+            "p50": 306.0,
+            "p95": 306.0
+          },
+          "hit_at_5": 0.0,
+          "judged_query_count": 12,
+          "latency_ms": {
+            "count": 12,
+            "mean": 35.02550833460797,
+            "p50": 34.86929999780841,
+            "p95": 44.09870000381488
+          },
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 12,
+            "mean": 26627.166666666668,
+            "p50": 26628.0,
+            "p95": 26688.0
+          },
+          "payload_tokens": {
+            "count": 12,
+            "mean": 6962.583333333333,
+            "p50": 6965.0,
+            "p95": 6985.0
+          },
+          "query_class": "multi-hop",
+          "query_count": 12,
+          "recall_at_5": 0.0,
+          "run_row_count": 36
+        },
+        "negative": {
+          "citation_precision": 0.0,
+          "citation_recall": null,
+          "context_tokens": {
+            "count": 5,
+            "mean": 306.0,
+            "p50": 306.0,
+            "p95": 306.0
+          },
+          "hit_at_5": null,
+          "judged_query_count": 0,
+          "latency_ms": {
+            "count": 5,
+            "mean": 73.07917999860365,
+            "p50": 73.55699999607168,
+            "p95": 83.64100000471808
+          },
+          "mrr": null,
+          "ndcg_at_10": null,
+          "negative_false_positive_rate": 1.0,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26628.0,
+            "p50": 26623.0,
+            "p95": 26652.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6937.6,
+            "p50": 6934.0,
+            "p95": 6950.0
+          },
+          "query_class": "negative",
+          "query_count": 5,
+          "recall_at_5": null,
+          "run_row_count": 15
+        }
+      },
+      "query_count": 55,
+      "recall_at_5": 0.0,
+      "run_id": "generic_shadow_managed_off_primed_service_context_orientation",
+      "run_row_count": 165,
+      "surface": "service-context-orientation"
+    },
+    "generic_shadow_managed_off_primed_service_search_read": {
+      "citation_precision": 0.36466165413533835,
+      "citation_recall": 0.7404580152671756,
+      "context_tokens": {
+        "count": 55,
+        "mean": 1551.5272727272727,
+        "p50": 1577.0,
+        "p95": 1875.0
+      },
+      "evaluation_mode": "retrieval",
+      "hit_at_5": 0.96,
+      "judged_query_count": 50,
+      "latency_ms": {
+        "count": 55,
+        "mean": 332.3158799993425,
+        "p50": 382.8168000036385,
+        "p95": 452.5711999885971
+      },
+      "mrr": 0.8533333333333333,
+      "ndcg_at_10": 0.803672085960677,
+      "negative_false_positive_rate": 1.0,
+      "payload_bytes": {
+        "count": 55,
+        "mean": 5868.6,
+        "p50": 6023.0,
+        "p95": 7040.0
+      },
+      "payload_tokens": {
+        "count": 55,
+        "mean": 1543.8909090909092,
+        "p50": 1569.0,
+        "p95": 1867.0
+      },
+      "query_classes": {
+        "citation": {
+          "citation_precision": 0.4888888888888889,
+          "citation_recall": 0.9166666666666666,
+          "context_tokens": {
+            "count": 9,
+            "mean": 1550.6666666666667,
+            "p50": 1551.0,
+            "p95": 1866.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 9,
+          "latency_ms": {
+            "count": 9,
+            "mean": 372.01615555871587,
+            "p50": 370.2773000113666,
+            "p95": 456.6779000015231
+          },
+          "mrr": 0.9444444444444444,
+          "ndcg_at_10": 0.8992709030444319,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 9,
+            "mean": 5902.555555555556,
+            "p50": 6021.0,
+            "p95": 6916.0
+          },
+          "payload_tokens": {
+            "count": 9,
+            "mean": 1542.6666666666667,
+            "p50": 1543.0,
+            "p95": 1858.0
+          },
+          "query_class": "citation",
+          "query_count": 9,
+          "recall_at_5": 0.9351851851851851,
+          "run_row_count": 45
+        },
+        "global-map": {
+          "citation_precision": 0.44,
+          "citation_recall": 0.4583333333333333,
+          "context_tokens": {
+            "count": 5,
+            "mean": 1545.2,
+            "p50": 1563.0,
+            "p95": 1669.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 5,
+          "latency_ms": {
+            "count": 5,
+            "mean": 326.0751399997389,
+            "p50": 375.94530000933446,
+            "p95": 436.0848999931477
+          },
+          "mrr": 0.5166666666666667,
+          "ndcg_at_10": 0.4005847571724505,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 5936.2,
+            "p50": 6075.0,
+            "p95": 6146.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 1537.2,
+            "p50": 1555.0,
+            "p95": 1661.0
+          },
+          "query_class": "global-map",
+          "query_count": 5,
+          "recall_at_5": 0.5785714285714285,
+          "run_row_count": 25
+        },
+        "known-item": {
+          "citation_precision": 0.3125,
+          "citation_recall": 0.9615384615384616,
+          "context_tokens": {
+            "count": 16,
+            "mean": 1612.8125,
+            "p50": 1641.0,
+            "p95": 1967.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 16,
+          "latency_ms": {
+            "count": 16,
+            "mean": 339.4396562480324,
+            "p50": 376.4534000074491,
+            "p95": 456.5565999946557
+          },
+          "mrr": 0.9270833333333334,
+          "ndcg_at_10": 0.887475551107509,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 16,
+            "mean": 6060.875,
+            "p50": 6076.0,
+            "p95": 7230.0
+          },
+          "payload_tokens": {
+            "count": 16,
+            "mean": 1604.8125,
+            "p50": 1633.0,
+            "p95": 1959.0
+          },
+          "query_class": "known-item",
+          "query_count": 16,
+          "recall_at_5": 0.9791666666666666,
+          "run_row_count": 80
+        },
+        "korean-numeric": {
+          "citation_precision": 0.3548387096774194,
+          "citation_recall": 0.7333333333333333,
+          "context_tokens": {
+            "count": 8,
+            "mean": 1387.125,
+            "p50": 1804.0,
+            "p95": 1929.0
+          },
+          "hit_at_5": 0.875,
+          "judged_query_count": 8,
+          "latency_ms": {
+            "count": 8,
+            "mean": 323.67688749764056,
+            "p50": 396.1970999953337,
+            "p95": 450.5878999916604
+          },
+          "mrr": 0.8125,
+          "ndcg_at_10": 0.8143499121567886,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 8,
+            "mean": 5093.75,
+            "p50": 6526.0,
+            "p95": 7051.0
+          },
+          "payload_tokens": {
+            "count": 8,
+            "mean": 1381.625,
+            "p50": 1796.0,
+            "p95": 1921.0
+          },
+          "query_class": "korean-numeric",
+          "query_count": 8,
+          "recall_at_5": 0.8333333333333334,
+          "run_row_count": 31
+        },
+        "multi-hop": {
+          "citation_precision": 0.4666666666666667,
+          "citation_recall": 0.6666666666666666,
+          "context_tokens": {
+            "count": 12,
+            "mean": 1623.8333333333333,
+            "p50": 1555.0,
+            "p95": 1875.0
+          },
+          "hit_at_5": 0.9166666666666666,
+          "judged_query_count": 12,
+          "latency_ms": {
+            "count": 12,
+            "mean": 288.7119749999935,
+            "p50": 200.17430000007153,
+            "p95": 452.5711999885971
+          },
+          "mrr": 0.8541666666666666,
+          "ndcg_at_10": 0.7810695224831049,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 12,
+            "mean": 6135.833333333333,
+            "p50": 5782.0,
+            "p95": 7040.0
+          },
+          "payload_tokens": {
+            "count": 12,
+            "mean": 1615.8333333333333,
+            "p50": 1547.0,
+            "p95": 1867.0
+          },
+          "query_class": "multi-hop",
+          "query_count": 12,
+          "recall_at_5": 0.7673611111111112,
+          "run_row_count": 60
+        },
+        "negative": {
+          "citation_precision": 0.0,
+          "citation_recall": null,
+          "context_tokens": {
+            "count": 5,
+            "mean": 1452.8,
+            "p50": 1445.0,
+            "p95": 1560.0
+          },
+          "hit_at_5": null,
+          "judged_query_count": 0,
+          "latency_ms": {
+            "count": 5,
+            "mean": 362.77179999742657,
+            "p50": 404.4872999947984,
+            "p95": 438.4165999945253
+          },
+          "mrr": null,
+          "ndcg_at_10": null,
+          "negative_false_positive_rate": 1.0,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 5723.0,
+            "p50": 5717.0,
+            "p95": 6005.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 1444.8,
+            "p50": 1437.0,
+            "p95": 1552.0
+          },
+          "query_class": "negative",
+          "query_count": 5,
+          "recall_at_5": null,
+          "run_row_count": 25
+        }
+      },
+      "query_count": 55,
+      "recall_at_5": 0.8570238095238095,
+      "run_id": "generic_shadow_managed_off_primed_service_search_read",
+      "run_row_count": 266,
+      "surface": "service-search-read"
+    },
+    "generic_shadow_managed_off_warm_service_context": {
+      "citation_precision": 0.36466165413533835,
+      "citation_recall": 0.7404580152671756,
+      "context_tokens": {
+        "count": 55,
+        "mean": 533.4,
+        "p50": 551.0,
+        "p95": 572.0
+      },
+      "evaluation_mode": "retrieval",
+      "hit_at_5": 0.96,
+      "judged_query_count": 50,
+      "latency_ms": {
+        "count": 55,
+        "mean": 32.9184127273038,
+        "p50": 31.367200004751794,
+        "p95": 52.31590000039432
+      },
+      "mrr": 0.8533333333333333,
+      "ndcg_at_10": 0.803672085960677,
+      "negative_false_positive_rate": 1.0,
+      "payload_bytes": {
+        "count": 55,
+        "mean": 26104.70909090909,
+        "p50": 26623.0,
+        "p95": 26679.0
+      },
+      "payload_tokens": {
+        "count": 55,
+        "mean": 6826.509090909091,
+        "p50": 6963.0,
+        "p95": 6991.0
+      },
+      "query_classes": {
+        "citation": {
+          "citation_precision": 0.4888888888888889,
+          "citation_recall": 0.9166666666666666,
+          "context_tokens": {
+            "count": 9,
+            "mean": 550.0,
+            "p50": 547.0,
+            "p95": 581.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 9,
+          "latency_ms": {
+            "count": 9,
+            "mean": 36.978722221748384,
+            "p50": 36.48159999283962,
+            "p95": 54.17519999900833
+          },
+          "mrr": 0.9444444444444444,
+          "ndcg_at_10": 0.8992709030444319,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 9,
+            "mean": 26636.666666666668,
+            "p50": 26635.0,
+            "p95": 26691.0
+          },
+          "payload_tokens": {
+            "count": 9,
+            "mean": 6961.555555555556,
+            "p50": 6956.0,
+            "p95": 6991.0
+          },
+          "query_class": "citation",
+          "query_count": 9,
+          "recall_at_5": 0.9351851851851851,
+          "run_row_count": 45
+        },
+        "global-map": {
+          "citation_precision": 0.44,
+          "citation_recall": 0.4583333333333333,
+          "context_tokens": {
+            "count": 5,
+            "mean": 545.0,
+            "p50": 541.0,
+            "p95": 562.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 5,
+          "latency_ms": {
+            "count": 5,
+            "mean": 31.897920000483282,
+            "p50": 32.097400006023236,
+            "p95": 33.193800001754425
+          },
+          "mrr": 0.5166666666666667,
+          "ndcg_at_10": 0.4005847571724505,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26621.0,
+            "p50": 26626.0,
+            "p95": 26660.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6954.8,
+            "p50": 6953.0,
+            "p95": 6972.0
+          },
+          "query_class": "global-map",
+          "query_count": 5,
+          "recall_at_5": 0.5785714285714285,
+          "run_row_count": 25
+        },
+        "known-item": {
+          "citation_precision": 0.3125,
+          "citation_recall": 0.9615384615384616,
+          "context_tokens": {
+            "count": 16,
+            "mean": 553.4375,
+            "p50": 554.0,
+            "p95": 567.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 16,
+          "latency_ms": {
+            "count": 16,
+            "mean": 29.345237499001087,
+            "p50": 29.071899989503436,
+            "p95": 35.560499993152916
+          },
+          "mrr": 0.9270833333333334,
+          "ndcg_at_10": 0.887475551107509,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 16,
+            "mean": 26603.0,
+            "p50": 26593.0,
+            "p95": 26674.0
+          },
+          "payload_tokens": {
+            "count": 16,
+            "mean": 6960.125,
+            "p50": 6965.0,
+            "p95": 6975.0
+          },
+          "query_class": "known-item",
+          "query_count": 16,
+          "recall_at_5": 0.9791666666666666,
+          "run_row_count": 80
+        },
+        "korean-numeric": {
+          "citation_precision": 0.3548387096774194,
+          "citation_recall": 0.7333333333333333,
+          "context_tokens": {
+            "count": 8,
+            "mean": 439.75,
+            "p50": 560.0,
+            "p95": 578.0
+          },
+          "hit_at_5": 0.875,
+          "judged_query_count": 8,
+          "latency_ms": {
+            "count": 8,
+            "mean": 32.76293750059267,
+            "p50": 30.123499993351288,
+            "p95": 52.31590000039432
+          },
+          "mrr": 0.8125,
+          "ndcg_at_10": 0.8143499121567886,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 8,
+            "mean": 23076.25,
+            "p50": 26582.0,
+            "p95": 26630.0
+          },
+          "payload_tokens": {
+            "count": 8,
+            "mean": 6053.625,
+            "p50": 6979.0,
+            "p95": 6994.0
+          },
+          "query_class": "korean-numeric",
+          "query_count": 8,
+          "recall_at_5": 0.8333333333333334,
+          "run_row_count": 31
+        },
+        "multi-hop": {
+          "citation_precision": 0.4666666666666667,
+          "citation_recall": 0.6666666666666666,
+          "context_tokens": {
+            "count": 12,
+            "mean": 551.4166666666666,
+            "p50": 551.0,
+            "p95": 572.0
+          },
+          "hit_at_5": 0.9166666666666666,
+          "judged_query_count": 12,
+          "latency_ms": {
+            "count": 12,
+            "mean": 34.83733333268901,
+            "p50": 33.551800006534904,
+            "p95": 58.08299999625888
+          },
+          "mrr": 0.8541666666666666,
+          "ndcg_at_10": 0.7810695224831049,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 12,
+            "mean": 26627.166666666668,
+            "p50": 26628.0,
+            "p95": 26688.0
+          },
+          "payload_tokens": {
+            "count": 12,
+            "mean": 6962.583333333333,
+            "p50": 6965.0,
+            "p95": 6985.0
+          },
+          "query_class": "multi-hop",
+          "query_count": 12,
+          "recall_at_5": 0.7673611111111112,
+          "run_row_count": 60
+        },
+        "negative": {
+          "citation_precision": 0.0,
+          "citation_recall": null,
+          "context_tokens": {
+            "count": 5,
+            "mean": 534.4,
+            "p50": 531.0,
+            "p95": 548.0
+          },
+          "hit_at_5": null,
+          "judged_query_count": 0,
+          "latency_ms": {
+            "count": 5,
+            "mean": 33.707860004506074,
+            "p50": 33.745799999451265,
+            "p95": 38.38940001151059
+          },
+          "mrr": null,
+          "ndcg_at_10": null,
+          "negative_false_positive_rate": 1.0,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26628.0,
+            "p50": 26623.0,
+            "p95": 26652.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6937.6,
+            "p50": 6934.0,
+            "p95": 6950.0
+          },
+          "query_class": "negative",
+          "query_count": 5,
+          "recall_at_5": null,
+          "run_row_count": 25
+        }
+      },
+      "query_count": 55,
+      "recall_at_5": 0.8570238095238095,
+      "run_id": "generic_shadow_managed_off_warm_service_context",
+      "run_row_count": 266,
+      "surface": "service-context"
+    },
+    "generic_shadow_managed_off_warm_service_context_bundle": {
+      "evaluation_mode": "telemetry-only",
+      "latency_ms": {
+        "count": 55,
+        "mean": 37.87989636396312,
+        "p50": 34.97980000975076,
+        "p95": 48.576600005617365
+      },
+      "payload_bytes": {
+        "count": 55,
+        "mean": 26552.418181818182,
+        "p50": 26623.0,
+        "p95": 26679.0
+      },
+      "payload_tokens": {
+        "count": 55,
+        "mean": 6943.436363636363,
+        "p50": 6963.0,
+        "p95": 6991.0
+      },
+      "query_classes": {
+        "citation": {
+          "latency_ms": {
+            "count": 9,
+            "mean": 51.24506666551396,
+            "p50": 43.73889999988023,
+            "p95": 104.94049999397248
+          },
+          "payload_bytes": {
+            "count": 9,
+            "mean": 26636.666666666668,
+            "p50": 26635.0,
+            "p95": 26691.0
+          },
+          "payload_tokens": {
+            "count": 9,
+            "mean": 6961.555555555556,
+            "p50": 6956.0,
+            "p95": 6991.0
+          },
+          "query_class": "citation",
+          "query_count": 9,
+          "run_row_count": 69
+        },
+        "global-map": {
+          "latency_ms": {
+            "count": 5,
+            "mean": 38.2449800032191,
+            "p50": 37.994199999957345,
+            "p95": 48.576600005617365
+          },
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26621.0,
+            "p50": 26626.0,
+            "p95": 26660.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6954.8,
+            "p50": 6953.0,
+            "p95": 6972.0
+          },
+          "query_class": "global-map",
+          "query_count": 5,
+          "run_row_count": 39
+        },
+        "known-item": {
+          "latency_ms": {
+            "count": 16,
+            "mean": 34.83845625214599,
+            "p50": 33.26190001098439,
+            "p95": 45.820900006219745
+          },
+          "payload_bytes": {
+            "count": 16,
+            "mean": 26603.0,
+            "p50": 26593.0,
+            "p95": 26674.0
+          },
+          "payload_tokens": {
+            "count": 16,
+            "mean": 6960.125,
+            "p50": 6965.0,
+            "p95": 6975.0
+          },
+          "query_class": "known-item",
+          "query_count": 16,
+          "run_row_count": 121
+        },
+        "korean-numeric": {
+          "latency_ms": {
+            "count": 8,
+            "mean": 37.109849998159916,
+            "p50": 34.97980000975076,
+            "p95": 48.50609999266453
+          },
+          "payload_bytes": {
+            "count": 8,
+            "mean": 26154.25,
+            "p50": 26582.0,
+            "p95": 26630.0
+          },
+          "payload_tokens": {
+            "count": 8,
+            "mean": 6857.5,
+            "p50": 6979.0,
+            "p95": 6994.0
+          },
+          "query_class": "korean-numeric",
+          "query_count": 8,
+          "run_row_count": 53
+        },
+        "multi-hop": {
+          "latency_ms": {
+            "count": 12,
+            "mean": 32.29473333218872,
+            "p50": 29.09409999847412,
+            "p95": 46.7338999878848
+          },
+          "payload_bytes": {
+            "count": 12,
+            "mean": 26627.166666666668,
+            "p50": 26628.0,
+            "p95": 26688.0
+          },
+          "payload_tokens": {
+            "count": 12,
+            "mean": 6962.583333333333,
+            "p50": 6965.0,
+            "p95": 6985.0
+          },
+          "query_class": "multi-hop",
+          "query_count": 12,
+          "run_row_count": 93
+        },
+        "negative": {
+          "latency_ms": {
+            "count": 5,
+            "mean": 37.826580001274124,
+            "p50": 37.693700011004694,
+            "p95": 41.4189000002807
+          },
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26628.0,
+            "p50": 26623.0,
+            "p95": 26652.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6937.6,
+            "p50": 6934.0,
+            "p95": 6950.0
+          },
+          "query_class": "negative",
+          "query_count": 5,
+          "run_row_count": 35
+        }
+      },
+      "query_count": 55,
+      "run_id": "generic_shadow_managed_off_warm_service_context_bundle",
+      "run_row_count": 410,
+      "surface": "service-context-bundle"
+    },
+    "generic_shadow_managed_off_warm_service_context_orientation": {
+      "citation_precision": 0.0,
+      "citation_recall": 0.0,
+      "context_tokens": {
+        "count": 55,
+        "mean": 306.0,
+        "p50": 306.0,
+        "p95": 306.0
+      },
+      "evaluation_mode": "retrieval",
+      "hit_at_5": 0.0,
+      "judged_query_count": 50,
+      "latency_ms": {
+        "count": 55,
+        "mean": 39.44024181930052,
+        "p50": 34.74590000405442,
+        "p95": 83.97120000154246
+      },
+      "mrr": 0.0,
+      "ndcg_at_10": 0.0,
+      "negative_false_positive_rate": 1.0,
+      "payload_bytes": {
+        "count": 55,
+        "mean": 26552.418181818182,
+        "p50": 26623.0,
+        "p95": 26679.0
+      },
+      "payload_tokens": {
+        "count": 55,
+        "mean": 6943.436363636363,
+        "p50": 6963.0,
+        "p95": 6991.0
+      },
+      "query_classes": {
+        "citation": {
+          "citation_precision": 0.0,
+          "citation_recall": 0.0,
+          "context_tokens": {
+            "count": 9,
+            "mean": 306.0,
+            "p50": 306.0,
+            "p95": 306.0
+          },
+          "hit_at_5": 0.0,
+          "judged_query_count": 9,
+          "latency_ms": {
+            "count": 9,
+            "mean": 29.59611111469308,
+            "p50": 28.899800003273413,
+            "p95": 35.31500000099186
+          },
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 9,
+            "mean": 26636.666666666668,
+            "p50": 26635.0,
+            "p95": 26691.0
+          },
+          "payload_tokens": {
+            "count": 9,
+            "mean": 6961.555555555556,
+            "p50": 6956.0,
+            "p95": 6991.0
+          },
+          "query_class": "citation",
+          "query_count": 9,
+          "recall_at_5": 0.0,
+          "run_row_count": 27
+        },
+        "global-map": {
+          "citation_precision": 0.0,
+          "citation_recall": 0.0,
+          "context_tokens": {
+            "count": 5,
+            "mean": 306.0,
+            "p50": 306.0,
+            "p95": 306.0
+          },
+          "hit_at_5": 0.0,
+          "judged_query_count": 5,
+          "latency_ms": {
+            "count": 5,
+            "mean": 36.41110000025947,
+            "p50": 35.61489999992773,
+            "p95": 40.478800001437776
+          },
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26621.0,
+            "p50": 26626.0,
+            "p95": 26660.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6954.8,
+            "p50": 6953.0,
+            "p95": 6972.0
+          },
+          "query_class": "global-map",
+          "query_count": 5,
+          "recall_at_5": 0.0,
+          "run_row_count": 15
+        },
+        "known-item": {
+          "citation_precision": 0.0,
+          "citation_recall": 0.0,
+          "context_tokens": {
+            "count": 16,
+            "mean": 306.0,
+            "p50": 306.0,
+            "p95": 306.0
+          },
+          "hit_at_5": 0.0,
+          "judged_query_count": 16,
+          "latency_ms": {
+            "count": 16,
+            "mean": 37.2338312517968,
+            "p50": 31.73199998855125,
+            "p95": 91.23270001146011
+          },
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 16,
+            "mean": 26603.0,
+            "p50": 26593.0,
+            "p95": 26674.0
+          },
+          "payload_tokens": {
+            "count": 16,
+            "mean": 6960.125,
+            "p50": 6965.0,
+            "p95": 6975.0
+          },
+          "query_class": "known-item",
+          "query_count": 16,
+          "recall_at_5": 0.0,
+          "run_row_count": 48
+        },
+        "korean-numeric": {
+          "citation_precision": 0.0,
+          "citation_recall": 0.0,
+          "context_tokens": {
+            "count": 8,
+            "mean": 306.0,
+            "p50": 306.0,
+            "p95": 306.0
+          },
+          "hit_at_5": 0.0,
+          "judged_query_count": 8,
+          "latency_ms": {
+            "count": 8,
+            "mean": 34.729362500002026,
+            "p50": 33.10829999099951,
+            "p95": 46.14050000964198
+          },
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 8,
+            "mean": 26154.25,
+            "p50": 26582.0,
+            "p95": 26630.0
+          },
+          "payload_tokens": {
+            "count": 8,
+            "mean": 6857.5,
+            "p50": 6979.0,
+            "p95": 6994.0
+          },
+          "query_class": "korean-numeric",
+          "query_count": 8,
+          "recall_at_5": 0.0,
+          "run_row_count": 24
+        },
+        "multi-hop": {
+          "citation_precision": 0.0,
+          "citation_recall": 0.0,
+          "context_tokens": {
+            "count": 12,
+            "mean": 306.0,
+            "p50": 306.0,
+            "p95": 306.0
+          },
+          "hit_at_5": 0.0,
+          "judged_query_count": 12,
+          "latency_ms": {
+            "count": 12,
+            "mean": 56.82075833343939,
+            "p50": 46.9567999971332,
+            "p95": 128.69789999967907
+          },
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 12,
+            "mean": 26627.166666666668,
+            "p50": 26628.0,
+            "p95": 26688.0
+          },
+          "payload_tokens": {
+            "count": 12,
+            "mean": 6962.583333333333,
+            "p50": 6965.0,
+            "p95": 6985.0
+          },
+          "query_class": "multi-hop",
+          "query_count": 12,
+          "recall_at_5": 0.0,
+          "run_row_count": 36
+        },
+        "negative": {
+          "citation_precision": 0.0,
+          "citation_recall": null,
+          "context_tokens": {
+            "count": 5,
+            "mean": 306.0,
+            "p50": 306.0,
+            "p95": 306.0
+          },
+          "hit_at_5": null,
+          "judged_query_count": 0,
+          "latency_ms": {
+            "count": 5,
+            "mean": 33.07349999959115,
+            "p50": 30.332599999383092,
+            "p95": 42.098499994608574
+          },
+          "mrr": null,
+          "ndcg_at_10": null,
+          "negative_false_positive_rate": 1.0,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26628.0,
+            "p50": 26623.0,
+            "p95": 26652.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6937.6,
+            "p50": 6934.0,
+            "p95": 6950.0
+          },
+          "query_class": "negative",
+          "query_count": 5,
+          "recall_at_5": null,
+          "run_row_count": 15
+        }
+      },
+      "query_count": 55,
+      "recall_at_5": 0.0,
+      "run_id": "generic_shadow_managed_off_warm_service_context_orientation",
+      "run_row_count": 165,
+      "surface": "service-context-orientation"
+    },
+    "generic_shadow_managed_off_warm_service_search_read": {
+      "citation_precision": 0.36466165413533835,
+      "citation_recall": 0.7404580152671756,
+      "context_tokens": {
+        "count": 55,
+        "mean": 1551.5272727272727,
+        "p50": 1577.0,
+        "p95": 1875.0
+      },
+      "evaluation_mode": "retrieval",
+      "hit_at_5": 0.96,
+      "judged_query_count": 50,
+      "latency_ms": {
+        "count": 55,
+        "mean": 265.7455799997975,
+        "p50": 218.15200000128243,
+        "p95": 458.46249999885913
+      },
+      "mrr": 0.8533333333333333,
+      "ndcg_at_10": 0.803672085960677,
+      "negative_false_positive_rate": 1.0,
+      "payload_bytes": {
+        "count": 55,
+        "mean": 5868.6,
+        "p50": 6023.0,
+        "p95": 7040.0
+      },
+      "payload_tokens": {
+        "count": 55,
+        "mean": 1543.8909090909092,
+        "p50": 1569.0,
+        "p95": 1867.0
+      },
+      "query_classes": {
+        "citation": {
+          "citation_precision": 0.4888888888888889,
+          "citation_recall": 0.9166666666666666,
+          "context_tokens": {
+            "count": 9,
+            "mean": 1550.6666666666667,
+            "p50": 1551.0,
+            "p95": 1866.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 9,
+          "latency_ms": {
+            "count": 9,
+            "mean": 366.79713333271343,
+            "p50": 421.7569000029471,
+            "p95": 452.6832999981707
+          },
+          "mrr": 0.9444444444444444,
+          "ndcg_at_10": 0.8992709030444319,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 9,
+            "mean": 5902.555555555556,
+            "p50": 6021.0,
+            "p95": 6916.0
+          },
+          "payload_tokens": {
+            "count": 9,
+            "mean": 1542.6666666666667,
+            "p50": 1543.0,
+            "p95": 1858.0
+          },
+          "query_class": "citation",
+          "query_count": 9,
+          "recall_at_5": 0.9351851851851851,
+          "run_row_count": 45
+        },
+        "global-map": {
+          "citation_precision": 0.44,
+          "citation_recall": 0.4583333333333333,
+          "context_tokens": {
+            "count": 5,
+            "mean": 1545.2,
+            "p50": 1563.0,
+            "p95": 1669.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 5,
+          "latency_ms": {
+            "count": 5,
+            "mean": 188.36823999881744,
+            "p50": 190.2293000021018,
+            "p95": 199.5980000065174
+          },
+          "mrr": 0.5166666666666667,
+          "ndcg_at_10": 0.4005847571724505,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 5936.2,
+            "p50": 6075.0,
+            "p95": 6146.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 1537.2,
+            "p50": 1555.0,
+            "p95": 1661.0
+          },
+          "query_class": "global-map",
+          "query_count": 5,
+          "recall_at_5": 0.5785714285714285,
+          "run_row_count": 25
+        },
+        "known-item": {
+          "citation_precision": 0.3125,
+          "citation_recall": 0.9615384615384616,
+          "context_tokens": {
+            "count": 16,
+            "mean": 1612.8125,
+            "p50": 1641.0,
+            "p95": 1967.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 16,
+          "latency_ms": {
+            "count": 16,
+            "mean": 191.39302499934274,
+            "p50": 185.23139999888372,
+            "p95": 243.44909998762887
+          },
+          "mrr": 0.9270833333333334,
+          "ndcg_at_10": 0.887475551107509,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 16,
+            "mean": 6060.875,
+            "p50": 6076.0,
+            "p95": 7230.0
+          },
+          "payload_tokens": {
+            "count": 16,
+            "mean": 1604.8125,
+            "p50": 1633.0,
+            "p95": 1959.0
+          },
+          "query_class": "known-item",
+          "query_count": 16,
+          "recall_at_5": 0.9791666666666666,
+          "run_row_count": 80
+        },
+        "korean-numeric": {
+          "citation_precision": 0.3548387096774194,
+          "citation_recall": 0.7333333333333333,
+          "context_tokens": {
+            "count": 8,
+            "mean": 1387.125,
+            "p50": 1804.0,
+            "p95": 1929.0
+          },
+          "hit_at_5": 0.875,
+          "judged_query_count": 8,
+          "latency_ms": {
+            "count": 8,
+            "mean": 291.27087499728077,
+            "p50": 222.61169999546837,
+            "p95": 461.37309999903664
+          },
+          "mrr": 0.8125,
+          "ndcg_at_10": 0.8143499121567886,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 8,
+            "mean": 5093.75,
+            "p50": 6526.0,
+            "p95": 7051.0
+          },
+          "payload_tokens": {
+            "count": 8,
+            "mean": 1381.625,
+            "p50": 1796.0,
+            "p95": 1921.0
+          },
+          "query_class": "korean-numeric",
+          "query_count": 8,
+          "recall_at_5": 0.8333333333333334,
+          "run_row_count": 31
+        },
+        "multi-hop": {
+          "citation_precision": 0.4666666666666667,
+          "citation_recall": 0.6666666666666666,
+          "context_tokens": {
+            "count": 12,
+            "mean": 1623.8333333333333,
+            "p50": 1555.0,
+            "p95": 1875.0
+          },
+          "hit_at_5": 0.9166666666666666,
+          "judged_query_count": 12,
+          "latency_ms": {
+            "count": 12,
+            "mean": 277.8906000033506,
+            "p50": 268.6396000062814,
+            "p95": 423.63119999936316
+          },
+          "mrr": 0.8541666666666666,
+          "ndcg_at_10": 0.7810695224831049,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 12,
+            "mean": 6135.833333333333,
+            "p50": 5782.0,
+            "p95": 7040.0
+          },
+          "payload_tokens": {
+            "count": 12,
+            "mean": 1615.8333333333333,
+            "p50": 1547.0,
+            "p95": 1867.0
+          },
+          "query_class": "multi-hop",
+          "query_count": 12,
+          "recall_at_5": 0.7673611111111112,
+          "run_row_count": 60
+        },
+        "negative": {
+          "citation_precision": 0.0,
+          "citation_recall": null,
+          "context_tokens": {
+            "count": 5,
+            "mean": 1452.8,
+            "p50": 1445.0,
+            "p95": 1560.0
+          },
+          "hit_at_5": null,
+          "judged_query_count": 0,
+          "latency_ms": {
+            "count": 5,
+            "mean": 329.16977999848314,
+            "p50": 291.4640000090003,
+            "p95": 458.46249999885913
+          },
+          "mrr": null,
+          "ndcg_at_10": null,
+          "negative_false_positive_rate": 1.0,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 5723.0,
+            "p50": 5717.0,
+            "p95": 6005.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 1444.8,
+            "p50": 1437.0,
+            "p95": 1552.0
+          },
+          "query_class": "negative",
+          "query_count": 5,
+          "recall_at_5": null,
+          "run_row_count": 25
+        }
+      },
+      "query_count": 55,
+      "recall_at_5": 0.8570238095238095,
+      "run_id": "generic_shadow_managed_off_warm_service_search_read",
+      "run_row_count": 266,
+      "surface": "service-search-read"
+    },
+    "generic_shadow_managed_on_cold_service_context": {
+      "citation_precision": 0.36466165413533835,
+      "citation_recall": 0.7404580152671756,
+      "context_tokens": {
+        "count": 55,
+        "mean": 533.4,
+        "p50": 551.0,
+        "p95": 572.0
+      },
+      "evaluation_mode": "retrieval",
+      "hit_at_5": 0.96,
+      "judged_query_count": 50,
+      "latency_ms": {
+        "count": 55,
+        "mean": 122.0672672725579,
+        "p50": 115.69670001335908,
+        "p95": 212.8225000051316
+      },
+      "mrr": 0.8533333333333333,
+      "ndcg_at_10": 0.803672085960677,
+      "negative_false_positive_rate": 1.0,
+      "payload_bytes": {
+        "count": 55,
+        "mean": 25661.47272727273,
+        "p50": 26177.0,
+        "p95": 26242.0
+      },
+      "payload_tokens": {
+        "count": 55,
+        "mean": 6755.181818181818,
+        "p50": 6892.0,
+        "p95": 6928.0
+      },
+      "query_classes": {
+        "citation": {
+          "citation_precision": 0.4888888888888889,
+          "citation_recall": 0.9166666666666666,
+          "context_tokens": {
+            "count": 9,
+            "mean": 550.0,
+            "p50": 547.0,
+            "p95": 581.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 9,
+          "latency_ms": {
+            "count": 9,
+            "mean": 119.93005555672829,
+            "p50": 120.7775000075344,
+            "p95": 134.0048999991268
+          },
+          "mrr": 0.9444444444444444,
+          "ndcg_at_10": 0.8992709030444319,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 9,
+            "mean": 26192.444444444445,
+            "p50": 26186.0,
+            "p95": 26260.0
+          },
+          "payload_tokens": {
+            "count": 9,
+            "mean": 6892.222222222223,
+            "p50": 6883.0,
+            "p95": 6928.0
+          },
+          "query_class": "citation",
+          "query_count": 9,
+          "recall_at_5": 0.9351851851851851,
+          "run_row_count": 45
+        },
+        "global-map": {
+          "citation_precision": 0.44,
+          "citation_recall": 0.4583333333333333,
+          "context_tokens": {
+            "count": 5,
+            "mean": 545.0,
+            "p50": 541.0,
+            "p95": 562.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 5,
+          "latency_ms": {
+            "count": 5,
+            "mean": 141.80861999629997,
+            "p50": 111.7309999972349,
+            "p95": 292.76959999697283
+          },
+          "mrr": 0.5166666666666667,
+          "ndcg_at_10": 0.4005847571724505,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26187.4,
+            "p50": 26187.0,
+            "p95": 26242.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6874.8,
+            "p50": 6881.0,
+            "p95": 6909.0
+          },
+          "query_class": "global-map",
+          "query_count": 5,
+          "recall_at_5": 0.5785714285714285,
+          "run_row_count": 25
+        },
+        "known-item": {
+          "citation_precision": 0.3125,
+          "citation_recall": 0.9615384615384616,
+          "context_tokens": {
+            "count": 16,
+            "mean": 553.4375,
+            "p50": 554.0,
+            "p95": 567.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 16,
+          "latency_ms": {
+            "count": 16,
+            "mean": 137.55548749941227,
+            "p50": 120.20979999215342,
+            "p95": 288.3149000117555
+          },
+          "mrr": 0.9270833333333334,
+          "ndcg_at_10": 0.887475551107509,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 16,
+            "mean": 26158.5625,
+            "p50": 26143.0,
+            "p95": 26257.0
+          },
+          "payload_tokens": {
+            "count": 16,
+            "mean": 6891.875,
+            "p50": 6900.0,
+            "p95": 6912.0
+          },
+          "query_class": "known-item",
+          "query_count": 16,
+          "recall_at_5": 0.9791666666666666,
+          "run_row_count": 80
+        },
+        "korean-numeric": {
+          "citation_precision": 0.3548387096774194,
+          "citation_recall": 0.7333333333333333,
+          "context_tokens": {
+            "count": 8,
+            "mean": 439.75,
+            "p50": 560.0,
+            "p95": 578.0
+          },
+          "hit_at_5": 0.875,
+          "judged_query_count": 8,
+          "latency_ms": {
+            "count": 8,
+            "mean": 102.08513750330894,
+            "p50": 111.9749000063166,
+            "p95": 148.83609999378677
+          },
+          "mrr": 0.8125,
+          "ndcg_at_10": 0.8143499121567886,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 8,
+            "mean": 22631.5,
+            "p50": 26131.0,
+            "p95": 26179.0
+          },
+          "payload_tokens": {
+            "count": 8,
+            "mean": 5980.5,
+            "p50": 6907.0,
+            "p95": 6931.0
+          },
+          "query_class": "korean-numeric",
+          "query_count": 8,
+          "recall_at_5": 0.8333333333333334,
+          "run_row_count": 31
+        },
+        "multi-hop": {
+          "citation_precision": 0.4666666666666667,
+          "citation_recall": 0.6666666666666666,
+          "context_tokens": {
+            "count": 12,
+            "mean": 551.4166666666666,
+            "p50": 551.0,
+            "p95": 572.0
+          },
+          "hit_at_5": 0.9166666666666666,
+          "judged_query_count": 12,
+          "latency_ms": {
+            "count": 12,
+            "mean": 111.2037083330506,
+            "p50": 110.87620000762399,
+            "p95": 132.18329999654088
+          },
+          "mrr": 0.8541666666666666,
+          "ndcg_at_10": 0.7810695224831049,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 12,
+            "mean": 26178.25,
+            "p50": 26178.0,
+            "p95": 26237.0
+          },
+          "payload_tokens": {
+            "count": 12,
+            "mean": 6895.25,
+            "p50": 6894.0,
+            "p95": 6922.0
+          },
+          "query_class": "multi-hop",
+          "query_count": 12,
+          "recall_at_5": 0.7673611111111112,
+          "run_row_count": 60
+        },
+        "negative": {
+          "citation_precision": 0.0,
+          "citation_recall": null,
+          "context_tokens": {
+            "count": 5,
+            "mean": 534.4,
+            "p50": 531.0,
+            "p95": 548.0
+          },
+          "hit_at_5": null,
+          "judged_query_count": 0,
+          "latency_ms": {
+            "count": 5,
+            "mean": 114.65453999699093,
+            "p50": 117.4812999961432,
+            "p95": 124.73930000851396
+          },
+          "mrr": null,
+          "ndcg_at_10": null,
+          "negative_false_positive_rate": 1.0,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26196.8,
+            "p50": 26196.0,
+            "p95": 26219.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6854.8,
+            "p50": 6842.0,
+            "p95": 6880.0
+          },
+          "query_class": "negative",
+          "query_count": 5,
+          "recall_at_5": null,
+          "run_row_count": 25
+        }
+      },
+      "query_count": 55,
+      "recall_at_5": 0.8570238095238095,
+      "run_id": "generic_shadow_managed_on_cold_service_context",
+      "run_row_count": 266,
+      "surface": "service-context"
+    },
+    "generic_shadow_managed_on_cold_service_context_bundle": {
+      "evaluation_mode": "telemetry-only",
+      "latency_ms": {
+        "count": 55,
+        "mean": 151.03377999965397,
+        "p50": 151.9762000098126,
+        "p95": 207.22290000412613
+      },
+      "payload_bytes": {
+        "count": 55,
+        "mean": 25661.47272727273,
+        "p50": 26177.0,
+        "p95": 26242.0
+      },
+      "payload_tokens": {
+        "count": 55,
+        "mean": 6755.181818181818,
+        "p50": 6892.0,
+        "p95": 6928.0
+      },
+      "query_classes": {
+        "citation": {
+          "latency_ms": {
+            "count": 9,
+            "mean": 168.8016999978572,
+            "p50": 161.59369998786133,
+            "p95": 215.22990000084974
+          },
+          "payload_bytes": {
+            "count": 9,
+            "mean": 26192.444444444445,
+            "p50": 26186.0,
+            "p95": 26260.0
+          },
+          "payload_tokens": {
+            "count": 9,
+            "mean": 6892.222222222223,
+            "p50": 6883.0,
+            "p95": 6928.0
+          },
+          "query_class": "citation",
+          "query_count": 9,
+          "run_row_count": 50
+        },
+        "global-map": {
+          "latency_ms": {
+            "count": 5,
+            "mean": 177.09825999918394,
+            "p50": 169.61100000480656,
+            "p95": 207.22290000412613
+          },
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26187.4,
+            "p50": 26187.0,
+            "p95": 26242.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6874.8,
+            "p50": 6881.0,
+            "p95": 6909.0
+          },
+          "query_class": "global-map",
+          "query_count": 5,
+          "run_row_count": 27
+        },
+        "known-item": {
+          "latency_ms": {
+            "count": 16,
+            "mean": 142.68833750065824,
+            "p50": 145.6946000107564,
+            "p95": 172.49640000227373
+          },
+          "payload_bytes": {
+            "count": 16,
+            "mean": 26158.5625,
+            "p50": 26143.0,
+            "p95": 26257.0
+          },
+          "payload_tokens": {
+            "count": 16,
+            "mean": 6891.875,
+            "p50": 6900.0,
+            "p95": 6912.0
+          },
+          "query_class": "known-item",
+          "query_count": 16,
+          "run_row_count": 86
+        },
+        "korean-numeric": {
+          "latency_ms": {
+            "count": 8,
+            "mean": 143.04681250359863,
+            "p50": 151.65900001011323,
+            "p95": 209.92940000724047
+          },
+          "payload_bytes": {
+            "count": 8,
+            "mean": 22631.5,
+            "p50": 26131.0,
+            "p95": 26179.0
+          },
+          "payload_tokens": {
+            "count": 8,
+            "mean": 5980.5,
+            "p50": 6907.0,
+            "p95": 6931.0
+          },
+          "query_class": "korean-numeric",
+          "query_count": 8,
+          "run_row_count": 32
+        },
+        "multi-hop": {
+          "latency_ms": {
+            "count": 12,
+            "mean": 155.72874166658343,
+            "p50": 147.60219999880064,
+            "p95": 189.6982000034768
+          },
+          "payload_bytes": {
+            "count": 12,
+            "mean": 26178.25,
+            "p50": 26178.0,
+            "p95": 26237.0
+          },
+          "payload_tokens": {
+            "count": 12,
+            "mean": 6895.25,
+            "p50": 6894.0,
+            "p95": 6922.0
+          },
+          "query_class": "multi-hop",
+          "query_count": 12,
+          "run_row_count": 69
+        },
+        "negative": {
+          "latency_ms": {
+            "count": 5,
+            "mean": 121.20369999320246,
+            "p50": 117.84399999305606,
+            "p95": 141.86679999693297
+          },
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26196.8,
+            "p50": 26196.0,
+            "p95": 26219.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6854.8,
+            "p50": 6842.0,
+            "p95": 6880.0
+          },
+          "query_class": "negative",
+          "query_count": 5,
+          "run_row_count": 28
+        }
+      },
+      "query_count": 55,
+      "run_id": "generic_shadow_managed_on_cold_service_context_bundle",
+      "run_row_count": 292,
+      "surface": "service-context-bundle"
+    },
+    "generic_shadow_managed_on_cold_service_context_orientation": {
+      "citation_precision": 0.5514018691588785,
+      "citation_recall": 0.45038167938931295,
+      "context_tokens": {
+        "count": 55,
+        "mean": 228.1090909090909,
+        "p50": 242.0,
+        "p95": 242.0
+      },
+      "evaluation_mode": "retrieval",
+      "hit_at_5": 0.88,
+      "judged_query_count": 50,
+      "latency_ms": {
+        "count": 55,
+        "mean": 118.90807454447813,
+        "p50": 120.00360000820365,
+        "p95": 162.65060000296216
+      },
+      "mrr": 0.77,
+      "ndcg_at_10": 0.5300211419211183,
+      "negative_false_positive_rate": 1.0,
+      "payload_bytes": {
+        "count": 55,
+        "mean": 25661.47272727273,
+        "p50": 26177.0,
+        "p95": 26242.0
+      },
+      "payload_tokens": {
+        "count": 55,
+        "mean": 6755.181818181818,
+        "p50": 6892.0,
+        "p95": 6928.0
+      },
+      "query_classes": {
+        "citation": {
+          "citation_precision": 0.5555555555555556,
+          "citation_recall": 0.4166666666666667,
+          "context_tokens": {
+            "count": 9,
+            "mean": 235.66666666666666,
+            "p50": 242.0,
+            "p95": 242.0
+          },
+          "hit_at_5": 0.7777777777777778,
+          "judged_query_count": 9,
+          "latency_ms": {
+            "count": 9,
+            "mean": 118.33219999809646,
+            "p50": 120.19050000526477,
+            "p95": 142.43269999860786
+          },
+          "mrr": 0.6666666666666666,
+          "ndcg_at_10": 0.3729674610536983,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 9,
+            "mean": 26192.444444444445,
+            "p50": 26186.0,
+            "p95": 26260.0
+          },
+          "payload_tokens": {
+            "count": 9,
+            "mean": 6892.222222222223,
+            "p50": 6883.0,
+            "p95": 6928.0
+          },
+          "query_class": "citation",
+          "query_count": 9,
+          "recall_at_5": 0.3888888888888889,
+          "run_row_count": 18
+        },
+        "global-map": {
+          "citation_precision": 0.9,
+          "citation_recall": 0.375,
+          "context_tokens": {
+            "count": 5,
+            "mean": 225.0,
+            "p50": 222.0,
+            "p95": 242.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 5,
+          "latency_ms": {
+            "count": 5,
+            "mean": 114.46199999481905,
+            "p50": 111.71119999198709,
+            "p95": 137.48479999776464
+          },
+          "mrr": 0.9,
+          "ndcg_at_10": 0.5653089523706529,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26187.4,
+            "p50": 26187.0,
+            "p95": 26242.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6874.8,
+            "p50": 6881.0,
+            "p95": 6909.0
+          },
+          "query_class": "global-map",
+          "query_count": 5,
+          "recall_at_5": 0.5071428571428571,
+          "run_row_count": 10
+        },
+        "known-item": {
+          "citation_precision": 0.5,
+          "citation_recall": 0.6153846153846154,
+          "context_tokens": {
+            "count": 16,
+            "mean": 236.75,
+            "p50": 242.0,
+            "p95": 242.0
+          },
+          "hit_at_5": 0.9375,
+          "judged_query_count": 16,
+          "latency_ms": {
+            "count": 16,
+            "mean": 123.29398749989195,
+            "p50": 116.41069999313913,
+            "p95": 157.52870000142138
+          },
+          "mrr": 0.75,
+          "ndcg_at_10": 0.5565009755112843,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 16,
+            "mean": 26158.5625,
+            "p50": 26143.0,
+            "p95": 26257.0
+          },
+          "payload_tokens": {
+            "count": 16,
+            "mean": 6891.875,
+            "p50": 6900.0,
+            "p95": 6912.0
+          },
+          "query_class": "known-item",
+          "query_count": 16,
+          "recall_at_5": 0.7083333333333334,
+          "run_row_count": 32
+        },
+        "korean-numeric": {
+          "citation_precision": 0.6923076923076923,
+          "citation_recall": 0.6,
+          "context_tokens": {
+            "count": 8,
+            "mean": 193.625,
+            "p50": 242.0,
+            "p95": 242.0
+          },
+          "hit_at_5": 0.875,
+          "judged_query_count": 8,
+          "latency_ms": {
+            "count": 8,
+            "mean": 100.72915000091598,
+            "p50": 111.13320000004023,
+            "p95": 121.53269999544136
+          },
+          "mrr": 0.8125,
+          "ndcg_at_10": 0.7232523844771178,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 8,
+            "mean": 22631.5,
+            "p50": 26131.0,
+            "p95": 26179.0
+          },
+          "payload_tokens": {
+            "count": 8,
+            "mean": 5980.5,
+            "p50": 6907.0,
+            "p95": 6931.0
+          },
+          "query_class": "korean-numeric",
+          "query_count": 8,
+          "recall_at_5": 0.7291666666666666,
+          "run_row_count": 13
+        },
+        "multi-hop": {
+          "citation_precision": 0.625,
+          "citation_recall": 0.35714285714285715,
+          "context_tokens": {
+            "count": 12,
+            "mean": 237.66666666666666,
+            "p50": 242.0,
+            "p95": 242.0
+          },
+          "hit_at_5": 0.8333333333333334,
+          "judged_query_count": 12,
+          "latency_ms": {
+            "count": 12,
+            "mean": 116.63669999810129,
+            "p50": 117.26790000102483,
+            "p95": 146.67919999919832
+          },
+          "mrr": 0.7916666666666666,
+          "ndcg_at_10": 0.4689808750601561,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 12,
+            "mean": 26178.25,
+            "p50": 26178.0,
+            "p95": 26237.0
+          },
+          "payload_tokens": {
+            "count": 12,
+            "mean": 6895.25,
+            "p50": 6894.0,
+            "p95": 6922.0
+          },
+          "query_class": "multi-hop",
+          "query_count": 12,
+          "recall_at_5": 0.375,
+          "run_row_count": 24
+        },
+        "negative": {
+          "citation_precision": 0.0,
+          "citation_recall": null,
+          "context_tokens": {
+            "count": 5,
+            "mean": 222.2,
+            "p50": 213.0,
+            "p95": 242.0
+          },
+          "hit_at_5": null,
+          "judged_query_count": 0,
+          "latency_ms": {
+            "count": 5,
+            "mean": 144.89338000130374,
+            "p50": 162.65060000296216,
+            "p95": 165.79990000172984
+          },
+          "mrr": null,
+          "ndcg_at_10": null,
+          "negative_false_positive_rate": 1.0,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26196.8,
+            "p50": 26196.0,
+            "p95": 26219.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6854.8,
+            "p50": 6842.0,
+            "p95": 6880.0
+          },
+          "query_class": "negative",
+          "query_count": 5,
+          "recall_at_5": null,
+          "run_row_count": 10
+        }
+      },
+      "query_count": 55,
+      "recall_at_5": 0.554047619047619,
+      "run_id": "generic_shadow_managed_on_cold_service_context_orientation",
+      "run_row_count": 107,
+      "surface": "service-context-orientation"
+    },
+    "generic_shadow_managed_on_cold_service_search_read": {
+      "citation_precision": 0.36466165413533835,
+      "citation_recall": 0.7404580152671756,
+      "context_tokens": {
+        "count": 55,
+        "mean": 1551.5272727272727,
+        "p50": 1577.0,
+        "p95": 1875.0
+      },
+      "evaluation_mode": "retrieval",
+      "hit_at_5": 0.96,
+      "judged_query_count": 50,
+      "latency_ms": {
+        "count": 55,
+        "mean": 478.6339945448245,
+        "p50": 432.5310999993235,
+        "p95": 741.1367000022437
+      },
+      "mrr": 0.8533333333333333,
+      "ndcg_at_10": 0.803672085960677,
+      "negative_false_positive_rate": 1.0,
+      "payload_bytes": {
+        "count": 55,
+        "mean": 5868.6,
+        "p50": 6023.0,
+        "p95": 7040.0
+      },
+      "payload_tokens": {
+        "count": 55,
+        "mean": 1543.8909090909092,
+        "p50": 1569.0,
+        "p95": 1867.0
+      },
+      "query_classes": {
+        "citation": {
+          "citation_precision": 0.4888888888888889,
+          "citation_recall": 0.9166666666666666,
+          "context_tokens": {
+            "count": 9,
+            "mean": 1550.6666666666667,
+            "p50": 1551.0,
+            "p95": 1866.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 9,
+          "latency_ms": {
+            "count": 9,
+            "mean": 482.33737777950915,
+            "p50": 458.04160000989214,
+            "p95": 706.4329999993788
+          },
+          "mrr": 0.9444444444444444,
+          "ndcg_at_10": 0.8992709030444319,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 9,
+            "mean": 5902.555555555556,
+            "p50": 6021.0,
+            "p95": 6916.0
+          },
+          "payload_tokens": {
+            "count": 9,
+            "mean": 1542.6666666666667,
+            "p50": 1543.0,
+            "p95": 1858.0
+          },
+          "query_class": "citation",
+          "query_count": 9,
+          "recall_at_5": 0.9351851851851851,
+          "run_row_count": 45
+        },
+        "global-map": {
+          "citation_precision": 0.44,
+          "citation_recall": 0.4583333333333333,
+          "context_tokens": {
+            "count": 5,
+            "mean": 1545.2,
+            "p50": 1563.0,
+            "p95": 1669.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 5,
+          "latency_ms": {
+            "count": 5,
+            "mean": 467.0151599973906,
+            "p50": 461.58449999347795,
+            "p95": 568.2852000027196
+          },
+          "mrr": 0.5166666666666667,
+          "ndcg_at_10": 0.4005847571724505,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 5936.2,
+            "p50": 6075.0,
+            "p95": 6146.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 1537.2,
+            "p50": 1555.0,
+            "p95": 1661.0
+          },
+          "query_class": "global-map",
+          "query_count": 5,
+          "recall_at_5": 0.5785714285714285,
+          "run_row_count": 25
+        },
+        "known-item": {
+          "citation_precision": 0.3125,
+          "citation_recall": 0.9615384615384616,
+          "context_tokens": {
+            "count": 16,
+            "mean": 1612.8125,
+            "p50": 1641.0,
+            "p95": 1967.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 16,
+          "latency_ms": {
+            "count": 16,
+            "mean": 522.2444124983667,
+            "p50": 562.2422999877017,
+            "p95": 730.5009999981849
+          },
+          "mrr": 0.9270833333333334,
+          "ndcg_at_10": 0.887475551107509,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 16,
+            "mean": 6060.875,
+            "p50": 6076.0,
+            "p95": 7230.0
+          },
+          "payload_tokens": {
+            "count": 16,
+            "mean": 1604.8125,
+            "p50": 1633.0,
+            "p95": 1959.0
+          },
+          "query_class": "known-item",
+          "query_count": 16,
+          "recall_at_5": 0.9791666666666666,
+          "run_row_count": 80
+        },
+        "korean-numeric": {
+          "citation_precision": 0.3548387096774194,
+          "citation_recall": 0.7333333333333333,
+          "context_tokens": {
+            "count": 8,
+            "mean": 1387.125,
+            "p50": 1804.0,
+            "p95": 1929.0
+          },
+          "hit_at_5": 0.875,
+          "judged_query_count": 8,
+          "latency_ms": {
+            "count": 8,
+            "mean": 421.4424625006359,
+            "p50": 344.03569999267347,
+            "p95": 813.4486000053585
+          },
+          "mrr": 0.8125,
+          "ndcg_at_10": 0.8143499121567886,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 8,
+            "mean": 5093.75,
+            "p50": 6526.0,
+            "p95": 7051.0
+          },
+          "payload_tokens": {
+            "count": 8,
+            "mean": 1381.625,
+            "p50": 1796.0,
+            "p95": 1921.0
+          },
+          "query_class": "korean-numeric",
+          "query_count": 8,
+          "recall_at_5": 0.8333333333333334,
+          "run_row_count": 31
+        },
+        "multi-hop": {
+          "citation_precision": 0.4666666666666667,
+          "citation_recall": 0.6666666666666666,
+          "context_tokens": {
+            "count": 12,
+            "mean": 1623.8333333333333,
+            "p50": 1555.0,
+            "p95": 1875.0
+          },
+          "hit_at_5": 0.9166666666666666,
+          "judged_query_count": 12,
+          "latency_ms": {
+            "count": 12,
+            "mean": 481.928374999067,
+            "p50": 420.9326999989571,
+            "p95": 804.2719999939436
+          },
+          "mrr": 0.8541666666666666,
+          "ndcg_at_10": 0.7810695224831049,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 12,
+            "mean": 6135.833333333333,
+            "p50": 5782.0,
+            "p95": 7040.0
+          },
+          "payload_tokens": {
+            "count": 12,
+            "mean": 1615.8333333333333,
+            "p50": 1547.0,
+            "p95": 1867.0
+          },
+          "query_class": "multi-hop",
+          "query_count": 12,
+          "recall_at_5": 0.7673611111111112,
+          "run_row_count": 60
+        },
+        "negative": {
+          "citation_precision": 0.0,
+          "citation_recall": null,
+          "context_tokens": {
+            "count": 5,
+            "mean": 1452.8,
+            "p50": 1445.0,
+            "p95": 1560.0
+          },
+          "hit_at_5": null,
+          "judged_query_count": 0,
+          "latency_ms": {
+            "count": 5,
+            "mean": 427.6333399990108,
+            "p50": 380.53409999702126,
+            "p95": 737.5682999991113
+          },
+          "mrr": null,
+          "ndcg_at_10": null,
+          "negative_false_positive_rate": 1.0,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 5723.0,
+            "p50": 5717.0,
+            "p95": 6005.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 1444.8,
+            "p50": 1437.0,
+            "p95": 1552.0
+          },
+          "query_class": "negative",
+          "query_count": 5,
+          "recall_at_5": null,
+          "run_row_count": 25
+        }
+      },
+      "query_count": 55,
+      "recall_at_5": 0.8570238095238095,
+      "run_id": "generic_shadow_managed_on_cold_service_search_read",
+      "run_row_count": 266,
+      "surface": "service-search-read"
+    },
+    "generic_shadow_managed_on_primed_service_context": {
+      "citation_precision": 0.36466165413533835,
+      "citation_recall": 0.7404580152671756,
+      "context_tokens": {
+        "count": 55,
+        "mean": 533.4,
+        "p50": 551.0,
+        "p95": 572.0
+      },
+      "evaluation_mode": "retrieval",
+      "hit_at_5": 0.96,
+      "judged_query_count": 50,
+      "latency_ms": {
+        "count": 55,
+        "mean": 69.56284545488994,
+        "p50": 50.408800001605414,
+        "p95": 130.08080000872724
+      },
+      "mrr": 0.8533333333333333,
+      "ndcg_at_10": 0.803672085960677,
+      "negative_false_positive_rate": 1.0,
+      "payload_bytes": {
+        "count": 55,
+        "mean": 25660.98181818182,
+        "p50": 26177.0,
+        "p95": 26242.0
+      },
+      "payload_tokens": {
+        "count": 55,
+        "mean": 6755.254545454545,
+        "p50": 6892.0,
+        "p95": 6928.0
+      },
+      "query_classes": {
+        "citation": {
+          "citation_precision": 0.4888888888888889,
+          "citation_recall": 0.9166666666666666,
+          "context_tokens": {
+            "count": 9,
+            "mean": 550.0,
+            "p50": 547.0,
+            "p95": 581.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 9,
+          "latency_ms": {
+            "count": 9,
+            "mean": 94.54052222038929,
+            "p50": 105.04509999009315,
+            "p95": 136.27639999322128
+          },
+          "mrr": 0.9444444444444444,
+          "ndcg_at_10": 0.8992709030444319,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 9,
+            "mean": 26192.444444444445,
+            "p50": 26186.0,
+            "p95": 26260.0
+          },
+          "payload_tokens": {
+            "count": 9,
+            "mean": 6892.222222222223,
+            "p50": 6883.0,
+            "p95": 6928.0
+          },
+          "query_class": "citation",
+          "query_count": 9,
+          "recall_at_5": 0.9351851851851851,
+          "run_row_count": 45
+        },
+        "global-map": {
+          "citation_precision": 0.44,
+          "citation_recall": 0.4583333333333333,
+          "context_tokens": {
+            "count": 5,
+            "mean": 545.0,
+            "p50": 541.0,
+            "p95": 562.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 5,
+          "latency_ms": {
+            "count": 5,
+            "mean": 83.59076000051573,
+            "p50": 102.13040000235196,
+            "p95": 107.74629999650642
+          },
+          "mrr": 0.5166666666666667,
+          "ndcg_at_10": 0.4005847571724505,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26184.6,
+            "p50": 26187.0,
+            "p95": 26242.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6873.4,
+            "p50": 6874.0,
+            "p95": 6909.0
+          },
+          "query_class": "global-map",
+          "query_count": 5,
+          "recall_at_5": 0.5785714285714285,
+          "run_row_count": 25
+        },
+        "known-item": {
+          "citation_precision": 0.3125,
+          "citation_recall": 0.9615384615384616,
+          "context_tokens": {
+            "count": 16,
+            "mean": 553.4375,
+            "p50": 554.0,
+            "p95": 567.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 16,
+          "latency_ms": {
+            "count": 16,
+            "mean": 67.67416875027266,
+            "p50": 45.5080999963684,
+            "p95": 132.36210000468418
+          },
+          "mrr": 0.9270833333333334,
+          "ndcg_at_10": 0.887475551107509,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 16,
+            "mean": 26157.75,
+            "p50": 26143.0,
+            "p95": 26257.0
+          },
+          "payload_tokens": {
+            "count": 16,
+            "mean": 6892.5625,
+            "p50": 6900.0,
+            "p95": 6912.0
+          },
+          "query_class": "known-item",
+          "query_count": 16,
+          "recall_at_5": 0.9791666666666666,
+          "run_row_count": 80
+        },
+        "korean-numeric": {
+          "citation_precision": 0.3548387096774194,
+          "citation_recall": 0.7333333333333333,
+          "context_tokens": {
+            "count": 8,
+            "mean": 439.75,
+            "p50": 560.0,
+            "p95": 578.0
+          },
+          "hit_at_5": 0.875,
+          "judged_query_count": 8,
+          "latency_ms": {
+            "count": 8,
+            "mean": 35.393924998061266,
+            "p50": 40.50239999196492,
+            "p95": 48.03089999768417
+          },
+          "mrr": 0.8125,
+          "ndcg_at_10": 0.8143499121567886,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 8,
+            "mean": 22631.5,
+            "p50": 26131.0,
+            "p95": 26179.0
+          },
+          "payload_tokens": {
+            "count": 8,
+            "mean": 5980.5,
+            "p50": 6907.0,
+            "p95": 6931.0
+          },
+          "query_class": "korean-numeric",
+          "query_count": 8,
+          "recall_at_5": 0.8333333333333334,
+          "run_row_count": 31
+        },
+        "multi-hop": {
+          "citation_precision": 0.4666666666666667,
+          "citation_recall": 0.6666666666666666,
+          "context_tokens": {
+            "count": 12,
+            "mean": 551.4166666666666,
+            "p50": 551.0,
+            "p95": 572.0
+          },
+          "hit_at_5": 0.9166666666666666,
+          "judged_query_count": 12,
+          "latency_ms": {
+            "count": 12,
+            "mean": 72.6863000030183,
+            "p50": 46.81890000938438,
+            "p95": 130.08080000872724
+          },
+          "mrr": 0.8541666666666666,
+          "ndcg_at_10": 0.7810695224831049,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 12,
+            "mean": 26178.25,
+            "p50": 26178.0,
+            "p95": 26237.0
+          },
+          "payload_tokens": {
+            "count": 12,
+            "mean": 6895.25,
+            "p50": 6894.0,
+            "p95": 6922.0
+          },
+          "query_class": "multi-hop",
+          "query_count": 12,
+          "recall_at_5": 0.7673611111111112,
+          "run_row_count": 60
+        },
+        "negative": {
+          "citation_precision": 0.0,
+          "citation_recall": null,
+          "context_tokens": {
+            "count": 5,
+            "mean": 534.4,
+            "p50": 531.0,
+            "p95": 548.0
+          },
+          "hit_at_5": null,
+          "judged_query_count": 0,
+          "latency_ms": {
+            "count": 5,
+            "mean": 63.79286000155844,
+            "p50": 50.408800001605414,
+            "p95": 104.78460000013001
+          },
+          "mrr": null,
+          "ndcg_at_10": null,
+          "negative_false_positive_rate": 1.0,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26196.8,
+            "p50": 26196.0,
+            "p95": 26219.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6854.8,
+            "p50": 6842.0,
+            "p95": 6880.0
+          },
+          "query_class": "negative",
+          "query_count": 5,
+          "recall_at_5": null,
+          "run_row_count": 25
+        }
+      },
+      "query_count": 55,
+      "recall_at_5": 0.8570238095238095,
+      "run_id": "generic_shadow_managed_on_primed_service_context",
+      "run_row_count": 266,
+      "surface": "service-context"
+    },
+    "generic_shadow_managed_on_primed_service_context_bundle": {
+      "evaluation_mode": "telemetry-only",
+      "latency_ms": {
+        "count": 55,
+        "mean": 65.65084727242885,
+        "p50": 52.1290000033332,
+        "p95": 119.30919998849276
+      },
+      "payload_bytes": {
+        "count": 55,
+        "mean": 25660.98181818182,
+        "p50": 26177.0,
+        "p95": 26242.0
+      },
+      "payload_tokens": {
+        "count": 55,
+        "mean": 6755.254545454545,
+        "p50": 6892.0,
+        "p95": 6928.0
+      },
+      "query_classes": {
+        "citation": {
+          "latency_ms": {
+            "count": 9,
+            "mean": 73.25452222398275,
+            "p50": 54.54949999693781,
+            "p95": 115.03590000211261
+          },
+          "payload_bytes": {
+            "count": 9,
+            "mean": 26192.444444444445,
+            "p50": 26186.0,
+            "p95": 26260.0
+          },
+          "payload_tokens": {
+            "count": 9,
+            "mean": 6892.222222222223,
+            "p50": 6883.0,
+            "p95": 6928.0
+          },
+          "query_class": "citation",
+          "query_count": 9,
+          "run_row_count": 50
+        },
+        "global-map": {
+          "latency_ms": {
+            "count": 5,
+            "mean": 92.54059999948367,
+            "p50": 101.06010000163224,
+            "p95": 119.76950000098441
+          },
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26184.6,
+            "p50": 26187.0,
+            "p95": 26242.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6873.4,
+            "p50": 6874.0,
+            "p95": 6909.0
+          },
+          "query_class": "global-map",
+          "query_count": 5,
+          "run_row_count": 27
+        },
+        "known-item": {
+          "latency_ms": {
+            "count": 16,
+            "mean": 76.00884374733141,
+            "p50": 60.2087000006577,
+            "p95": 123.70599999849219
+          },
+          "payload_bytes": {
+            "count": 16,
+            "mean": 26157.75,
+            "p50": 26143.0,
+            "p95": 26257.0
+          },
+          "payload_tokens": {
+            "count": 16,
+            "mean": 6892.5625,
+            "p50": 6900.0,
+            "p95": 6912.0
+          },
+          "query_class": "known-item",
+          "query_count": 16,
+          "run_row_count": 86
+        },
+        "korean-numeric": {
+          "latency_ms": {
+            "count": 8,
+            "mean": 39.64666250067239,
+            "p50": 42.854800005443394,
+            "p95": 52.1290000033332
+          },
+          "payload_bytes": {
+            "count": 8,
+            "mean": 22631.5,
+            "p50": 26131.0,
+            "p95": 26179.0
+          },
+          "payload_tokens": {
+            "count": 8,
+            "mean": 5980.5,
+            "p50": 6907.0,
+            "p95": 6931.0
+          },
+          "query_class": "korean-numeric",
+          "query_count": 8,
+          "run_row_count": 32
+        },
+        "multi-hop": {
+          "latency_ms": {
+            "count": 12,
+            "mean": 60.91488333307401,
+            "p50": 49.77559999679215,
+            "p95": 108.64479999872856
+          },
+          "payload_bytes": {
+            "count": 12,
+            "mean": 26178.25,
+            "p50": 26178.0,
+            "p95": 26237.0
+          },
+          "payload_tokens": {
+            "count": 12,
+            "mean": 6895.25,
+            "p50": 6894.0,
+            "p95": 6922.0
+          },
+          "query_class": "multi-hop",
+          "query_count": 12,
+          "run_row_count": 69
+        },
+        "negative": {
+          "latency_ms": {
+            "count": 5,
+            "mean": 44.901900002150796,
+            "p50": 46.74340000201482,
+            "p95": 47.981700001400895
+          },
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26196.8,
+            "p50": 26196.0,
+            "p95": 26219.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6854.8,
+            "p50": 6842.0,
+            "p95": 6880.0
+          },
+          "query_class": "negative",
+          "query_count": 5,
+          "run_row_count": 28
+        }
+      },
+      "query_count": 55,
+      "run_id": "generic_shadow_managed_on_primed_service_context_bundle",
+      "run_row_count": 292,
+      "surface": "service-context-bundle"
+    },
+    "generic_shadow_managed_on_primed_service_context_orientation": {
+      "citation_precision": 0.5420560747663551,
+      "citation_recall": 0.44274809160305345,
+      "context_tokens": {
+        "count": 55,
+        "mean": 228.1818181818182,
+        "p50": 242.0,
+        "p95": 242.0
+      },
+      "evaluation_mode": "retrieval",
+      "hit_at_5": 0.86,
+      "judged_query_count": 50,
+      "latency_ms": {
+        "count": 55,
+        "mean": 65.21124363617591,
+        "p50": 52.504199993563816,
+        "p95": 124.55220000992995
+      },
+      "mrr": 0.76,
+      "ndcg_at_10": 0.5142884855787807,
+      "negative_false_positive_rate": 1.0,
+      "payload_bytes": {
+        "count": 55,
+        "mean": 25660.98181818182,
+        "p50": 26177.0,
+        "p95": 26242.0
+      },
+      "payload_tokens": {
+        "count": 55,
+        "mean": 6755.254545454545,
+        "p50": 6892.0,
+        "p95": 6928.0
+      },
+      "query_classes": {
+        "citation": {
+          "citation_precision": 0.5555555555555556,
+          "citation_recall": 0.4166666666666667,
+          "context_tokens": {
+            "count": 9,
+            "mean": 235.66666666666666,
+            "p50": 242.0,
+            "p95": 242.0
+          },
+          "hit_at_5": 0.7777777777777778,
+          "judged_query_count": 9,
+          "latency_ms": {
+            "count": 9,
+            "mean": 60.02102221989642,
+            "p50": 61.953300013556145,
+            "p95": 82.48709999315906
+          },
+          "mrr": 0.6666666666666666,
+          "ndcg_at_10": 0.3729674610536983,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 9,
+            "mean": 26192.444444444445,
+            "p50": 26186.0,
+            "p95": 26260.0
+          },
+          "payload_tokens": {
+            "count": 9,
+            "mean": 6892.222222222223,
+            "p50": 6883.0,
+            "p95": 6928.0
+          },
+          "query_class": "citation",
+          "query_count": 9,
+          "recall_at_5": 0.3888888888888889,
+          "run_row_count": 18
+        },
+        "global-map": {
+          "citation_precision": 0.9,
+          "citation_recall": 0.375,
+          "context_tokens": {
+            "count": 5,
+            "mean": 223.6,
+            "p50": 215.0,
+            "p95": 242.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 5,
+          "latency_ms": {
+            "count": 5,
+            "mean": 58.661560001200996,
+            "p50": 50.20409999997355,
+            "p95": 95.66520000225864
+          },
+          "mrr": 0.9,
+          "ndcg_at_10": 0.5341683396615687,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26184.6,
+            "p50": 26187.0,
+            "p95": 26242.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6873.4,
+            "p50": 6874.0,
+            "p95": 6909.0
+          },
+          "query_class": "global-map",
+          "query_count": 5,
+          "recall_at_5": 0.5071428571428571,
+          "run_row_count": 10
+        },
+        "known-item": {
+          "citation_precision": 0.46875,
+          "citation_recall": 0.5769230769230769,
+          "context_tokens": {
+            "count": 16,
+            "mean": 237.4375,
+            "p50": 242.0,
+            "p95": 242.0
+          },
+          "hit_at_5": 0.875,
+          "judged_query_count": 16,
+          "latency_ms": {
+            "count": 16,
+            "mean": 73.21609999962675,
+            "p50": 52.20710000139661,
+            "p95": 133.39109999651555
+          },
+          "mrr": 0.71875,
+          "ndcg_at_10": 0.5170678659130682,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 16,
+            "mean": 26157.75,
+            "p50": 26143.0,
+            "p95": 26257.0
+          },
+          "payload_tokens": {
+            "count": 16,
+            "mean": 6892.5625,
+            "p50": 6900.0,
+            "p95": 6912.0
+          },
+          "query_class": "known-item",
+          "query_count": 16,
+          "recall_at_5": 0.6458333333333334,
+          "run_row_count": 32
+        },
+        "korean-numeric": {
+          "citation_precision": 0.6923076923076923,
+          "citation_recall": 0.6,
+          "context_tokens": {
+            "count": 8,
+            "mean": 193.625,
+            "p50": 242.0,
+            "p95": 242.0
+          },
+          "hit_at_5": 0.875,
+          "judged_query_count": 8,
+          "latency_ms": {
+            "count": 8,
+            "mean": 39.54016250099812,
+            "p50": 45.09299999335781,
+            "p95": 57.533600003807805
+          },
+          "mrr": 0.8125,
+          "ndcg_at_10": 0.7232523844771178,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 8,
+            "mean": 22631.5,
+            "p50": 26131.0,
+            "p95": 26179.0
+          },
+          "payload_tokens": {
+            "count": 8,
+            "mean": 5980.5,
+            "p50": 6907.0,
+            "p95": 6931.0
+          },
+          "query_class": "korean-numeric",
+          "query_count": 8,
+          "recall_at_5": 0.7291666666666666,
+          "run_row_count": 13
+        },
+        "multi-hop": {
+          "citation_precision": 0.625,
+          "citation_recall": 0.35714285714285715,
+          "context_tokens": {
+            "count": 12,
+            "mean": 237.66666666666666,
+            "p50": 242.0,
+            "p95": 242.0
+          },
+          "hit_at_5": 0.8333333333333334,
+          "judged_query_count": 12,
+          "latency_ms": {
+            "count": 12,
+            "mean": 74.2117083342843,
+            "p50": 52.43809999956284,
+            "p95": 141.1151000065729
+          },
+          "mrr": 0.7916666666666666,
+          "ndcg_at_10": 0.4689808750601561,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 12,
+            "mean": 26178.25,
+            "p50": 26178.0,
+            "p95": 26237.0
+          },
+          "payload_tokens": {
+            "count": 12,
+            "mean": 6895.25,
+            "p50": 6894.0,
+            "p95": 6922.0
+          },
+          "query_class": "multi-hop",
+          "query_count": 12,
+          "recall_at_5": 0.375,
+          "run_row_count": 24
+        },
+        "negative": {
+          "citation_precision": 0.0,
+          "citation_recall": null,
+          "context_tokens": {
+            "count": 5,
+            "mean": 222.2,
+            "p50": 213.0,
+            "p95": 242.0
+          },
+          "hit_at_5": null,
+          "judged_query_count": 0,
+          "latency_ms": {
+            "count": 5,
+            "mean": 74.96039999823552,
+            "p50": 76.01579999027308,
+            "p95": 93.34430001035798
+          },
+          "mrr": null,
+          "ndcg_at_10": null,
+          "negative_false_positive_rate": 1.0,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26196.8,
+            "p50": 26196.0,
+            "p95": 26219.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6854.8,
+            "p50": 6842.0,
+            "p95": 6880.0
+          },
+          "query_class": "negative",
+          "query_count": 5,
+          "recall_at_5": null,
+          "run_row_count": 10
+        }
+      },
+      "query_count": 55,
+      "recall_at_5": 0.5340476190476191,
+      "run_id": "generic_shadow_managed_on_primed_service_context_orientation",
+      "run_row_count": 107,
+      "surface": "service-context-orientation"
+    },
+    "generic_shadow_managed_on_primed_service_search_read": {
+      "citation_precision": 0.36466165413533835,
+      "citation_recall": 0.7404580152671756,
+      "context_tokens": {
+        "count": 55,
+        "mean": 1551.5272727272727,
+        "p50": 1577.0,
+        "p95": 1875.0
+      },
+      "evaluation_mode": "retrieval",
+      "hit_at_5": 0.96,
+      "judged_query_count": 50,
+      "latency_ms": {
+        "count": 55,
+        "mean": 333.3115527271399,
+        "p50": 259.6845000080066,
+        "p95": 724.4017999910284
+      },
+      "mrr": 0.8533333333333333,
+      "ndcg_at_10": 0.803672085960677,
+      "negative_false_positive_rate": 1.0,
+      "payload_bytes": {
+        "count": 55,
+        "mean": 5868.6,
+        "p50": 6023.0,
+        "p95": 7040.0
+      },
+      "payload_tokens": {
+        "count": 55,
+        "mean": 1543.8909090909092,
+        "p50": 1569.0,
+        "p95": 1867.0
+      },
+      "query_classes": {
+        "citation": {
+          "citation_precision": 0.4888888888888889,
+          "citation_recall": 0.9166666666666666,
+          "context_tokens": {
+            "count": 9,
+            "mean": 1550.6666666666667,
+            "p50": 1551.0,
+            "p95": 1866.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 9,
+          "latency_ms": {
+            "count": 9,
+            "mean": 310.25495555594614,
+            "p50": 272.0666999957757,
+            "p95": 507.62869999744
+          },
+          "mrr": 0.9444444444444444,
+          "ndcg_at_10": 0.8992709030444319,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 9,
+            "mean": 5902.555555555556,
+            "p50": 6021.0,
+            "p95": 6916.0
+          },
+          "payload_tokens": {
+            "count": 9,
+            "mean": 1542.6666666666667,
+            "p50": 1543.0,
+            "p95": 1858.0
+          },
+          "query_class": "citation",
+          "query_count": 9,
+          "recall_at_5": 0.9351851851851851,
+          "run_row_count": 45
+        },
+        "global-map": {
+          "citation_precision": 0.44,
+          "citation_recall": 0.4583333333333333,
+          "context_tokens": {
+            "count": 5,
+            "mean": 1545.2,
+            "p50": 1563.0,
+            "p95": 1669.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 5,
+          "latency_ms": {
+            "count": 5,
+            "mean": 479.2085799999768,
+            "p50": 235.56889999599662,
+            "p95": 1399.7844999976223
+          },
+          "mrr": 0.5166666666666667,
+          "ndcg_at_10": 0.4005847571724505,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 5936.2,
+            "p50": 6075.0,
+            "p95": 6146.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 1537.2,
+            "p50": 1555.0,
+            "p95": 1661.0
+          },
+          "query_class": "global-map",
+          "query_count": 5,
+          "recall_at_5": 0.5785714285714285,
+          "run_row_count": 25
+        },
+        "known-item": {
+          "citation_precision": 0.3125,
+          "citation_recall": 0.9615384615384616,
+          "context_tokens": {
+            "count": 16,
+            "mean": 1612.8125,
+            "p50": 1641.0,
+            "p95": 1967.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 16,
+          "latency_ms": {
+            "count": 16,
+            "mean": 408.6360062501626,
+            "p50": 295.91570000047795,
+            "p95": 787.7373000083026
+          },
+          "mrr": 0.9270833333333334,
+          "ndcg_at_10": 0.887475551107509,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 16,
+            "mean": 6060.875,
+            "p50": 6076.0,
+            "p95": 7230.0
+          },
+          "payload_tokens": {
+            "count": 16,
+            "mean": 1604.8125,
+            "p50": 1633.0,
+            "p95": 1959.0
+          },
+          "query_class": "known-item",
+          "query_count": 16,
+          "recall_at_5": 0.9791666666666666,
+          "run_row_count": 80
+        },
+        "korean-numeric": {
+          "citation_precision": 0.3548387096774194,
+          "citation_recall": 0.7333333333333333,
+          "context_tokens": {
+            "count": 8,
+            "mean": 1387.125,
+            "p50": 1804.0,
+            "p95": 1929.0
+          },
+          "hit_at_5": 0.875,
+          "judged_query_count": 8,
+          "latency_ms": {
+            "count": 8,
+            "mean": 234.14115000196034,
+            "p50": 254.97490000270773,
+            "p95": 482.89919999660924
+          },
+          "mrr": 0.8125,
+          "ndcg_at_10": 0.8143499121567886,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 8,
+            "mean": 5093.75,
+            "p50": 6526.0,
+            "p95": 7051.0
+          },
+          "payload_tokens": {
+            "count": 8,
+            "mean": 1381.625,
+            "p50": 1796.0,
+            "p95": 1921.0
+          },
+          "query_class": "korean-numeric",
+          "query_count": 8,
+          "recall_at_5": 0.8333333333333334,
+          "run_row_count": 31
+        },
+        "multi-hop": {
+          "citation_precision": 0.4666666666666667,
+          "citation_recall": 0.6666666666666666,
+          "context_tokens": {
+            "count": 12,
+            "mean": 1623.8333333333333,
+            "p50": 1555.0,
+            "p95": 1875.0
+          },
+          "hit_at_5": 0.9166666666666666,
+          "judged_query_count": 12,
+          "latency_ms": {
+            "count": 12,
+            "mean": 246.96174166577597,
+            "p50": 231.91509999742266,
+            "p95": 366.5706999890972
+          },
+          "mrr": 0.8541666666666666,
+          "ndcg_at_10": 0.7810695224831049,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 12,
+            "mean": 6135.833333333333,
+            "p50": 5782.0,
+            "p95": 7040.0
+          },
+          "payload_tokens": {
+            "count": 12,
+            "mean": 1615.8333333333333,
+            "p50": 1547.0,
+            "p95": 1867.0
+          },
+          "query_class": "multi-hop",
+          "query_count": 12,
+          "recall_at_5": 0.7673611111111112,
+          "run_row_count": 60
+        },
+        "negative": {
+          "citation_precision": 0.0,
+          "citation_recall": null,
+          "context_tokens": {
+            "count": 5,
+            "mean": 1452.8,
+            "p50": 1445.0,
+            "p95": 1560.0
+          },
+          "hit_at_5": null,
+          "judged_query_count": 0,
+          "latency_ms": {
+            "count": 5,
+            "mean": 353.79033999633975,
+            "p50": 337.6046000048518,
+            "p95": 574.7356999927433
+          },
+          "mrr": null,
+          "ndcg_at_10": null,
+          "negative_false_positive_rate": 1.0,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 5723.0,
+            "p50": 5717.0,
+            "p95": 6005.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 1444.8,
+            "p50": 1437.0,
+            "p95": 1552.0
+          },
+          "query_class": "negative",
+          "query_count": 5,
+          "recall_at_5": null,
+          "run_row_count": 25
+        }
+      },
+      "query_count": 55,
+      "recall_at_5": 0.8570238095238095,
+      "run_id": "generic_shadow_managed_on_primed_service_search_read",
+      "run_row_count": 266,
+      "surface": "service-search-read"
+    },
+    "generic_shadow_managed_on_warm_service_context": {
+      "citation_precision": 0.36466165413533835,
+      "citation_recall": 0.7404580152671756,
+      "context_tokens": {
+        "count": 55,
+        "mean": 533.4,
+        "p50": 551.0,
+        "p95": 572.0
+      },
+      "evaluation_mode": "retrieval",
+      "hit_at_5": 0.96,
+      "judged_query_count": 50,
+      "latency_ms": {
+        "count": 55,
+        "mean": 56.70921090879181,
+        "p50": 50.16369999793824,
+        "p95": 119.50560001423582
+      },
+      "mrr": 0.8533333333333333,
+      "ndcg_at_10": 0.803672085960677,
+      "negative_false_positive_rate": 1.0,
+      "payload_bytes": {
+        "count": 55,
+        "mean": 25660.745454545453,
+        "p50": 26177.0,
+        "p95": 26242.0
+      },
+      "payload_tokens": {
+        "count": 55,
+        "mean": 6755.454545454545,
+        "p50": 6892.0,
+        "p95": 6928.0
+      },
+      "query_classes": {
+        "citation": {
+          "citation_precision": 0.4888888888888889,
+          "citation_recall": 0.9166666666666666,
+          "context_tokens": {
+            "count": 9,
+            "mean": 550.0,
+            "p50": 547.0,
+            "p95": 581.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 9,
+          "latency_ms": {
+            "count": 9,
+            "mean": 49.4317777791164,
+            "p50": 47.37730001215823,
+            "p95": 85.23379999678582
+          },
+          "mrr": 0.9444444444444444,
+          "ndcg_at_10": 0.8992709030444319,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 9,
+            "mean": 26191.0,
+            "p50": 26186.0,
+            "p95": 26247.0
+          },
+          "payload_tokens": {
+            "count": 9,
+            "mean": 6893.444444444444,
+            "p50": 6883.0,
+            "p95": 6928.0
+          },
+          "query_class": "citation",
+          "query_count": 9,
+          "recall_at_5": 0.9351851851851851,
+          "run_row_count": 45
+        },
+        "global-map": {
+          "citation_precision": 0.44,
+          "citation_recall": 0.4583333333333333,
+          "context_tokens": {
+            "count": 5,
+            "mean": 545.0,
+            "p50": 541.0,
+            "p95": 562.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 5,
+          "latency_ms": {
+            "count": 5,
+            "mean": 49.53953999793157,
+            "p50": 49.5742000057362,
+            "p95": 54.72269999154378
+          },
+          "mrr": 0.5166666666666667,
+          "ndcg_at_10": 0.4005847571724505,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26184.6,
+            "p50": 26187.0,
+            "p95": 26242.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6873.4,
+            "p50": 6874.0,
+            "p95": 6909.0
+          },
+          "query_class": "global-map",
+          "query_count": 5,
+          "recall_at_5": 0.5785714285714285,
+          "run_row_count": 25
+        },
+        "known-item": {
+          "citation_precision": 0.3125,
+          "citation_recall": 0.9615384615384616,
+          "context_tokens": {
+            "count": 16,
+            "mean": 553.4375,
+            "p50": 554.0,
+            "p95": 567.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 16,
+          "latency_ms": {
+            "count": 16,
+            "mean": 75.97891875047935,
+            "p50": 54.778499994426966,
+            "p95": 136.59360000747256
+          },
+          "mrr": 0.9270833333333334,
+          "ndcg_at_10": 0.887475551107509,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 16,
+            "mean": 26157.75,
+            "p50": 26143.0,
+            "p95": 26257.0
+          },
+          "payload_tokens": {
+            "count": 16,
+            "mean": 6892.5625,
+            "p50": 6900.0,
+            "p95": 6912.0
+          },
+          "query_class": "known-item",
+          "query_count": 16,
+          "recall_at_5": 0.9791666666666666,
+          "run_row_count": 80
+        },
+        "korean-numeric": {
+          "citation_precision": 0.3548387096774194,
+          "citation_recall": 0.7333333333333333,
+          "context_tokens": {
+            "count": 8,
+            "mean": 439.75,
+            "p50": 560.0,
+            "p95": 578.0
+          },
+          "hit_at_5": 0.875,
+          "judged_query_count": 8,
+          "latency_ms": {
+            "count": 8,
+            "mean": 49.183049997736816,
+            "p50": 44.50879999785684,
+            "p95": 105.65279998991173
+          },
+          "mrr": 0.8125,
+          "ndcg_at_10": 0.8143499121567886,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 8,
+            "mean": 22631.5,
+            "p50": 26131.0,
+            "p95": 26179.0
+          },
+          "payload_tokens": {
+            "count": 8,
+            "mean": 5980.5,
+            "p50": 6907.0,
+            "p95": 6931.0
+          },
+          "query_class": "korean-numeric",
+          "query_count": 8,
+          "recall_at_5": 0.8333333333333334,
+          "run_row_count": 31
+        },
+        "multi-hop": {
+          "citation_precision": 0.4666666666666667,
+          "citation_recall": 0.6666666666666666,
+          "context_tokens": {
+            "count": 12,
+            "mean": 551.4166666666666,
+            "p50": 551.0,
+            "p95": 572.0
+          },
+          "hit_at_5": 0.9166666666666666,
+          "judged_query_count": 12,
+          "latency_ms": {
+            "count": 12,
+            "mean": 47.212274999765214,
+            "p50": 46.084600005997345,
+            "p95": 62.984300006064586
+          },
+          "mrr": 0.8541666666666666,
+          "ndcg_at_10": 0.7810695224831049,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 12,
+            "mean": 26178.25,
+            "p50": 26178.0,
+            "p95": 26237.0
+          },
+          "payload_tokens": {
+            "count": 12,
+            "mean": 6895.25,
+            "p50": 6894.0,
+            "p95": 6922.0
+          },
+          "query_class": "multi-hop",
+          "query_count": 12,
+          "recall_at_5": 0.7673611111111112,
+          "run_row_count": 60
+        },
+        "negative": {
+          "citation_precision": 0.0,
+          "citation_recall": null,
+          "context_tokens": {
+            "count": 5,
+            "mean": 534.4,
+            "p50": 531.0,
+            "p95": 548.0
+          },
+          "hit_at_5": null,
+          "judged_query_count": 0,
+          "latency_ms": {
+            "count": 5,
+            "mean": 50.149699999019504,
+            "p50": 48.07340000115801,
+            "p95": 56.65769999905024
+          },
+          "mrr": null,
+          "ndcg_at_10": null,
+          "negative_false_positive_rate": 1.0,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26196.8,
+            "p50": 26196.0,
+            "p95": 26219.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6854.8,
+            "p50": 6842.0,
+            "p95": 6880.0
+          },
+          "query_class": "negative",
+          "query_count": 5,
+          "recall_at_5": null,
+          "run_row_count": 25
+        }
+      },
+      "query_count": 55,
+      "recall_at_5": 0.8570238095238095,
+      "run_id": "generic_shadow_managed_on_warm_service_context",
+      "run_row_count": 266,
+      "surface": "service-context"
+    },
+    "generic_shadow_managed_on_warm_service_context_bundle": {
+      "evaluation_mode": "telemetry-only",
+      "latency_ms": {
+        "count": 55,
+        "mean": 55.080043635098264,
+        "p50": 48.04870000225492,
+        "p95": 112.20259999390692
+      },
+      "payload_bytes": {
+        "count": 55,
+        "mean": 25660.745454545453,
+        "p50": 26177.0,
+        "p95": 26242.0
+      },
+      "payload_tokens": {
+        "count": 55,
+        "mean": 6755.454545454545,
+        "p50": 6892.0,
+        "p95": 6928.0
+      },
+      "query_classes": {
+        "citation": {
+          "latency_ms": {
+            "count": 9,
+            "mean": 90.60823332886987,
+            "p50": 101.03829999570735,
+            "p95": 125.01600000541657
+          },
+          "payload_bytes": {
+            "count": 9,
+            "mean": 26191.0,
+            "p50": 26186.0,
+            "p95": 26247.0
+          },
+          "payload_tokens": {
+            "count": 9,
+            "mean": 6893.444444444444,
+            "p50": 6883.0,
+            "p95": 6928.0
+          },
+          "query_class": "citation",
+          "query_count": 9,
+          "run_row_count": 50
+        },
+        "global-map": {
+          "latency_ms": {
+            "count": 5,
+            "mean": 45.444839997799136,
+            "p50": 44.33049999352079,
+            "p95": 51.63719999836758
+          },
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26184.6,
+            "p50": 26187.0,
+            "p95": 26242.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6873.4,
+            "p50": 6874.0,
+            "p95": 6909.0
+          },
+          "query_class": "global-map",
+          "query_count": 5,
+          "run_row_count": 27
+        },
+        "known-item": {
+          "latency_ms": {
+            "count": 16,
+            "mean": 51.62490624934435,
+            "p50": 44.37340000004042,
+            "p95": 118.35049999353942
+          },
+          "payload_bytes": {
+            "count": 16,
+            "mean": 26157.75,
+            "p50": 26143.0,
+            "p95": 26257.0
+          },
+          "payload_tokens": {
+            "count": 16,
+            "mean": 6892.5625,
+            "p50": 6900.0,
+            "p95": 6912.0
+          },
+          "query_class": "known-item",
+          "query_count": 16,
+          "run_row_count": 86
+        },
+        "korean-numeric": {
+          "latency_ms": {
+            "count": 8,
+            "mean": 48.57487499975832,
+            "p50": 48.91849998966791,
+            "p95": 85.54880000883713
+          },
+          "payload_bytes": {
+            "count": 8,
+            "mean": 22631.5,
+            "p50": 26131.0,
+            "p95": 26179.0
+          },
+          "payload_tokens": {
+            "count": 8,
+            "mean": 5980.5,
+            "p50": 6907.0,
+            "p95": 6931.0
+          },
+          "query_class": "korean-numeric",
+          "query_count": 8,
+          "run_row_count": 32
+        },
+        "multi-hop": {
+          "latency_ms": {
+            "count": 12,
+            "mean": 42.94761666460545,
+            "p50": 43.15399999904912,
+            "p95": 53.89300000388175
+          },
+          "payload_bytes": {
+            "count": 12,
+            "mean": 26178.25,
+            "p50": 26178.0,
+            "p95": 26237.0
+          },
+          "payload_tokens": {
+            "count": 12,
+            "mean": 6895.25,
+            "p50": 6894.0,
+            "p95": 6922.0
+          },
+          "query_class": "multi-hop",
+          "query_count": 12,
+          "run_row_count": 69
+        },
+        "negative": {
+          "latency_ms": {
+            "count": 5,
+            "mean": 51.34704000374768,
+            "p50": 51.53900000732392,
+            "p95": 60.460600012447685
+          },
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26196.8,
+            "p50": 26196.0,
+            "p95": 26219.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6854.8,
+            "p50": 6842.0,
+            "p95": 6880.0
+          },
+          "query_class": "negative",
+          "query_count": 5,
+          "run_row_count": 28
+        }
+      },
+      "query_count": 55,
+      "run_id": "generic_shadow_managed_on_warm_service_context_bundle",
+      "run_row_count": 292,
+      "surface": "service-context-bundle"
+    },
+    "generic_shadow_managed_on_warm_service_context_orientation": {
+      "citation_precision": 0.5514018691588785,
+      "citation_recall": 0.45038167938931295,
+      "context_tokens": {
+        "count": 55,
+        "mean": 228.38181818181818,
+        "p50": 242.0,
+        "p95": 242.0
+      },
+      "evaluation_mode": "retrieval",
+      "hit_at_5": 0.88,
+      "judged_query_count": 50,
+      "latency_ms": {
+        "count": 55,
+        "mean": 66.87321818105623,
+        "p50": 55.400199998985045,
+        "p95": 118.45729999186005
+      },
+      "mrr": 0.77,
+      "ndcg_at_10": 0.5269070806502099,
+      "negative_false_positive_rate": 1.0,
+      "payload_bytes": {
+        "count": 55,
+        "mean": 25660.745454545453,
+        "p50": 26177.0,
+        "p95": 26242.0
+      },
+      "payload_tokens": {
+        "count": 55,
+        "mean": 6755.454545454545,
+        "p50": 6892.0,
+        "p95": 6928.0
+      },
+      "query_classes": {
+        "citation": {
+          "citation_precision": 0.6111111111111112,
+          "citation_recall": 0.4583333333333333,
+          "context_tokens": {
+            "count": 9,
+            "mean": 236.88888888888889,
+            "p50": 242.0,
+            "p95": 242.0
+          },
+          "hit_at_5": 0.8888888888888888,
+          "judged_query_count": 9,
+          "latency_ms": {
+            "count": 9,
+            "mean": 44.140588888290544,
+            "p50": 45.8061999961501,
+            "p95": 58.49989999842364
+          },
+          "mrr": 0.7777777777777778,
+          "ndcg_at_10": 0.4840785721648094,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 9,
+            "mean": 26191.0,
+            "p50": 26186.0,
+            "p95": 26247.0
+          },
+          "payload_tokens": {
+            "count": 9,
+            "mean": 6893.444444444444,
+            "p50": 6883.0,
+            "p95": 6928.0
+          },
+          "query_class": "citation",
+          "query_count": 9,
+          "recall_at_5": 0.5,
+          "run_row_count": 18
+        },
+        "global-map": {
+          "citation_precision": 0.9,
+          "citation_recall": 0.375,
+          "context_tokens": {
+            "count": 5,
+            "mean": 223.6,
+            "p50": 215.0,
+            "p95": 242.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 5,
+          "latency_ms": {
+            "count": 5,
+            "mean": 84.72356000274885,
+            "p50": 102.10830000869464,
+            "p95": 114.48340000060853
+          },
+          "mrr": 0.9,
+          "ndcg_at_10": 0.5341683396615687,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26184.6,
+            "p50": 26187.0,
+            "p95": 26242.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6873.4,
+            "p50": 6874.0,
+            "p95": 6909.0
+          },
+          "query_class": "global-map",
+          "query_count": 5,
+          "recall_at_5": 0.5071428571428571,
+          "run_row_count": 10
+        },
+        "known-item": {
+          "citation_precision": 0.46875,
+          "citation_recall": 0.5769230769230769,
+          "context_tokens": {
+            "count": 16,
+            "mean": 237.4375,
+            "p50": 242.0,
+            "p95": 242.0
+          },
+          "hit_at_5": 0.875,
+          "judged_query_count": 16,
+          "latency_ms": {
+            "count": 16,
+            "mean": 56.39601874827349,
+            "p50": 52.070300007471815,
+            "p95": 81.56099999905564
+          },
+          "mrr": 0.6875,
+          "ndcg_at_10": 0.4940009755112843,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 16,
+            "mean": 26157.75,
+            "p50": 26143.0,
+            "p95": 26257.0
+          },
+          "payload_tokens": {
+            "count": 16,
+            "mean": 6892.5625,
+            "p50": 6900.0,
+            "p95": 6912.0
+          },
+          "query_class": "known-item",
+          "query_count": 16,
+          "recall_at_5": 0.6458333333333334,
+          "run_row_count": 32
+        },
+        "korean-numeric": {
+          "citation_precision": 0.6923076923076923,
+          "citation_recall": 0.6,
+          "context_tokens": {
+            "count": 8,
+            "mean": 193.625,
+            "p50": 242.0,
+            "p95": 242.0
+          },
+          "hit_at_5": 0.875,
+          "judged_query_count": 8,
+          "latency_ms": {
+            "count": 8,
+            "mean": 57.266037500085076,
+            "p50": 37.343000003602356,
+            "p95": 117.12270000134595
+          },
+          "mrr": 0.8125,
+          "ndcg_at_10": 0.7232523844771178,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 8,
+            "mean": 22631.5,
+            "p50": 26131.0,
+            "p95": 26179.0
+          },
+          "payload_tokens": {
+            "count": 8,
+            "mean": 5980.5,
+            "p50": 6907.0,
+            "p95": 6931.0
+          },
+          "query_class": "korean-numeric",
+          "query_count": 8,
+          "recall_at_5": 0.7291666666666666,
+          "run_row_count": 13
+        },
+        "multi-hop": {
+          "citation_precision": 0.625,
+          "citation_recall": 0.35714285714285715,
+          "context_tokens": {
+            "count": 12,
+            "mean": 237.66666666666666,
+            "p50": 242.0,
+            "p95": 242.0
+          },
+          "hit_at_5": 0.8333333333333334,
+          "judged_query_count": 12,
+          "latency_ms": {
+            "count": 12,
+            "mean": 90.45670833196102,
+            "p50": 103.04610000457615,
+            "p95": 125.19720000273082
+          },
+          "mrr": 0.7916666666666666,
+          "ndcg_at_10": 0.4689808750601561,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 12,
+            "mean": 26178.25,
+            "p50": 26178.0,
+            "p95": 26237.0
+          },
+          "payload_tokens": {
+            "count": 12,
+            "mean": 6895.25,
+            "p50": 6894.0,
+            "p95": 6922.0
+          },
+          "query_class": "multi-hop",
+          "query_count": 12,
+          "recall_at_5": 0.375,
+          "run_row_count": 24
+        },
+        "negative": {
+          "citation_precision": 0.0,
+          "citation_recall": null,
+          "context_tokens": {
+            "count": 5,
+            "mean": 222.2,
+            "p50": 213.0,
+            "p95": 242.0
+          },
+          "hit_at_5": null,
+          "judged_query_count": 0,
+          "latency_ms": {
+            "count": 5,
+            "mean": 82.23975999862887,
+            "p50": 78.04789999499917,
+            "p95": 109.21969999617431
+          },
+          "mrr": null,
+          "ndcg_at_10": null,
+          "negative_false_positive_rate": 1.0,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 26196.8,
+            "p50": 26196.0,
+            "p95": 26219.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 6854.8,
+            "p50": 6842.0,
+            "p95": 6880.0
+          },
+          "query_class": "negative",
+          "query_count": 5,
+          "recall_at_5": null,
+          "run_row_count": 10
+        }
+      },
+      "query_count": 55,
+      "recall_at_5": 0.554047619047619,
+      "run_id": "generic_shadow_managed_on_warm_service_context_orientation",
+      "run_row_count": 107,
+      "surface": "service-context-orientation"
+    },
+    "generic_shadow_managed_on_warm_service_search_read": {
+      "citation_precision": 0.36466165413533835,
+      "citation_recall": 0.7404580152671756,
+      "context_tokens": {
+        "count": 55,
+        "mean": 1551.5272727272727,
+        "p50": 1577.0,
+        "p95": 1875.0
+      },
+      "evaluation_mode": "retrieval",
+      "hit_at_5": 0.96,
+      "judged_query_count": 50,
+      "latency_ms": {
+        "count": 55,
+        "mean": 341.9229872728465,
+        "p50": 315.30400000337977,
+        "p95": 547.4931000062497
+      },
+      "mrr": 0.8533333333333333,
+      "ndcg_at_10": 0.803672085960677,
+      "negative_false_positive_rate": 1.0,
+      "payload_bytes": {
+        "count": 55,
+        "mean": 5868.6,
+        "p50": 6023.0,
+        "p95": 7040.0
+      },
+      "payload_tokens": {
+        "count": 55,
+        "mean": 1543.8909090909092,
+        "p50": 1569.0,
+        "p95": 1867.0
+      },
+      "query_classes": {
+        "citation": {
+          "citation_precision": 0.4888888888888889,
+          "citation_recall": 0.9166666666666666,
+          "context_tokens": {
+            "count": 9,
+            "mean": 1550.6666666666667,
+            "p50": 1551.0,
+            "p95": 1866.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 9,
+          "latency_ms": {
+            "count": 9,
+            "mean": 273.6372444471474,
+            "p50": 226.06259999156464,
+            "p95": 479.6987000008812
+          },
+          "mrr": 0.9444444444444444,
+          "ndcg_at_10": 0.8992709030444319,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 9,
+            "mean": 5902.555555555556,
+            "p50": 6021.0,
+            "p95": 6916.0
+          },
+          "payload_tokens": {
+            "count": 9,
+            "mean": 1542.6666666666667,
+            "p50": 1543.0,
+            "p95": 1858.0
+          },
+          "query_class": "citation",
+          "query_count": 9,
+          "recall_at_5": 0.9351851851851851,
+          "run_row_count": 45
+        },
+        "global-map": {
+          "citation_precision": 0.44,
+          "citation_recall": 0.4583333333333333,
+          "context_tokens": {
+            "count": 5,
+            "mean": 1545.2,
+            "p50": 1563.0,
+            "p95": 1669.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 5,
+          "latency_ms": {
+            "count": 5,
+            "mean": 385.48030000238214,
+            "p50": 467.10470000107307,
+            "p95": 489.4776000001002
+          },
+          "mrr": 0.5166666666666667,
+          "ndcg_at_10": 0.4005847571724505,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 5936.2,
+            "p50": 6075.0,
+            "p95": 6146.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 1537.2,
+            "p50": 1555.0,
+            "p95": 1661.0
+          },
+          "query_class": "global-map",
+          "query_count": 5,
+          "recall_at_5": 0.5785714285714285,
+          "run_row_count": 25
+        },
+        "known-item": {
+          "citation_precision": 0.3125,
+          "citation_recall": 0.9615384615384616,
+          "context_tokens": {
+            "count": 16,
+            "mean": 1612.8125,
+            "p50": 1641.0,
+            "p95": 1967.0
+          },
+          "hit_at_5": 1.0,
+          "judged_query_count": 16,
+          "latency_ms": {
+            "count": 16,
+            "mean": 389.2861312497189,
+            "p50": 381.3155999960145,
+            "p95": 554.460300001665
+          },
+          "mrr": 0.9270833333333334,
+          "ndcg_at_10": 0.887475551107509,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 16,
+            "mean": 6060.875,
+            "p50": 6076.0,
+            "p95": 7230.0
+          },
+          "payload_tokens": {
+            "count": 16,
+            "mean": 1604.8125,
+            "p50": 1633.0,
+            "p95": 1959.0
+          },
+          "query_class": "known-item",
+          "query_count": 16,
+          "recall_at_5": 0.9791666666666666,
+          "run_row_count": 80
+        },
+        "korean-numeric": {
+          "citation_precision": 0.3548387096774194,
+          "citation_recall": 0.7333333333333333,
+          "context_tokens": {
+            "count": 8,
+            "mean": 1387.125,
+            "p50": 1804.0,
+            "p95": 1929.0
+          },
+          "hit_at_5": 0.875,
+          "judged_query_count": 8,
+          "latency_ms": {
+            "count": 8,
+            "mean": 250.33212500056834,
+            "p50": 245.12740000500344,
+            "p95": 518.4423000027891
+          },
+          "mrr": 0.8125,
+          "ndcg_at_10": 0.8143499121567886,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 8,
+            "mean": 5093.75,
+            "p50": 6526.0,
+            "p95": 7051.0
+          },
+          "payload_tokens": {
+            "count": 8,
+            "mean": 1381.625,
+            "p50": 1796.0,
+            "p95": 1921.0
+          },
+          "query_class": "korean-numeric",
+          "query_count": 8,
+          "recall_at_5": 0.8333333333333334,
+          "run_row_count": 31
+        },
+        "multi-hop": {
+          "citation_precision": 0.4666666666666667,
+          "citation_recall": 0.6666666666666666,
+          "context_tokens": {
+            "count": 12,
+            "mean": 1623.8333333333333,
+            "p50": 1555.0,
+            "p95": 1875.0
+          },
+          "hit_at_5": 0.9166666666666666,
+          "judged_query_count": 12,
+          "latency_ms": {
+            "count": 12,
+            "mean": 372.13172499711317,
+            "p50": 292.508500002441,
+            "p95": 597.1311000030255
+          },
+          "mrr": 0.8541666666666666,
+          "ndcg_at_10": 0.7810695224831049,
+          "negative_false_positive_rate": null,
+          "payload_bytes": {
+            "count": 12,
+            "mean": 6135.833333333333,
+            "p50": 5782.0,
+            "p95": 7040.0
+          },
+          "payload_tokens": {
+            "count": 12,
+            "mean": 1615.8333333333333,
+            "p50": 1547.0,
+            "p95": 1867.0
+          },
+          "query_class": "multi-hop",
+          "query_count": 12,
+          "recall_at_5": 0.7673611111111112,
+          "run_row_count": 60
+        },
+        "negative": {
+          "citation_precision": 0.0,
+          "citation_recall": null,
+          "context_tokens": {
+            "count": 5,
+            "mean": 1452.8,
+            "p50": 1445.0,
+            "p95": 1560.0
+          },
+          "hit_at_5": null,
+          "judged_query_count": 0,
+          "latency_ms": {
+            "count": 5,
+            "mean": 343.7623600009829,
+            "p50": 366.2866000086069,
+            "p95": 449.40860000497196
+          },
+          "mrr": null,
+          "ndcg_at_10": null,
+          "negative_false_positive_rate": 1.0,
+          "payload_bytes": {
+            "count": 5,
+            "mean": 5723.0,
+            "p50": 5717.0,
+            "p95": 6005.0
+          },
+          "payload_tokens": {
+            "count": 5,
+            "mean": 1444.8,
+            "p50": 1437.0,
+            "p95": 1552.0
+          },
+          "query_class": "negative",
+          "query_count": 5,
+          "recall_at_5": null,
+          "run_row_count": 25
+        }
+      },
+      "query_count": 55,
+      "recall_at_5": 0.8570238095238095,
+      "run_id": "generic_shadow_managed_on_warm_service_search_read",
+      "run_row_count": 266,
+      "surface": "service-search-read"
+    }
+  },
+  "quality_gates": {
+    "common_failures": [],
+    "overall_status": "fail",
+    "public_quality_claim": false,
+    "runs": {
+      "generic_shadow_managed_off_cold_service_context": {
+        "failures": [
+          "recall_at_5 0.857024 is below public threshold 0.9",
+          "ndcg_at_10 0.803672 is below public threshold 0.85",
+          "citation_precision 0.364662 is below public threshold 0.95",
+          "citation_recall 0.740458 is below public threshold 0.85",
+          "negative_false_positive_rate 1 exceeds public threshold 0.05"
+        ],
+        "gate_scope": "retrieval",
+        "status": "fail"
+      },
+      "generic_shadow_managed_off_cold_service_context_bundle": {
+        "failures": [],
+        "gate_scope": "telemetry-only",
+        "status": "pass"
+      },
+      "generic_shadow_managed_off_cold_service_context_orientation": {
+        "failures": [
+          "recall_at_5 0 is below public threshold 0.9",
+          "mrr 0 is below public threshold 0.75",
+          "ndcg_at_10 0 is below public threshold 0.85",
+          "citation_precision 0 is below public threshold 0.95",
+          "citation_recall 0 is below public threshold 0.85",
+          "negative_false_positive_rate 1 exceeds public threshold 0.05"
+        ],
+        "gate_scope": "retrieval",
+        "status": "fail"
+      },
+      "generic_shadow_managed_off_cold_service_search_read": {
+        "failures": [
+          "recall_at_5 0.857024 is below public threshold 0.9",
+          "ndcg_at_10 0.803672 is below public threshold 0.85",
+          "citation_precision 0.364662 is below public threshold 0.95",
+          "citation_recall 0.740458 is below public threshold 0.85",
+          "negative_false_positive_rate 1 exceeds public threshold 0.05"
+        ],
+        "gate_scope": "retrieval",
+        "status": "fail"
+      },
+      "generic_shadow_managed_off_primed_service_context": {
+        "failures": [
+          "recall_at_5 0.857024 is below public threshold 0.9",
+          "ndcg_at_10 0.803672 is below public threshold 0.85",
+          "citation_precision 0.364662 is below public threshold 0.95",
+          "citation_recall 0.740458 is below public threshold 0.85",
+          "negative_false_positive_rate 1 exceeds public threshold 0.05"
+        ],
+        "gate_scope": "retrieval",
+        "status": "fail"
+      },
+      "generic_shadow_managed_off_primed_service_context_bundle": {
+        "failures": [],
+        "gate_scope": "telemetry-only",
+        "status": "pass"
+      },
+      "generic_shadow_managed_off_primed_service_context_orientation": {
+        "failures": [
+          "recall_at_5 0 is below public threshold 0.9",
+          "mrr 0 is below public threshold 0.75",
+          "ndcg_at_10 0 is below public threshold 0.85",
+          "citation_precision 0 is below public threshold 0.95",
+          "citation_recall 0 is below public threshold 0.85",
+          "negative_false_positive_rate 1 exceeds public threshold 0.05"
+        ],
+        "gate_scope": "retrieval",
+        "status": "fail"
+      },
+      "generic_shadow_managed_off_primed_service_search_read": {
+        "failures": [
+          "recall_at_5 0.857024 is below public threshold 0.9",
+          "ndcg_at_10 0.803672 is below public threshold 0.85",
+          "citation_precision 0.364662 is below public threshold 0.95",
+          "citation_recall 0.740458 is below public threshold 0.85",
+          "negative_false_positive_rate 1 exceeds public threshold 0.05"
+        ],
+        "gate_scope": "retrieval",
+        "status": "fail"
+      },
+      "generic_shadow_managed_off_warm_service_context": {
+        "failures": [
+          "recall_at_5 0.857024 is below public threshold 0.9",
+          "ndcg_at_10 0.803672 is below public threshold 0.85",
+          "citation_precision 0.364662 is below public threshold 0.95",
+          "citation_recall 0.740458 is below public threshold 0.85",
+          "negative_false_positive_rate 1 exceeds public threshold 0.05"
+        ],
+        "gate_scope": "retrieval",
+        "status": "fail"
+      },
+      "generic_shadow_managed_off_warm_service_context_bundle": {
+        "failures": [],
+        "gate_scope": "telemetry-only",
+        "status": "pass"
+      },
+      "generic_shadow_managed_off_warm_service_context_orientation": {
+        "failures": [
+          "recall_at_5 0 is below public threshold 0.9",
+          "mrr 0 is below public threshold 0.75",
+          "ndcg_at_10 0 is below public threshold 0.85",
+          "citation_precision 0 is below public threshold 0.95",
+          "citation_recall 0 is below public threshold 0.85",
+          "negative_false_positive_rate 1 exceeds public threshold 0.05"
+        ],
+        "gate_scope": "retrieval",
+        "status": "fail"
+      },
+      "generic_shadow_managed_off_warm_service_search_read": {
+        "failures": [
+          "recall_at_5 0.857024 is below public threshold 0.9",
+          "ndcg_at_10 0.803672 is below public threshold 0.85",
+          "citation_precision 0.364662 is below public threshold 0.95",
+          "citation_recall 0.740458 is below public threshold 0.85",
+          "negative_false_positive_rate 1 exceeds public threshold 0.05"
+        ],
+        "gate_scope": "retrieval",
+        "status": "fail"
+      },
+      "generic_shadow_managed_on_cold_service_context": {
+        "failures": [
+          "recall_at_5 0.857024 is below public threshold 0.9",
+          "ndcg_at_10 0.803672 is below public threshold 0.85",
+          "citation_precision 0.364662 is below public threshold 0.95",
+          "citation_recall 0.740458 is below public threshold 0.85",
+          "negative_false_positive_rate 1 exceeds public threshold 0.05"
+        ],
+        "gate_scope": "retrieval",
+        "status": "fail"
+      },
+      "generic_shadow_managed_on_cold_service_context_bundle": {
+        "failures": [],
+        "gate_scope": "telemetry-only",
+        "status": "pass"
+      },
+      "generic_shadow_managed_on_cold_service_context_orientation": {
+        "failures": [
+          "recall_at_5 0.554048 is below public threshold 0.9",
+          "ndcg_at_10 0.530021 is below public threshold 0.85",
+          "citation_precision 0.551402 is below public threshold 0.95",
+          "citation_recall 0.450382 is below public threshold 0.85",
+          "negative_false_positive_rate 1 exceeds public threshold 0.05"
+        ],
+        "gate_scope": "retrieval",
+        "status": "fail"
+      },
+      "generic_shadow_managed_on_cold_service_search_read": {
+        "failures": [
+          "recall_at_5 0.857024 is below public threshold 0.9",
+          "ndcg_at_10 0.803672 is below public threshold 0.85",
+          "citation_precision 0.364662 is below public threshold 0.95",
+          "citation_recall 0.740458 is below public threshold 0.85",
+          "negative_false_positive_rate 1 exceeds public threshold 0.05"
+        ],
+        "gate_scope": "retrieval",
+        "status": "fail"
+      },
+      "generic_shadow_managed_on_primed_service_context": {
+        "failures": [
+          "recall_at_5 0.857024 is below public threshold 0.9",
+          "ndcg_at_10 0.803672 is below public threshold 0.85",
+          "citation_precision 0.364662 is below public threshold 0.95",
+          "citation_recall 0.740458 is below public threshold 0.85",
+          "negative_false_positive_rate 1 exceeds public threshold 0.05"
+        ],
+        "gate_scope": "retrieval",
+        "status": "fail"
+      },
+      "generic_shadow_managed_on_primed_service_context_bundle": {
+        "failures": [],
+        "gate_scope": "telemetry-only",
+        "status": "pass"
+      },
+      "generic_shadow_managed_on_primed_service_context_orientation": {
+        "failures": [
+          "recall_at_5 0.534048 is below public threshold 0.9",
+          "ndcg_at_10 0.514288 is below public threshold 0.85",
+          "citation_precision 0.542056 is below public threshold 0.95",
+          "citation_recall 0.442748 is below public threshold 0.85",
+          "negative_false_positive_rate 1 exceeds public threshold 0.05"
+        ],
+        "gate_scope": "retrieval",
+        "status": "fail"
+      },
+      "generic_shadow_managed_on_primed_service_search_read": {
+        "failures": [
+          "recall_at_5 0.857024 is below public threshold 0.9",
+          "ndcg_at_10 0.803672 is below public threshold 0.85",
+          "citation_precision 0.364662 is below public threshold 0.95",
+          "citation_recall 0.740458 is below public threshold 0.85",
+          "negative_false_positive_rate 1 exceeds public threshold 0.05"
+        ],
+        "gate_scope": "retrieval",
+        "status": "fail"
+      },
+      "generic_shadow_managed_on_warm_service_context": {
+        "failures": [
+          "recall_at_5 0.857024 is below public threshold 0.9",
+          "ndcg_at_10 0.803672 is below public threshold 0.85",
+          "citation_precision 0.364662 is below public threshold 0.95",
+          "citation_recall 0.740458 is below public threshold 0.85",
+          "negative_false_positive_rate 1 exceeds public threshold 0.05"
+        ],
+        "gate_scope": "retrieval",
+        "status": "fail"
+      },
+      "generic_shadow_managed_on_warm_service_context_bundle": {
+        "failures": [],
+        "gate_scope": "telemetry-only",
+        "status": "pass"
+      },
+      "generic_shadow_managed_on_warm_service_context_orientation": {
+        "failures": [
+          "recall_at_5 0.554048 is below public threshold 0.9",
+          "ndcg_at_10 0.526907 is below public threshold 0.85",
+          "citation_precision 0.551402 is below public threshold 0.95",
+          "citation_recall 0.450382 is below public threshold 0.85",
+          "negative_false_positive_rate 1 exceeds public threshold 0.05"
+        ],
+        "gate_scope": "retrieval",
+        "status": "fail"
+      },
+      "generic_shadow_managed_on_warm_service_search_read": {
+        "failures": [
+          "recall_at_5 0.857024 is below public threshold 0.9",
+          "ndcg_at_10 0.803672 is below public threshold 0.85",
+          "citation_precision 0.364662 is below public threshold 0.95",
+          "citation_recall 0.740458 is below public threshold 0.85",
+          "negative_false_positive_rate 1 exceeds public threshold 0.05"
+        ],
+        "gate_scope": "retrieval",
+        "status": "fail"
+      }
+    },
+    "thresholds": {
+      "context_tokens_p95_baseline_ratio_max": 1.2,
+      "metrics": {
+        "citation_precision": {
+          "operator": ">=",
+          "threshold": 0.95
+        },
+        "citation_recall": {
+          "operator": ">=",
+          "threshold": 0.85
+        },
+        "mrr": {
+          "operator": ">=",
+          "threshold": 0.75
+        },
+        "ndcg_at_10": {
+          "operator": ">=",
+          "threshold": 0.85
+        },
+        "negative_false_positive_rate": {
+          "operator": "<=",
+          "threshold": 0.05
+        },
+        "recall_at_5": {
+          "operator": ">=",
+          "threshold": 0.9
+        }
+      },
+      "min_judged_queries": 50,
+      "min_queries": 50
+    }
+  },
+  "schema": "llmwiki-serve-verified-source-benchmark-v1",
+  "seed": 20260730,
+  "source_mutation": {
+    "after_sha256": "28e7ca3bb92e194fa5bc60a4f5bc7ae8782d89304cf9ee4ebd51bfe03525fb10",
+    "before_sha256": "28e7ca3bb92e194fa5bc60a4f5bc7ae8782d89304cf9ee4ebd51bfe03525fb10",
+    "mutated": false
+  },
+  "tokenizer": {
+    "evidence_level": "local-qwen-tokenizer-load-verified",
+    "id": "Qwen/Qwen3.6-35B-A3B",
+    "input_accounting": "runs.jsonl context_tokens are precomputed per result; payload_tokens are precomputed per full serialized query payload",
+    "policy": "qwen-tokenizer-required-no-byte-proxy",
+    "revision": "53c43178507d69762986fbfa314f6e8d4d859409",
+    "verified_by_harness": true
+  }
+}

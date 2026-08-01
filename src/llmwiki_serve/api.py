@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field, field_validator
 from . import __version__
 from .adapters import WikiRootError
 from .io_logging import IoLoggingMiddleware, JsonlIoLogSink, resolve_io_log_path
+from .managed_context import ManagedContextOption, managed_context_config_from_env
 from .models import (
     ContextPack,
     GraphEdge,
@@ -34,6 +35,11 @@ from .models import (
     WikiPageProjection,
 )
 from .projection_store import ProjectionStore
+from .search import (
+    DEFAULT_PUBLIC_ANALYZER_PROFILE,
+    PublicAnalyzerProfile,
+    normalize_public_analyzer_profile,
+)
 from .service import DEFAULT_GRAPH_LIMIT, LlmWikiService
 
 QUERY_LIMIT_MIN = 1
@@ -271,11 +277,13 @@ def create_app(
     projection_store: ProjectionStore | None = None,
     cache_namespace: str = "default",
     source_id: str | None = None,
+    managed_context: ManagedContextOption = None,
     graph_default_limit: int | None = None,
     context_default_limit: int | None = None,
     mcp_server_name: str | None = None,
     mcp_instructions: str | None = None,
     mcp_tool_description_prefix: str | None = None,
+    analyzer_profile: PublicAnalyzerProfile = DEFAULT_PUBLIC_ANALYZER_PROFILE,
 ) -> FastAPI:
     resolved_graph_default_limit = validate_default_limit(
         graph_default_limit,
@@ -291,6 +299,10 @@ def create_app(
         minimum=QUERY_LIMIT_MIN,
         maximum=QUERY_LIMIT_MAX,
     )
+    resolved_managed_context = (
+        managed_context if managed_context is not None else managed_context_config_from_env()
+    )
+    resolved_analyzer_profile = normalize_public_analyzer_profile(analyzer_profile)
     service = LlmWikiService(
         root,
         refresh_interval_seconds=refresh_interval_seconds,
@@ -298,6 +310,8 @@ def create_app(
         projection_store=projection_store,
         cache_namespace=cache_namespace,
         source_id=source_id,
+        managed_context=resolved_managed_context,
+        analyzer_profile=resolved_analyzer_profile,
     )
     mcp_stream = create_mcp_stream_server(
         service,

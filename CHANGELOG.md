@@ -7,6 +7,58 @@ This project follows a lightweight public-preview changelog format. Dates use
 
 ## Unreleased
 
+## 0.2.8 - 2026-08-01
+
+- Recorded the final analyzer release decision: legacy lexical ranking remains
+  the product default because OpenWiki generic-shadow class gates regress under
+  English. The English-aware Snowball analyzer is public explicit opt-in through
+  `--analyzer-profile legacy|english` on `serve`, `query`, and `search`, and
+  through Python `create_app` and `LlmWikiService`. Release runtime and public
+  Python surfaces support exactly `legacy|english`; HTTP/MCP request schemas
+  stay unchanged.
+- Recorded evaluated experimental candidates `english_additive` and
+  `english_flatlike` as decision evidence only, not shipped or supported
+  runtime profiles, and deferred hybrid/fusion ranking to a separate future
+  spec.
+- For the English opt-in profile, excluded `source_refs` from broad stemmed
+  BM25 content. Exact authored compound lookup and exact path/source-reference
+  token matching remain available when the query contains the same original
+  token.
+- Hardened public SciFact report generation so CLI and programmatic paths
+  require explicit `analyzer_profile` and `implementation_revision` metadata.
+  Public validation rejects non-public profiles and all-zero placeholder
+  revisions. Final sanitized Windows and DGX Spark Ubuntu SciFact reports now
+  validate from immutable revision
+  `git:8d04e8a46487827ee488a7ddab005aaab8dd885d` with identical primary
+  quality metrics. On PR #35, Linux and Windows Python 3.11/3.12 CI jobs and
+  both CodeQL checks pass at that head. Merge, PyPI publish, and hosted docs
+  deployment remain pending.
+- Added an in-memory postings index for lexical search to reduce warm p95
+  latency while preserving legacy exact-result behavior for the legacy analyzer.
+- Added the official BEIR SciFact benchmark adapter, safe acquisition,
+  materialization, and runner path for the full 5,183-document corpus,
+  300-query test split, and 339 qrels, with source checksums, license checks,
+  public-safety report gates, implementation-revision capture, and contextual
+  same-data reference rows only for BEIR BM25 and Anserini flat BM25.
+- Added reproduction CLI support for downloading, validating, materializing, and
+  running the SciFact benchmark workflow without committing raw benchmark data.
+
+## 0.2.7 - 2026-07-30
+
+- Added opt-in managed context for generic Markdown folders, using an external
+  local sidecar for opaque page-hit priors and projection-derived orientation
+  while keeping authored source files and `graph/graph.json` untouched.
+- Added verified-source benchmark harnesses, fixtures, public-safe benchmark
+  cases, report validation, and collection support for retrieval-quality
+  evidence with Qwen tokenizer provenance and source-mutation guards.
+- Expanded upstream candidate smoke support with 12 actual-pinned public cases,
+  public report generation, license evidence fields, setup validation, and
+  private-path/credential report scanning.
+- Added proposed strict-answerability spec and ADR material without enabling new
+  runtime answer-synthesis behavior.
+- Documented the managed-context boundary and central upstream compatibility
+  evidence links in README, architecture, and release guidance.
+
 ## 0.2.6 - 2026-07-29
 
 - Hardened `llmwiki-serve ls/status` process discovery with `psutil`-backed

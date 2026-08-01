@@ -160,17 +160,29 @@ versioned release or public release candidate.
    ```bash
    uv run python scripts/upstream_candidate_smoke.py --list-cases
    uv run python scripts/upstream_candidate_smoke.py --case atomic-compiler-basic
-   uv run python scripts/upstream_candidate_smoke.py --timeout 300
+   uv run python scripts/upstream_candidate_smoke.py \
+     --timeout 300 \
+     --report benchmarks/verified_sources/reports/upstream-candidate-smoke-windows-2026-07-30.json
    ```
 
    This gate fetches pinned public commits into a temporary directory outside
    the repository and checks static sample/template Markdown folders without
-   mutating them. It is not default CI and is not upstream release
-   certification. For the full run, record the PASS line for each case,
-   including repo URL, pinned ref, source path, source file count, page counts,
-   and projected graph size. Do not add cases that require credentials, desktop
-   runtimes, LLM provider calls, or heavy application builds. Record whether any
-   failure was a network fetch failure or a projection/service failure.
+   mutating them. It is not default CI, quality certification, upstream release
+   certification, or upstream producer certification. The current central
+   [Evidence](https://knowledge-bridge-labs.github.io/llmwiki-docs/evidence)
+   page records the 12-case actual-pinned Windows compatibility-smoke report;
+   keep future release notes concise and link there rather than duplicating the
+   full table. The current tracked public-safe report is
+   [`benchmarks/verified_sources/reports/upstream-candidate-smoke-windows-2026-07-30.json`](../benchmarks/verified_sources/reports/upstream-candidate-smoke-windows-2026-07-30.json).
+
+   For the full run, record the PASS line for each case, including product URL,
+   pinned commit, license evidence, adapter, source files/pages/approved pages,
+   projected graph nodes/edges, mutation status, platform, and a public or
+   repo-relative report path. Do not record private local paths, credentials,
+   raw sensitive logs, private endpoint URLs, or non-public wiki content. Do not
+   add cases that require credentials, desktop runtimes, LLM provider calls, or
+   heavy application builds. Record whether any failure was a network fetch
+   failure or a projection/service failure.
 
 6. Smoke test at least one real non-sensitive wiki folder separately from the
    fixture:
@@ -192,16 +204,16 @@ versioned release or public release candidate.
    explicitly testing `--allow-drafts`, and confirm HTTP `/manifest` does not
    expose the local wiki root path.
 
-   Treat fixture, generated 11-candidate suite, upstream smoke, and real-wiki
-   results separately. Fixtures prove the checked-in local examples, projection
-   layer, draft filtering, and read-only-source behavior still work. The
-   generated 11-candidate suite proves compatible local output shapes only,
+   Treat fixture, generated candidate-suite, upstream compatibility-smoke, and
+   real-wiki results separately. Fixtures prove the checked-in local examples,
+   projection layer, draft filtering, and read-only-source behavior still work.
+   The generated candidate suite proves compatible local output shapes only,
    including the DeepAgents `raw/`/`wiki/`/`log.md` workspace-layout variant.
-   The optional upstream candidate smoke currently covers 10 pinned public
-   sample snapshots included in the script. A real exported wiki smoke checks
-   the caller's actual producer output, plugin settings, and content
-   conventions; it is not covered by the bundled fixtures and should not
-   publish private data.
+   The optional upstream candidate smoke checks pinned public static snapshots;
+   the current central Evidence page records a 12-case actual-pinned Windows
+   report. A real exported wiki smoke checks the caller's actual producer
+   output, plugin settings, and content conventions; it is not covered by the
+   bundled fixtures and should not publish private data.
 
    If testing `--producer-manifest`, verify it only with a non-sensitive local
    generated wiki whose producer reliably updates the marker after every
