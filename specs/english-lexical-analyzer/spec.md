@@ -164,6 +164,9 @@ create broad hub matches through split words.
   `legacy|english` and must reject the all-zero placeholder implementation
   revision. Tests may use a nonzero deterministic fake git hash, but tracked
   final reports must use a real commit revision.
+- `REQ-ELA-021`: Exact compound token extraction must use a bounded linear
+  scanner rather than applying a backtracking regular expression to untrusted
+  page text or query text.
 
 ## Data Safety
 

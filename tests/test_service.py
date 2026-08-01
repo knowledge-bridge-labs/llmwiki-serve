@@ -8,8 +8,10 @@ import shutil
 from pathlib import Path
 from typing import Any
 
+import click
 import pytest
 from fastapi.testclient import TestClient
+from typer.main import get_command
 from typer.testing import CliRunner
 
 from llmwiki_serve.adapters import (
@@ -3502,18 +3504,41 @@ def test_search_projection_controls_across_http_mcp_and_cli() -> None:
 
 
 def test_cli_analyzer_profile_help_is_limited_to_search_commands() -> None:
+    click_app = get_command(cli_app)
+    context = click.Context(click_app)
+
     for command in ("serve", "query", "search"):
+        click_command = click_app.get_command(context, command)
+        assert click_command is not None
+        analyzer_options = [
+            param
+            for param in click_command.params
+            if "--analyzer-profile" in getattr(param, "opts", ())
+        ]
+
+        assert len(analyzer_options) == 1
+        analyzer_option = analyzer_options[0]
+        assert analyzer_option.name == "analyzer_profile"
+        assert analyzer_option.default == "legacy"
+        assert tuple(getattr(analyzer_option.type, "choices", ())) == ("legacy", "english")
+        assert analyzer_option.help == (
+            "Analyzer profile for lexical query/search ranking: legacy or english."
+        )
+
         result = CliRunner().invoke(cli_app, [command, "--help"], color=False)
 
         assert result.exit_code == 0, result.output
-        assert "<legacy|english>" in result.output
-        assert "Analyzer profile" in result.output
 
     for command in ("manifest", "source-refs", "source-bundle", "ls", "status"):
+        click_command = click_app.get_command(context, command)
+        assert click_command is not None
+        assert not any(
+            "--analyzer-profile" in getattr(param, "opts", ()) for param in click_command.params
+        )
+
         result = CliRunner().invoke(cli_app, [command, "--help"], color=False)
 
         assert result.exit_code == 0, result.output
-        assert "--analyzer-profile" not in result.output
 
 
 def test_cli_query_and_search_analyzer_profile_are_public_opt_in(tmp_path: Path) -> None:

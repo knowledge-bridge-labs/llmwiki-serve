@@ -16,11 +16,7 @@ TOKEN_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*(?:[가-힣]+)?|[가-힣]+")
 ENGLISH_TOKEN_RE = re.compile(r"[A-Za-z0-9]+[가-힣]+|[가-힣]+|[A-Za-z0-9]+(?:['’]s|['’])?")
 ASCII_HANGUL_RE = re.compile(r"^([A-Za-z0-9]+)([가-힣]+)$")
 HANGUL_RE = re.compile(r"^[가-힣]+$")
-EXACT_COMPOUND_TOKEN_RE = re.compile(
-    r"(?<![A-Za-z0-9가-힣])"
-    r"[A-Za-z0-9]+(?:[_.-][A-Za-z0-9]+)+(?:[가-힣]+)?"
-    r"(?![A-Za-z0-9가-힣])"
-)
+EXACT_COMPOUND_SEPARATORS = frozenset("._-")
 SINGLE_COMPOUND_REMAINDER_CHARS = "\"'`“”‘’()[]{}.,;:!?"
 BM25_K1 = 1.2
 BM25_B = 0.75
@@ -613,15 +609,93 @@ def index_exact_channel(
         postings.setdefault(token, []).append((doc_index, frequency))
 
 
+def is_ascii_alnum(char: str) -> bool:
+    return "0" <= char <= "9" or "A" <= char <= "Z" or "a" <= char <= "z"
+
+
+def is_hangul_syllable(char: str) -> bool:
+    return "\uac00" <= char <= "\ud7a3"
+
+
+def is_exact_boundary_word_char(char: str) -> bool:
+    return is_ascii_alnum(char) or is_hangul_syllable(char)
+
+
+def consume_ascii_alnum(text: str, start: int) -> int:
+    cursor = start
+    length = len(text)
+    while cursor < length and is_ascii_alnum(text[cursor]):
+        cursor += 1
+    return cursor
+
+
+def consume_hangul_syllables(text: str, start: int) -> int:
+    cursor = start
+    length = len(text)
+    while cursor < length and is_hangul_syllable(text[cursor]):
+        cursor += 1
+    return cursor
+
+
+def consume_exact_boundary_word_chars(text: str, start: int) -> int:
+    cursor = start
+    length = len(text)
+    while cursor < length and is_exact_boundary_word_char(text[cursor]):
+        cursor += 1
+    return cursor
+
+
+def exact_compound_token_spans(text: str) -> list[tuple[int, int, str]]:
+    spans: list[tuple[int, int, str]] = []
+    index = 0
+    length = len(text)
+    while index < length:
+        if not is_ascii_alnum(text[index]):
+            index += 1
+            continue
+        if index > 0 and is_exact_boundary_word_char(text[index - 1]):
+            index += 1
+            continue
+
+        start = index
+        cursor = consume_ascii_alnum(text, index)
+        separator_groups = 0
+        last_valid_end: int | None = None
+        reject_cursor = cursor
+        while cursor < length and text[cursor] in EXACT_COMPOUND_SEPARATORS:
+            next_index = cursor + 1
+            if next_index >= length or not is_ascii_alnum(text[next_index]):
+                break
+            cursor = consume_ascii_alnum(text, next_index)
+            separator_groups += 1
+            hangul_end = consume_hangul_syllables(text, cursor)
+            reject_cursor = hangul_end
+            if hangul_end >= length or not is_exact_boundary_word_char(text[hangul_end]):
+                last_valid_end = hangul_end
+
+        if not separator_groups:
+            index = cursor
+            continue
+
+        if last_valid_end is None:
+            if reject_cursor < length and is_exact_boundary_word_char(text[reject_cursor]):
+                index = consume_exact_boundary_word_chars(text, reject_cursor)
+            else:
+                index = max(reject_cursor, index + 1)
+            continue
+
+        spans.append((start, last_valid_end, text[start:last_valid_end].casefold()))
+        index = last_valid_end
+    return spans
+
+
 def exact_compound_tokens(
     text: str,
     analyzer_profile: AnalyzerProfile = DEFAULT_ANALYZER_PROFILE,
 ) -> list[str]:
     if analyzer_profile != "english":
         return []
-    return unique_tokens(
-        [match.group(0).casefold() for match in EXACT_COMPOUND_TOKEN_RE.finditer(text)]
-    )
+    return unique_tokens([token for _start, _end, token in exact_compound_token_spans(text)])
 
 
 def single_exact_compound_query_token(
@@ -630,13 +704,14 @@ def single_exact_compound_query_token(
 ) -> str:
     if analyzer_profile != "english":
         return ""
-    tokens = exact_compound_tokens(query, analyzer_profile)
-    if len(tokens) != 1:
+    spans = exact_compound_token_spans(query)
+    if len(spans) != 1:
         return ""
-    remainder = EXACT_COMPOUND_TOKEN_RE.sub("", query, count=1).strip()
+    start, end, token = spans[0]
+    remainder = f"{query[:start]}{query[end:]}".strip()
     if remainder.strip(SINGLE_COMPOUND_REMAINDER_CHARS).strip():
         return ""
-    return tokens[0]
+    return token
 
 
 def exact_required_doc_indexes(corpus: SearchCorpus, exact_query_token: str) -> set[int] | None:

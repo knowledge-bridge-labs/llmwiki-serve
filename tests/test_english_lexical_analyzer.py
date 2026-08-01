@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from pathlib import Path
 from typing import Literal
 
@@ -11,6 +12,7 @@ from llmwiki_serve.search import (
     build_search_corpus,
     exact_compound_tokens,
     search_corpus,
+    single_exact_compound_query_token,
     tokenize,
 )
 from llmwiki_serve.service import LlmWikiService
@@ -127,6 +129,40 @@ def test_exact_compound_channel_covers_identifiers_versions_and_trailing_punctua
         "identifier"
     ]
     assert [item.page_id for item in search_corpus(corpus, "v1.2.3.", limit=5)] == ["version"]
+
+
+def test_exact_compound_tokens_keep_authored_boundary_semantics() -> None:
+    tokens = exact_compound_tokens(
+        "release.v1-beta HTTP_RESPONSE v1.2.3. x.y한국 x_y's foo..bar a.b한c d.e",
+        analyzer_profile="english",
+    )
+
+    assert tokens == [
+        "release.v1-beta",
+        "http_response",
+        "v1.2.3",
+        "x.y한국",
+        "x_y",
+        "d.e",
+    ]
+    assert exact_compound_tokens("release.v1-beta", analyzer_profile="legacy") == []
+
+
+def test_single_compound_query_rejects_duplicate_or_nonpunctuation_remainder() -> None:
+    assert single_exact_compound_query_token("(release.v1-beta).", "english") == "release.v1-beta"
+    assert single_exact_compound_query_token("release.v1-beta release.v1-beta", "english") == ""
+    assert single_exact_compound_query_token("release.v1-beta notes", "english") == ""
+
+
+def test_exact_compound_scanner_handles_long_adversarial_input_with_bounded_output() -> None:
+    adversarial = "a.b" + ("한" * 50_000) + "c " + ("x.y- " * 2_000)
+
+    started = time.perf_counter()
+    tokens = exact_compound_tokens(adversarial, analyzer_profile="english")
+    elapsed_seconds = time.perf_counter() - started
+
+    assert tokens == ["x.y"]
+    assert elapsed_seconds < 3.0
 
 
 def test_source_refs_are_exact_metadata_not_stemmed_english_content() -> None:

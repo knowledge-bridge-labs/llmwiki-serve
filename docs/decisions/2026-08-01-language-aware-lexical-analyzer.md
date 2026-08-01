@@ -100,6 +100,11 @@ Trailing sentence punctuation is not part of an exact compound token. For
 example, authored text ending in `release.v1-beta.` contributes the exact token
 `release.v1-beta`, not `release.v1-beta.`.
 
+Exact compound token extraction is implemented as a bounded linear scanner over
+page and query text. It must not apply a backtracking regular expression to
+untrusted text because the exact channel runs over authored page content and
+operator-provided queries.
+
 Expose only `legacy|english` publicly:
 
 - CLI: `--analyzer-profile legacy|english` on `serve`, `query`, and `search`.

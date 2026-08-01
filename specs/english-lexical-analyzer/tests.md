@@ -38,6 +38,8 @@
   literal-mode cases do not materially regress.
 - Single-token compound identifier/version queries require an exact authored or
   exact metadata match; split English components alone do not return results.
+- Exact compound extraction handles long adversarial page/query text with
+  bounded output and without regex backtracking risk.
 - Source-reference metadata is not stemmed into English BM25 content, while an
   exact source-reference or path token can still retrieve the owning page.
 - Empty-after-stopwords queries use an explicit fallback and do not become

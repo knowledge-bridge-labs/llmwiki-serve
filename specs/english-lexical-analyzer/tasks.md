@@ -32,6 +32,8 @@
   identifiers, versions, numeric weighting, and literal mode compatibility.
 - [x] Add exact authored compound postings for single-token identifier/version
   queries under `english`.
+- [x] Replace exact authored compound regex matching on page/query text with a
+  bounded linear scanner and adversarial long-input tests.
 - [x] Exclude source references from English BM25 and add exact metadata
   postings for path/source-reference tokens.
 - [x] Update managed-context compatibility tests so stopwords do not create
