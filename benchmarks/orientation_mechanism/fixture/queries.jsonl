@@ -1,0 +1,19 @@
+{"query_id":"ori-en-001","language":"en","case":"orientation_link_lift","query":"How should we reverse a customer overcharge?","target_page_id":"billing_refund_policy"}
+{"query_id":"ori-en-002","language":"en","case":"orientation_source_ref_tag","query":"shared agent wiki context for teammates","target_page_id":"agent_context_bridge"}
+{"query_id":"ori-en-003","language":"en","case":"boilerplate_resistance","query":"boilerplate directory links should not dominate retrieval","target_page_id":"boilerplate_safety"}
+{"query_id":"ori-en-004","language":"en","case":"exact_identifier","query":"release.v1-beta.md","target_page_id":"release.v1-beta"}
+{"query_id":"ori-en-005","language":"en","case":"draft_isolation","query":"approved retention guardrails without draft notes","target_page_id":"retention_policy"}
+{"query_id":"ori-ko-001","language":"ko","case":"orientation_link_lift","query":"고객 과금 취소 절차는 어디에 있나요","target_page_id":"korean_billing_refund"}
+{"query_id":"ori-ko-002","language":"ko","case":"orientation_source_ref_tag","query":"팀 에이전트가 같은 위키를 이어 쓰는 방법","target_page_id":"korean_shared_wiki"}
+{"query_id":"ori-ko-003","language":"ko","case":"orientation_link_lift","query":"여러 원격 위키 소스를 함께 검색하려면","target_page_id":"remote_multi_source_ko"}
+{"query_id":"ori-ko-004","language":"ko","case":"boilerplate_resistance","query":"색인 상용구 링크가 검색 결과를 밀어내지 않게 하는 문서","target_page_id":"korean_boilerplate_safety"}
+{"query_id":"ori-ko-005","language":"ko","case":"draft_isolation","query":"승인된 보존 정책만 확인하고 초안은 제외","target_page_id":"retention_policy_ko"}
+{"query_id":"ori-adv-en-001","language":"en","case":"high_degree_generic_hub","query":"generic hub cap test for directory expansion safety","target_page_id":"boilerplate_safety"}
+{"query_id":"ori-adv-en-002","language":"en","case":"stale_deleted_link_target","query":"stale deleted orientation target should keep billing refund policy","target_page_id":"billing_refund_policy"}
+{"query_id":"ori-adv-en-003","language":"en","case":"prompt_injection_like_prose","query":"strong lexical billing refund policy sentinel prompt injection prose","target_page_id":"billing_refund_policy"}
+{"query_id":"ori-adv-en-004","language":"en","case":"explicit_malicious_distractor_link","query":"malicious distractor link should not replace billing refund policy","target_page_id":"billing_refund_policy"}
+{"query_id":"ori-adv-en-005","language":"en","case":"malicious_tag_source_ref","query":"malicious source ref tag should not replace agent context bridge","target_page_id":"agent_context_bridge"}
+{"query_id":"ori-adv-en-006","language":"en","case":"exact_identifier_poisoned_hints","query":"release.v1-beta.md","target_page_id":"release.v1-beta"}
+{"query_id":"ori-adv-en-007","language":"en","case":"draft_private_target","query":"approved retention orientation must not expose draft private target","target_page_id":"retention_policy"}
+{"query_id":"ori-adv-en-008","language":"en","case":"duplicate_alias_links","query":"duplicate alias links should still route to billing refund policy","target_page_id":"billing_refund_policy"}
+{"query_id":"ori-adv-ko-001","language":"ko","case":"korean_nfc_nfd_label","query":"Korean NFC NFD 유니코드 정규화 환불","target_page_id":"korean_unicode_refund"}

@@ -274,7 +274,13 @@ def validate_provenance(path: Path, *, bundle_dir: Path) -> JsonObject:
             "checksums",
             "component_licenses",
         },
-        optional={"source_release"},
+        optional={
+            "benchmark_protocol",
+            "evaluation_pool",
+            "full_corpus",
+            "official_full_corpus",
+            "source_release",
+        },
     )
     schema_id = require_string(record, "schema_id", "provenance.json")
     if schema_id != SCHEMA_ID:
@@ -287,6 +293,14 @@ def validate_provenance(path: Path, *, bundle_dir: Path) -> JsonObject:
     validate_immutable_source_revision(source_revision, "provenance.json.source_revision")
     if "source_release" in record:
         require_string(record, "source_release", "provenance.json")
+    if "benchmark_protocol" in record:
+        require_string(record, "benchmark_protocol", "provenance.json")
+    if "full_corpus" in record and not isinstance(record["full_corpus"], bool):
+        raise BundleValidationError("provenance.json.full_corpus must be boolean")
+    if "official_full_corpus" in record:
+        require_mapping(record, "official_full_corpus", "provenance.json")
+    if "evaluation_pool" in record:
+        require_mapping(record, "evaluation_pool", "provenance.json")
     validate_adapter_info(require_mapping(record, "adapter", "provenance.json"))
     validate_checksums(
         require_mapping(record, "checksums", "provenance.json"),

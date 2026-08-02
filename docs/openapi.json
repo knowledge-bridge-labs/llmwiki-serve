@@ -82,6 +82,16 @@
             "title": "Query",
             "type": "string"
           },
+          "retrieval_guidance": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RetrievalGuidance"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "wiki_title": {
             "title": "Wiki Title",
             "type": "string"
@@ -93,6 +103,35 @@
           "answerable"
         ],
         "title": "ContextPack",
+        "type": "object"
+      },
+      "FolderCard": {
+        "additionalProperties": false,
+        "properties": {
+          "page_count": {
+            "minimum": 1.0,
+            "title": "Page Count",
+            "type": "integer"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "terms": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 8,
+            "title": "Terms",
+            "type": "array"
+          }
+        },
+        "required": [
+          "path",
+          "page_count",
+          "terms"
+        ],
+        "title": "FolderCard",
         "type": "object"
       },
       "GraphEdge": {
@@ -568,6 +607,68 @@
         "title": "JsonRpcResponse",
         "type": "object"
       },
+      "PageCard": {
+        "additionalProperties": false,
+        "properties": {
+          "exact_identifiers": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 8,
+            "title": "Exact Identifiers",
+            "type": "array"
+          },
+          "excerpt": {
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Excerpt",
+            "type": "string"
+          },
+          "headings": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 8,
+            "title": "Headings",
+            "type": "array"
+          },
+          "page_id": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Page Id",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "terms": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 12,
+            "title": "Terms",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "page_id",
+          "title",
+          "path",
+          "headings",
+          "terms",
+          "exact_identifiers",
+          "excerpt"
+        ],
+        "title": "PageCard",
+        "type": "object"
+      },
       "ProjectionMetadata": {
         "properties": {
           "approved_page_count": {
@@ -711,7 +812,9 @@
             "default": "lexical",
             "enum": [
               "lexical",
-              "literal"
+              "literal",
+              "vector",
+              "hybrid"
             ],
             "title": "Mode",
             "type": "string"
@@ -720,6 +823,15 @@
             "default": "",
             "title": "Query",
             "type": "string"
+          },
+          "query_variants": {
+            "description": "Optional lexical-only query variants. Omit or use [] for ordinary single-query behavior. Null, empty strings, and more than two entries are invalid.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 2,
+            "title": "Query Variants",
+            "type": "array"
           },
           "snippet_chars": {
             "anyOf": [
@@ -778,6 +890,99 @@
           "found"
         ],
         "title": "ReadNotFoundResponse",
+        "type": "object"
+      },
+      "RetrievalGuidance": {
+        "additionalProperties": false,
+        "properties": {
+          "character_budget": {
+            "maximum": 6000.0,
+            "minimum": 1.0,
+            "title": "Character Budget",
+            "type": "integer"
+          },
+          "content_trust": {
+            "const": "untrusted_source_evidence",
+            "title": "Content Trust",
+            "type": "string"
+          },
+          "exact_identifiers": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16,
+            "title": "Exact Identifiers",
+            "type": "array"
+          },
+          "fallback_modes": {
+            "items": {
+              "enum": [
+                "literal",
+                "hybrid",
+                "vector"
+              ],
+              "type": "string"
+            },
+            "title": "Fallback Modes",
+            "type": "array"
+          },
+          "folder_cards": {
+            "items": {
+              "$ref": "#/components/schemas/FolderCard"
+            },
+            "maxItems": 8,
+            "title": "Folder Cards",
+            "type": "array"
+          },
+          "max_query_variants": {
+            "const": 2,
+            "title": "Max Query Variants",
+            "type": "integer"
+          },
+          "orientation_source": {
+            "enum": [
+              "authored",
+              "projection_extractive",
+              "none"
+            ],
+            "title": "Orientation Source",
+            "type": "string"
+          },
+          "page_cards": {
+            "items": {
+              "$ref": "#/components/schemas/PageCard"
+            },
+            "maxItems": 12,
+            "title": "Page Cards",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "llmwiki.retrieval_guidance.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "suggested_terms": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16,
+            "title": "Suggested Terms",
+            "type": "array"
+          }
+        },
+        "required": [
+          "schema_version",
+          "orientation_source",
+          "content_trust",
+          "max_query_variants",
+          "character_budget",
+          "folder_cards",
+          "page_cards",
+          "suggested_terms",
+          "exact_identifiers",
+          "fallback_modes"
+        ],
+        "title": "RetrievalGuidance",
         "type": "object"
       },
       "SearchResponse": {
@@ -1349,7 +1554,7 @@
   "info": {
     "description": "Read-only HTTP, MCP-style JSON-RPC, MCP Streamable HTTP, and optional A2A-style message surface for LLMWiki Markdown folders.",
     "title": "LLMWiki Serve",
-    "version": "0.2.8"
+    "version": "0.2.9"
   },
   "openapi": "3.1.0",
   "paths": {

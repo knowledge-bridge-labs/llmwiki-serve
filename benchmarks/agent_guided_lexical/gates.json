@@ -1,0 +1,25 @@
+{
+  "schema_id": "llmwiki-agent-guided-lexical-gates-v1",
+  "status": "engineering-harness-only",
+  "hard_fail": [
+    "runner_calls_llm",
+    "llm_call_count_nonzero",
+    "variants_generated_from_qrels",
+    "positive_qrel_identifier_in_query_or_variant",
+    "query_variants_more_than_two",
+    "qrels_inside_served_wiki",
+    "authored_projection_corpora_not_separated",
+    "unexpected_retrieval_guidance_orientation_source",
+    "answerable_query_without_positive_qrel",
+    "unknown_qrel_query_id",
+    "non_original_page_citation",
+    "public_superiority_claim",
+    "report_schema_additional_properties"
+  ],
+  "notes": [
+    "This fixture is a bounded engineering harness, not release evidence.",
+    "Semantic leakage cannot be mechanically proven absent by this runner.",
+    "Release evidence requires independently generated source-only plans before qrels are available.",
+    "Hybrid is only a reference arm when an explicit provider-backed service is supplied."
+  ]
+}

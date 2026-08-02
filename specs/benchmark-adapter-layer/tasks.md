@@ -130,6 +130,22 @@
   exposure.
 - [ ] Add sanitized aggregate export with baseline comparison and metric
   definitions.
+- [x] Add Korean NoMIRACL judged-pool acquisition that verifies HF revision
+  `ecd08778d0426a5ca28ac99763b0c9ddc2c78e68`, Apache-2.0 license metadata,
+  official Korean file sizes/SHA-256 digests, and count invariants.
+- [x] Add Korean NoMIRACL judged-pool materialization under `.llmwiki-work`
+  with selected-qrel-only Markdown documents, official full-corpus counts,
+  actual evaluation pool counts/checksums, stable safe ids/frontmatter,
+  relevant dev bundle rows, deterministic dev non-relevant diagnostic sample,
+  missing-qrel-doc failure, and no `hot`/`index`/`overview`/`quickstart`
+  synthesis.
+- [x] Add Korean NoMIRACL judged-pool runner for legacy lexical, vector,
+  plain-RRF, and hybrid using one reusable service/projection/corpus/provider/
+  index where feasible.
+- [x] Add Korean NoMIRACL public-safe report validation with relevant retrieval
+  metrics, non-relevant score/exposure diagnostics, score-separation metadata,
+  timing/RSS/provider/cache/provenance fields, Korean labels, and explicit
+  no-abstention-threshold/full-corpus-recall limitations.
 - [ ] Add bridge-input artifact export for model-backed metrics in
   `llmwiki-agent-bridge`.
 - [ ] Establish baseline reports before claiming token, source-call, latency,

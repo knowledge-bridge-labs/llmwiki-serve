@@ -9,9 +9,14 @@ versioned release or public release candidate.
 2. Run the public validation gates:
 
    ```bash
+   uv sync --locked
+   uv run python -c "import importlib.util; assert importlib.util.find_spec('fastembed') is None; assert importlib.util.find_spec('numpy') is None"
+   uv run llmwiki-serve query ./examples/sample-wiki "release readiness"
+   uv sync --extra dev --extra vector --locked
    uv run ruff format --check .
    uv run ruff check .
    uv run mypy src
+   uv run mypy scripts/benchmark_adapters/scifact_runner.py
    PYTHONDONTWRITEBYTECODE=1 uv run pytest -p no:cacheprovider
    uv build
    uv run python scripts/release_smoke.py --wheel dist/*.whl --sdist dist/*.tar.gz
@@ -49,10 +54,10 @@ versioned release or public release candidate.
    checks from the installed wheel. If a local machine has not cached all
    runtime dependency wheels, rerun with `--allow-network-install` and note that
    the wheel smoke used network-backed dependency installation. The sdist is
-   intended to contain project
-   source, tests, release documentation, and notices without CI configuration,
-   credentials, caches, generated candidate samples, private runtime output, or
-   build artifacts.
+   intended to contain project source, tests, release documentation, notices,
+   and public-safe benchmark fixtures/schemas/runners needed by release tests
+   without CI configuration, credentials, caches, generated report outputs,
+   generated candidate samples, private runtime output, or build artifacts.
 
    For releases that change the optional Redis/Valkey projection store, also
    run the Redis gate against a non-sensitive fixture and an isolated namespace.
@@ -89,6 +94,83 @@ versioned release or public release candidate.
    container was stopped after the check. No raw Redis URL, credential, query
    parameter, raw key, cached payload, private path, or wiki snippet was
    recorded.
+
+   For releases that change optional semantic retrieval preview behavior, also
+   run the vector gates without publishing raw cache artifacts, local roots,
+   model local paths, raw vectors, snippets, or private queries:
+
+   ```bash
+   uv sync --locked
+   uv run python -c "import importlib.util; assert importlib.util.find_spec('fastembed') is None; assert importlib.util.find_spec('numpy') is None"
+   uv run llmwiki-serve query ./examples/sample-wiki "release readiness"
+   uv sync --extra dev --extra vector --locked
+   uv run pytest -q tests/test_vector_retrieval.py
+   uv run python -c "from llmwiki_serve.vector import FastEmbedProvider; print('vector extra import ok')"
+   ```
+
+   The default runtime smoke must run before installing `llmwiki-serve[vector]`
+   and prove lexical/literal behavior still works without importing FastEmbed
+   or NumPy. Lexical remains the default release behavior.
+   Any real FastEmbed smoke should use a non-sensitive wiki, an external
+   `--vector-cache-dir`, and the explicit
+   `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` model. Default
+   model access is local-files-only; first-use downloads require the operator to
+   pass `--vector-model-download allow` or set
+   `LLMWIKI_VECTOR_MODEL_DOWNLOAD=allow`. Record resolved FastEmbed, NumPy,
+   model source revision, dimension, platform, and whether the model was already
+   cached or downloaded. Do not claim Korean retrieval quality from the
+   multilingual model label.
+
+   Before any vector/hybrid release, confirm the gate covers the expert-review
+   blockers in the semantic retrieval spec: cache-hit NumPy-failure fallback,
+   immutable refresh/search retrieval snapshots, cross-process cold-build retry
+   behavior, exclude-one and near-full filtered exact scoring memory paths,
+   adversarial orientation inputs, negative/unanswerable diagnostics, draft
+   isolation, and Korean/English/Unicode identifiers. Cross-process cold-build
+   lock contention may produce a retryable build-in-progress failure after the
+   lock timeout; it must not expose partial cache artifacts or silently switch
+   retrieval modes.
+
+   Hybrid release notes must describe the mode as lexical plus dense retrieval
+   with weighted RRF and bounded optional read-only orientation hints. Do not
+   describe it as universal orientation-first retrieval, GraphRAG, automatic
+   hot/index/overview rewriting, or a general quality improvement. Retrieval
+   must not create, replace, or modify source-owned `hot.md`, `index.md`, or
+   `overview.md` files.
+
+   Public vector/hybrid quality or performance claims require clean commit SHA
+   reports on Windows and Ubuntu/DGX tied to the release revision. Existing
+   Windows/DGX small/team dirty-snapshot runs are engineering evidence only.
+   Supported-size wording must list the exact recorded corpus counts, chunk
+   counts, vector dimensions, memory envelope, and platforms. Larger corpus
+   claims are experimental until 10k, 50k, 100k, and 500k gates exist and pass.
+
+   Negative-query reports may include false-positive, top-k, score-separation,
+   and citation-precision diagnostics, but they must not claim calibrated
+   abstention or a reliable no-evidence threshold. Do not claim poisoning
+   safety, broad multilingual quality, SOTA quality, or vector-database-scale
+   performance. New embedding models, rerankers, ANN indexes, Redis vector
+   search, hosted vector databases, and remote embedding providers belong in
+   future-experiment notes unless they are implemented and separately gated.
+
+   For releases that change agent-guided lexical guidance, query variants, or
+   the benchmark harness, also run the focused contract and harness gates:
+
+   ```bash
+   uv run pytest -q tests/test_agent_guided_lexical.py tests/test_agent_guided_lexical_runner.py tests/test_public_api.py
+   uv run python scripts/benchmark_adapters/agent_guided_lexical_runner.py --fixture-dir benchmarks/agent_guided_lexical/fixture --output-report .runtime-logs/agent-guided-lexical-smoke.json
+   uv run python scripts/export_openapi.py --check
+   ```
+
+   Release notes should describe agent-guided lexical as the direct-agent
+   context/search/read workflow over the default lexical mode, not as a new
+   `SearchMode`. The server returns guidance and accepts caller-supplied
+   lexical variants, but it does not call an LLM, download a model, build
+   embeddings, synthesize final answers, or write source files for this path.
+   The tiny benchmark fixture and dirty-worktree reports are engineering
+   evidence only. Public claims require clean-commit evidence and public-safe
+   reports with no private paths, private endpoints, credentials, raw source
+   content, or generated local artifacts.
 
    On Windows, stop any `llmwiki-serve` process that is running from this
    checkout before invoking `uv run` release gates. A running console script can
@@ -228,18 +310,33 @@ versioned release or public release candidate.
    and commit the refreshed `docs/openapi.json`.
 8. Confirm the release contains no credentials, token caches, private endpoint
    URLs, private paths, raw sensitive wiki content, Redis/Valkey cached
-   projection payloads, local environment files, or generated artifacts that are
-   not meant to ship. Confirm fixture and smoke inputs do not depend on
+   projection payloads, vector sidecar artifacts, raw vectors, model local
+   paths, local environment files, or generated artifacts that are not meant to
+   ship. Confirm fixture and smoke inputs do not depend on
    symlinked Markdown/Org files or `graph/graph.json` sidecars; the server
    ignores those by default to keep serving inside the wiki root.
+   Network-facing HTTP, MCP, and A2A-style responses must keep local root paths
+   redacted. Local CLI output, local registry state, and internal manifests may
+   include roots for operator diagnostics; do not copy those local-only values
+   into release notes, public reports, issues, screenshots, or docs.
 9. Confirm package metadata still lists the repository, issue tracker, homepage,
    Python baseline, runtime dependencies, and optional extras accurately. Redis
    release notes should say that `llmwiki-serve[redis]` is optional, the default
    install remains memory-only/no external service, Redis is a derived
    projection cache only, and Redis may contain sensitive derived wiki content
-   including drafts. They should not imply automatic Redis TTL or cleanup
-   unless that behavior is implemented. If the public deployment guide needs
-   broader operator guidance, file or make the follow-up in `llmwiki-docs`
+   including drafts. Vector release notes should say that
+   `llmwiki-serve[vector]` is an optional semantic retrieval preview,
+   FastEmbed is local-only by default, semantic modes require operator
+   configuration, vector sidecars are sensitive derived local state outside the
+   served root, lexical remains default, hybrid is lexical+dense RRF with
+   bounded optional read-only orientation hints, and vector/hybrid scores are
+   mode-specific. They should not imply automatic Redis TTL, vector cache
+   cleanup, remote vector storage, automatic hot/index/overview rewriting,
+   calibrated abstention, poisoning safety, broad multilingual quality, SOTA
+   quality, vector-database-scale performance, or Korean retrieval quality
+   unless those behaviors are implemented and benchmarked. If the public
+   deployment guide needs broader operator guidance, file or make the follow-up
+   in `llmwiki-docs`
    without blocking this repository release checklist.
 10. Treat publishing as a maintainer-owner gate. The repository includes a
     Trusted Publishing workflow at `.github/workflows/publish.yml`, but do not

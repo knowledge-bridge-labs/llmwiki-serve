@@ -6,7 +6,7 @@ import json
 import os
 import shutil
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import click
 import pytest
@@ -822,7 +822,9 @@ def test_cli_rejects_redis_projection_store_without_url() -> None:
     assert "Traceback" not in result.output
 
 
-def test_cli_uses_projection_store_env_namespace_and_source_id(monkeypatch) -> None:
+def test_cli_uses_projection_store_env_namespace_and_source_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     import uvicorn
 
     captured: dict[str, Any] = {}
@@ -859,7 +861,7 @@ def test_cli_uses_projection_store_env_namespace_and_source_id(monkeypatch) -> N
 
 
 def test_cli_resolves_graph_and_context_default_limit_options_and_env(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     import uvicorn
@@ -918,10 +920,15 @@ def test_cli_resolves_graph_and_context_default_limit_options_and_env(
     assert captured[1]["context_evidence_count"] == 1
 
 
-def test_cli_invalid_default_limit_env_fails_without_traceback(monkeypatch) -> None:
+def test_cli_invalid_default_limit_env_fails_without_traceback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     import uvicorn
 
-    monkeypatch.setattr(uvicorn, "run", lambda app, *, host, port: None)
+    def fake_run(app: Any, *, host: str, port: int) -> None:
+        _ = app, host, port
+
+    monkeypatch.setattr(uvicorn, "run", fake_run)
     result = CliRunner().invoke(
         cli_app,
         ["serve", str(FIXTURE)],
@@ -933,7 +940,7 @@ def test_cli_invalid_default_limit_env_fails_without_traceback(monkeypatch) -> N
     assert "Traceback" not in result.output
 
 
-def test_cli_uses_mcp_metadata_overrides(monkeypatch) -> None:
+def test_cli_uses_mcp_metadata_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
     import uvicorn
 
     captured_descriptions: list[dict[str, str]] = []
@@ -966,7 +973,7 @@ def test_cli_uses_mcp_metadata_overrides(monkeypatch) -> None:
         "[Packaging Ops MCP | source_id: sample-packaging-llmwiki] "
     )
     assert captured_descriptions[1]["llmwiki_context"].startswith(
-        "[Env Packaging MCP] Build a context pack"
+        "[Env Packaging MCP] Build a context-first pack"
     )
 
 
@@ -1656,7 +1663,9 @@ Initial body plus zznewlyindexedphrase after service start.
     assert all(edge["relation"] not in {"blocks", "supports"} for edge in deleted_edges)
 
 
-def test_service_reuses_source_signature_scan_between_manifest_and_query(monkeypatch) -> None:
+def test_service_reuses_source_signature_scan_between_manifest_and_query(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     real_walk = os.walk
     walk_calls = 0
 
@@ -1676,10 +1685,12 @@ def test_service_reuses_source_signature_scan_between_manifest_and_query(monkeyp
     assert walk_calls == 1
 
 
-def test_service_reuses_search_corpus_until_projection_changes(monkeypatch) -> None:
+def test_service_reuses_search_corpus_until_projection_changes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     import llmwiki_serve.service as service_module
 
-    real_build_search_corpus = service_module.build_search_corpus
+    real_build_search_corpus = cast(Any, service_module).build_search_corpus
     build_calls = 0
 
     def counting_build_search_corpus(*args: Any, **kwargs: Any) -> Any:
@@ -1707,11 +1718,13 @@ def test_service_reuses_search_corpus_until_projection_changes(monkeypatch) -> N
     assert build_calls == 3
 
 
-def test_graph_neighbors_does_not_build_search_corpus(monkeypatch) -> None:
+def test_graph_neighbors_does_not_build_search_corpus(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     import llmwiki_serve.service as service_module
 
     build_calls = 0
-    real_build_search_corpus = service_module.build_search_corpus
+    real_build_search_corpus = cast(Any, service_module).build_search_corpus
 
     def wrapped_build_search_corpus(*args: Any, **kwargs: Any) -> Any:
         nonlocal build_calls
@@ -1776,7 +1789,7 @@ def test_redis_projection_store_matches_default_http_and_mcp_payloads() -> None:
     )
 
 
-def test_projection_store_hit_skips_wiki_builder(monkeypatch) -> None:
+def test_projection_store_hit_skips_wiki_builder(monkeypatch: pytest.MonkeyPatch) -> None:
     import llmwiki_serve.service as service_module
 
     seeded_index = LlmWikiService(FIXTURE).index()
@@ -1813,10 +1826,12 @@ def test_projection_store_hit_skips_wiki_builder(monkeypatch) -> None:
     assert put_calls == []
 
 
-def test_projection_store_miss_writes_and_fresh_service_can_hydrate_hit(monkeypatch) -> None:
+def test_projection_store_miss_writes_and_fresh_service_can_hydrate_hit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     import llmwiki_serve.service as service_module
 
-    real_project_wiki = service_module.project_wiki
+    real_project_wiki = cast(Any, service_module).project_wiki
     project_calls = 0
 
     def counting_project_wiki(*args: Any, **kwargs: Any) -> Any:
@@ -2088,7 +2103,9 @@ def test_redis_projection_store_http_fallback_matches_default_payloads() -> None
     assert sensitive_path not in encoded
 
 
-def test_redis_projection_store_missing_extra_error_is_actionable(monkeypatch) -> None:
+def test_redis_projection_store_missing_extra_error_is_actionable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     real_import = builtins.__import__
 
     def blocked_import(name: str, *args: Any, **kwargs: Any) -> Any:
@@ -2229,7 +2246,8 @@ Updated projection text with a larger body.
 
 
 def test_service_signature_cache_refreshes_when_source_file_changes(
-    tmp_path: Path, monkeypatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     root = tmp_path / "wiki"
     root.mkdir()
@@ -2468,7 +2486,8 @@ Start with [[topic]].
 
 
 def test_service_refresh_interval_reuses_then_refreshes_and_allows_explicit_refresh(
-    tmp_path: Path, monkeypatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     root = tmp_path / "wiki"
     root.mkdir()
@@ -3019,7 +3038,8 @@ Target page.
 
 
 def test_service_signature_cache_refreshes_when_source_files_are_added_and_deleted(
-    tmp_path: Path, monkeypatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     root = tmp_path / "wiki"
     root.mkdir()
@@ -3504,7 +3524,7 @@ def test_search_projection_controls_across_http_mcp_and_cli() -> None:
 
 
 def test_cli_analyzer_profile_help_is_limited_to_search_commands() -> None:
-    click_app = get_command(cli_app)
+    click_app = cast(click.Group, get_command(cli_app))
     context = click.Context(click_app)
 
     for command in ("serve", "query", "search"):
@@ -3517,7 +3537,7 @@ def test_cli_analyzer_profile_help_is_limited_to_search_commands() -> None:
         ]
 
         assert len(analyzer_options) == 1
-        analyzer_option = analyzer_options[0]
+        analyzer_option = cast(click.Option, analyzer_options[0])
         assert analyzer_option.name == "analyzer_profile"
         assert analyzer_option.default == "legacy"
         assert tuple(getattr(analyzer_option.type, "choices", ())) == ("legacy", "english")
@@ -3652,10 +3672,8 @@ def test_mcp_tools_list_contains_context_and_graph() -> None:
     )
     assert "Sample Packaging LLMWiki" in descriptions["llmwiki_graph"]
     assert "source_id: sample-packaging-llmwiki" in descriptions["llmwiki_graph_neighbors"]
-    assert (
-        "hot/index/overview or OpenWiki quickstart orientation first"
-        in descriptions["llmwiki_context"]
-    )
+    assert "retrieval_guidance" in descriptions["llmwiki_context"]
+    assert "untrusted source evidence" in descriptions["llmwiki_context"]
     assert "query-ranked citation evidence" in descriptions["llmwiki_context"]
 
 
@@ -3730,11 +3748,12 @@ def test_invalid_default_limits_fail_early() -> None:
 def test_fastmcp_metadata_uses_manifest_scope_and_overrides() -> None:
     mcp_stream = create_mcp_stream_server(LlmWikiService(FIXTURE))
     descriptions = {tool.name: tool.description for tool in mcp_stream._tool_manager.list_tools()}
+    instructions = mcp_stream.instructions or ""
 
     assert mcp_stream.name == "Sample Packaging LLMWiki - LLMWiki Serve"
-    assert "Sample Packaging LLMWiki" in mcp_stream.instructions
-    assert "Synthetic packaging operations knowledge base." in mcp_stream.instructions
-    assert "source_id=sample-packaging-llmwiki" in mcp_stream.instructions
+    assert "Sample Packaging LLMWiki" in instructions
+    assert "Synthetic packaging operations knowledge base." in instructions
+    assert "source_id=sample-packaging-llmwiki" in instructions
     assert descriptions["llmwiki_context"].startswith(
         "[Sample Packaging LLMWiki | source_id: sample-packaging-llmwiki] "
     )
@@ -3992,7 +4011,9 @@ def test_mcp_internal_errors_hide_local_paths(tmp_path: Path) -> None:
     assert "LLMWiki root" not in encoded
 
 
-def test_mcp_internal_exception_message_is_sanitized(monkeypatch) -> None:
+def test_mcp_internal_exception_message_is_sanitized(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     client = TestClient(create_app(FIXTURE))
 
     def fail_with_path(*_args: object, **_kwargs: object) -> object:
@@ -4369,15 +4390,18 @@ def assert_redacted_root_error(
 
 
 def mcp_tool_call(client: TestClient, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
-    payload = client.post(
-        "/mcp",
-        json={
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "tools/call",
-            "params": {"name": name, "arguments": arguments},
-        },
-    ).json()
+    payload = cast(
+        dict[str, Any],
+        client.post(
+            "/mcp",
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": name, "arguments": arguments},
+            },
+        ).json(),
+    )
 
     assert "error" not in payload
-    return payload["result"]
+    return cast(dict[str, Any], payload["result"])

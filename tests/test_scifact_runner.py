@@ -62,9 +62,15 @@ def test_run_scifact_benchmark_uses_materialized_bundle_and_actual_service(
     assert first.report["primary_metrics"] == {"Recall@100": 1.0, "nDCG@10": 1.0}
     assert first.report["product_secondary_metrics"] == {
         "Hit@5": 1.0,
+        "MAP@100": 1.0,
         "MRR@10": 1.0,
         "Recall@5": 1.0,
     }
+    assert first.report["quality_metrics"]["MAP@100"] == 1.0
+    assert first.report["retrieval_mode"] == "lexical"
+    assert first.report["languages_evaluated"] == ["en"]
+    assert first.report["korean_quality"] == "not_evaluated"
+    assert first.report["vector_provider"] == {"status": "not_used"}
     assert first.report["external_reference_rows"] == runner.external_reference_rows(
         cast(dict[str, float], first.report["primary_metrics"])
     )
@@ -105,8 +111,9 @@ def test_run_scifact_benchmark_uses_materialized_bundle_and_actual_service(
     assert first.report["python_version"]
     assert first.report["limitations"] == runner.report_limitations()
     assert (
-        "Latency is warm fixed-index retrieval excluding source re-scan; "
-        "index_build_ms reports initial projection/index build separately."
+        "Latency is warm fixed-index retrieval excluding source re-scan and "
+        "one-time lexical/vector index warmup; index_build_ms and timings_ms "
+        "report those setup costs separately."
     ) in first.report["limitations"]
 
     written_report = json.loads((tmp_path / "report-1.json").read_text(encoding="utf-8"))
@@ -141,6 +148,7 @@ def test_run_scifact_benchmark_uses_materialized_bundle_and_actual_service(
     assert run_manifest["benchmark_configuration"] == {
         "analyzer_profile": "english",
         "implementation_revision": FAKE_IMPLEMENTATION_REVISION,
+        "retrieval_mode": "lexical",
     }
     assert run_manifest["public_report_summary"]["analyzer_profile"] == "english"
     assert (
@@ -205,6 +213,146 @@ def test_public_report_freshness_policy_is_strict_and_public_safe(tmp_path: Path
         ),
     }
     runner.validate_public_report(result.report)
+
+
+def test_extended_public_report_fields_and_mode_contract(tmp_path: Path) -> None:
+    materialized = materialize_fixture(tmp_path, "extended-contract")
+    result = runner.run_scifact_benchmark(
+        wiki_dir=materialized.wiki_dir,
+        bundle_dir=materialized.bundle_dir,
+        output_report=tmp_path / "extended-contract-report.json",
+        implementation_revision=FAKE_IMPLEMENTATION_REVISION,
+        analyzer_profile="english",
+    )
+
+    assert set(result.report) == runner.REPORT_TOP_LEVEL_FIELDS
+    assert result.report["schema_version"] == runner.REPORT_SCHEMA_VERSION
+    assert result.report["retrieval_configuration"] == {
+        "analyzer_profile": "english",
+        "hybrid_channel_weights": {},
+        "hybrid_candidate_depth_policy": None,
+        "hybrid_plain_rrf_role": None,
+        "hybrid_rrf_k": None,
+        "hybrid_strategy": None,
+        "retrieval_limit": runner.RETRIEVAL_LIMIT,
+        "search_mode": "lexical",
+        "vector_provider_required": False,
+    }
+    assert result.report["retrieval_schema"]["text_schema"] == runner.VECTOR_TEXT_SCHEMA_ID
+    assert result.report["retrieval_schema"]["index_schema"] == runner.VECTOR_INDEX_SCHEMA_ID
+    assert "MAP@100" in result.report["quality_metrics"]
+    assert "cache_dir" not in json.dumps(result.report, sort_keys=True)
+    runner.validate_public_report(result.report)
+
+    vector_without_provider = cast(dict[str, Any], json.loads(json.dumps(result.report)))
+    vector_without_provider["retrieval_mode"] = "vector"
+    vector_without_provider["retrieval_configuration"]["search_mode"] = "vector"
+    with pytest.raises(runner.ScifactRunnerError, match="configured vector_provider"):
+        runner.validate_public_report(vector_without_provider)
+
+    unknown_mode = cast(dict[str, Any], json.loads(json.dumps(result.report)))
+    unknown_mode["retrieval_mode"] = "semantic"
+    with pytest.raises(runner.ScifactRunnerError, match="search_mode"):
+        runner.validate_public_report(unknown_mode)
+
+
+def test_plain_rrf_benchmark_mode_executes_and_records_distinct_report(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    materialized = materialize_fixture(tmp_path, "plain-rrf")
+    telemetry = runner.EmbeddingTelemetry(model_cache_bytes_before=0)
+
+    class FakeProvider:
+        provider_id = "fake"
+        model_id = "fake-model"
+        model_revision = "fake-revision"
+        dimension = 3
+        distance_metric = "cosine"
+
+        def embed_documents(self, texts: list[str]) -> list[list[float]]:
+            telemetry.document_calls += 1
+            telemetry.document_texts += len(texts)
+            return [self._vector(text) for text in texts]
+
+        def embed_query(self, text: str) -> list[float]:
+            telemetry.query_calls += 1
+            return self._vector(text)
+
+        def safe_metadata(self) -> dict[str, str | int]:
+            return {
+                "provider_id": self.provider_id,
+                "model_id": self.model_id,
+                "model_revision": self.model_revision,
+                "dimension": self.dimension,
+                "distance_metric": self.distance_metric,
+                "fastembed_version": "fake",
+                "numpy_version": "fake",
+            }
+
+        def _vector(self, text: str) -> list[float]:
+            lowered = text.casefold()
+            if "alpha" in lowered:
+                return [1.0, 0.0, 0.0]
+            if "beta" in lowered:
+                return [0.0, 1.0, 0.0]
+            return [0.0, 0.0, 1.0]
+
+    fake_runtime = runner.VectorRuntime(
+        cache_root=tmp_path / "plain-rrf-vector-cache",
+        model_cache_root=tmp_path / "plain-rrf-model-cache",
+        provider=cast(runner.TimedEmbeddingProvider, FakeProvider()),
+        provider_metadata=FakeProvider().safe_metadata(),
+        model_license="apache-2.0",
+        model_source="fake/model",
+        embedding_telemetry=telemetry,
+    )
+    monkeypatch.setattr(
+        runner,
+        "prepare_vector_runtime",
+        lambda **_kwargs: fake_runtime,
+    )
+
+    result = runner.run_scifact_benchmark(
+        wiki_dir=materialized.wiki_dir,
+        bundle_dir=materialized.bundle_dir,
+        output_report=tmp_path / "plain-rrf-report.json",
+        implementation_revision=FAKE_IMPLEMENTATION_REVISION,
+        analyzer_profile="english",
+        search_mode="plain-rrf",
+    )
+
+    assert result.report["retrieval_mode"] == "plain-rrf"
+    assert result.report["retrieval_configuration"]["search_mode"] == "plain-rrf"
+    assert result.report["retrieval_configuration"]["hybrid_strategy"] == (
+        "plain-lexical-vector-rrf-baseline"
+    )
+    assert result.report["retrieval_configuration"]["hybrid_candidate_depth_policy"] == {
+        "cap": runner.HYBRID_CANDIDATE_DEPTH_CAP,
+        "formula": ("min(total_docs, max(limit, min(cap, max(minimum, multiplier * limit))))"),
+        "minimum": runner.HYBRID_CANDIDATE_DEPTH_MIN,
+        "multiplier": runner.HYBRID_CANDIDATE_DEPTH_MULTIPLIER,
+        "preserves_requested_limit": True,
+    }
+    candidate_depth = cast(dict[str, Any], result.report["timings_ms"])["hybrid_candidate_depth"]
+    assert candidate_depth["count"] == 2
+    assert candidate_depth["p50"] == 3
+    assert candidate_depth["p95"] == 3
+    assert result.report["retrieval_configuration"]["vector_provider_required"] is True
+    assert result.report["vector_provider"]["status"] == "configured"
+    assert result.report["primary_metrics"] == {"Recall@100": 1.0, "nDCG@10": 1.0}
+    runner.validate_public_report(result.report)
+
+
+def test_legacy_scifact_reports_remain_schema_compatible() -> None:
+    reports = [
+        Path("benchmarks/verified_sources/reports/beir-scifact-windows-2026-08-01.json"),
+        Path("benchmarks/verified_sources/reports/beir-scifact-dgx-spark-ubuntu-2026-08-01.json"),
+    ]
+    for report_path in reports:
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        assert report["schema_version"] == runner.LEGACY_REPORT_SCHEMA_VERSION
+        runner.validate_public_report(report)
 
 
 def test_public_report_rejects_reference_or_delta_tampering(tmp_path: Path) -> None:
@@ -335,6 +483,97 @@ def test_runner_calls_search_once_per_query_with_limit_100(tmp_path: Path) -> No
     ]
 
 
+def test_plain_rrf_reuses_service_search_corpus_and_avoids_model_revalidation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import llmwiki_serve.service as service_module
+    from llmwiki_serve.models import SearchResult
+    from llmwiki_serve.vector import VectorConfig
+
+    materialized = materialize_fixture(tmp_path, "plain-rrf-corpus-reuse")
+    telemetry = runner.EmbeddingTelemetry(model_cache_bytes_before=0)
+    build_calls = 0
+    real_build_search_corpus = service_module.build_search_corpus
+
+    class FakeProvider:
+        provider_id = "fake"
+        model_id = "fake-model"
+        model_revision = "fake-revision"
+        dimension = 3
+        distance_metric = "cosine"
+
+        def embed_documents(self, texts: list[str]) -> list[list[float]]:
+            telemetry.document_calls += 1
+            return [self._vector(text) for text in texts]
+
+        def embed_query(self, text: str) -> list[float]:
+            telemetry.query_calls += 1
+            return self._vector(text)
+
+        def safe_metadata(self) -> dict[str, str | int]:
+            return {
+                "provider_id": self.provider_id,
+                "model_id": self.model_id,
+                "model_revision": self.model_revision,
+                "dimension": self.dimension,
+                "distance_metric": self.distance_metric,
+            }
+
+        def _vector(self, text: str) -> list[float]:
+            lowered = text.casefold()
+            if "alpha" in lowered:
+                return [1.0, 0.0, 0.0]
+            if "beta" in lowered:
+                return [0.0, 1.0, 0.0]
+            return [0.0, 0.0, 1.0]
+
+    def counted_build_search_corpus(*args: Any, **kwargs: Any) -> Any:
+        nonlocal build_calls
+        build_calls += 1
+        return real_build_search_corpus(*args, **kwargs)
+
+    def reject_model_revalidate(*_args: Any, **_kwargs: Any) -> None:
+        raise AssertionError("plain-RRF benchmark wrapper should not revalidate result dicts")
+
+    monkeypatch.setattr(service_module, "build_search_corpus", counted_build_search_corpus)
+    monkeypatch.setattr(SearchResult, "model_validate", reject_model_revalidate)
+    service = LlmWikiService(
+        materialized.wiki_dir,
+        refresh_interval_seconds=runner.BENCHMARK_FIXED_INDEX_REFRESH_INTERVAL_SECONDS,
+        analyzer_profile="english",
+        vector_config=VectorConfig(enabled=True, cache_dir=tmp_path / "cache"),
+        vector_provider=FakeProvider(),
+    )
+    wrapper = runner.PlainRrfBenchmarkService(service, analyzer_profile="english")
+
+    first = wrapper.search("alpha therapy biomarker response", limit=100)
+    second = wrapper.search("beta marker treatment response", limit=100)
+
+    assert first[0]["page_id"]
+    assert second[0]["page_id"]
+    assert build_calls == 1
+    assert telemetry.document_calls == 1
+    assert telemetry.query_calls == 2
+
+    (materialized.wiki_dir / "doc-refresh.md").write_text(
+        """---
+original_id: "doc-refresh"
+review_state: approved
+---
+# Refresh Evidence
+
+gamma refresh evidence
+""",
+        encoding="utf-8",
+    )
+    service.index(refresh=True)
+    refreshed = wrapper.search("gamma refresh evidence", limit=100)
+
+    assert refreshed[0]["page_id"]
+    assert build_calls == 2
+
+
 def test_metric_cutoffs_include_rank_100_but_not_rank_11_for_at_10_metrics() -> None:
     ranked = [f"d{rank}" for rank in range(1, 101)]
 
@@ -351,6 +590,7 @@ def test_metric_cutoffs_include_rank_100_but_not_rank_11_for_at_10_metrics() -> 
     assert metrics.hit_at_5 == 0.0
     assert metrics.mrr_at_10 == 0.0
     assert metrics.ndcg_at_10 == 0.0
+    assert metrics.map_at_100 == pytest.approx(((1 / 11) + (2 / 100)) / 2)
 
 
 def test_metric_cutoffs_include_rank_5_and_rank_10_boundaries() -> None:
@@ -723,4 +963,14 @@ def stable_report(report: Mapping[str, object]) -> dict[str, object]:
     latency = cast(dict[str, object], stable["search_latency_ms_top100_result_payloads"])
     latency["p50"] = "<timing>"
     latency["p95"] = "<timing>"
+    timings = cast(dict[str, object], stable["timings_ms"])
+    timings["cold_projection_index_build_ms"] = "<timing>"
+    timings["lexical_corpus_build_or_load_ms"] = "<timing>"
+    timings["rss_observed_peak_bytes"] = "<rss>"
+    end_to_end = cast(dict[str, object], timings["warm_query_end_to_end_ms"])
+    end_to_end["p50"] = "<timing>"
+    end_to_end["p95"] = "<timing>"
+    lexical = cast(dict[str, object], timings["lexical_search_ms"])
+    lexical["p50"] = "<timing>"
+    lexical["p95"] = "<timing>"
     return stable

@@ -77,6 +77,14 @@
   values, URLs, labels/status, or deltas. They assert that `llmwiki-serve`
   Markdown projection is labeled as an informal same-data comparison, not BEIR
   certification or an official leaderboard result.
+- `REQ-018` through `REQ-022`: Korean NoMIRACL judged-pool tests validate the
+  pinned official HF revision, Apache-2.0 metadata, Korean file sizes/digests,
+  53,048 corpus rows, 37,658 unique documents, 213 dev relevant queries, 3,057
+  dev relevant judged qrels, the observed positive qrel count, deterministic
+  213-query dev non-relevant sample, selected-qrel-only document
+  materialization, deterministic pool checksums, public-safe aggregate report
+  validation, one-service multi-mode execution, and explicit judged-pool/
+  no-threshold/no-full-corpus-recall limitations.
 
 ## Unit Tests
 
@@ -135,6 +143,22 @@
 - Test: BEIR SciFact full-run materialization validates 5,183 corpus documents,
   300 test queries, 339 qrels, binary relevance, official archive MD5, computed
   SHA-256, and path-free public provenance.
+- Test: NoMIRACL-ko official-shape fixture materialization deduplicates
+  repeated `docid` rows only when title/text match, emits stable safe Markdown
+  filenames with `original_id` frontmatter, materializes only documents
+  referenced by the selected dev relevant qrels plus deterministic
+  dev non-relevant sample qrels, excludes unrelated train/test-like corpus
+  documents, creates no `hot.md`, `index.md`, `overview.md`, or
+  `quickstart.md`, writes relevant and non-relevant diagnostic query rows with
+  separate answerability labels, records `protocol: judged_pool` and
+  `full_corpus: false`, and keeps raw text out of CLI/public report output.
+- Test: NoMIRACL-ko materialization emits deterministic document-id, qrel-row,
+  and pool checksums across repeated runs over the same source files.
+- Test: NoMIRACL-ko materialization fails closed if any selected qrel references
+  a corpus document that cannot be resolved from the official Korean corpus.
+- Test: NoMIRACL-ko acquisition fails closed when an expected official file
+  size, SHA-256 digest, revision metadata, license metadata, or count invariant
+  differs from the pinned constants.
 - Test: BRIGHT-shaped fixture emits retrieval qrels suitable for the next
   reasoning-intensive retrieval benchmark without being treated as the first
   public launch baseline.
@@ -163,6 +187,12 @@
 - Test: nDCG@10 and Recall@100 are emitted as primary BEIR-comparable metrics
   for the SciFact public table.
 - Test: SciFact evaluation retrieves top 100 before computing Recall@100.
+- Test: NoMIRACL-ko relevant metrics compute nDCG@10, Recall@5, Recall@10,
+  Recall@100, MRR@10, Precision@10, and MAP@100 only over relevant queries
+  with positive qrels.
+- Test: NoMIRACL-ko non-relevant diagnostics record top-score p50/p95 and
+  positive-vs-non-relevant score separation without defining or validating an
+  abstention threshold.
 - Test: Recall@5, Hit@5, and MRR@10 are emitted only as product-secondary
   metrics in public reports.
 - Test: no metric test fails release mode on arbitrary pass/fail thresholds
@@ -203,6 +233,13 @@
   keep the report out of public benchmark claims.
 - Manual check: materialize and run the full BEIR SciFact official test split
   on Windows local and DGX Spark Ubuntu.
+- Manual check: acquire and materialize official NoMIRACL-ko Korean dev judged
+  pool under `.llmwiki-work`, verify 37,658 unique Markdown documents, and run
+  only a 5 relevant + 5 non-relevant Windows smoke unless a separate full-run
+  decision is made.
+- Manual check: NoMIRACL-ko vector smoke uses an existing local model cache
+  with download disabled. If the model would need to download, stop before
+  vector modes and record the skipped condition.
 - Manual check: verify full SciFact reports include primary nDCG@10 and
   Recall@100, product-secondary Recall@5/Hit@5/MRR@10, index build time,
   latency p50/p95, payload bytes p50/p95, and no arbitrary pass/fail threshold.

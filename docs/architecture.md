@@ -14,7 +14,8 @@ generators to change their output format.
 | Parser | Converts Markdown or supported text pages into canonical page records: title, role, body, front matter, links, headings, tags, source refs, and review state. |
 | Projection | Builds the canonical in-memory graph/index from loaded page facts and adapter-loaded sidecar graph facts. This layer produces page, heading, source-reference, tag, and unresolved placeholder nodes plus `contains`, `links_to`, `cites`, `tagged`, hierarchy, and sidecar graph edges. |
 | Source bundle | Describes one served knowledge source with a stable source id, portable projection signature, visible source refs, and metadata-only raw-origin hints for host RAG or bridge orchestration. |
-| Search/context | Ranks approved pages, adds hot/index/overview orientation, withholds drafts by default, and returns context packs for agents. |
+| Search/context | Ranks approved pages, adds hot/index/overview orientation, withholds drafts by default, returns context packs for agents, and supports additive agent-guided lexical guidance/query variants. |
+| Optional semantic retrieval preview | Adds operator-enabled local FastEmbed vector search and lexical+dense hybrid RRF over deterministic page chunks, backed by an external sidecar cache. |
 | Graph output | Returns projected nodes and edges through `/graph`, bounded neighborhoods through `/graph/neighborhood`, MCP graph tools, source-bundle source refs, and context pack graph fields. |
 | Local instance registry | Writes best-effort per-user `serve` process records for local CLI discovery without changing HTTP or MCP contracts. |
 | Serve I/O logging | Writes local JSONL request/response events for HTTP, MCP-style, MCP Streamable HTTP, and opt-in A2A-style flows with credential/header/local-root redaction. |
@@ -39,10 +40,32 @@ resolved at app startup, advertised in MCP tool descriptions, and applied only
 when callers omit `limit`; explicit request limits keep the existing validation
 and clamp boundaries.
 
+## Agent-Guided Lexical Workflow
+
+For direct agent use, the recommended path is context first and lexical by
+default. A client calls HTTP `POST /query` or MCP `llmwiki_context`, treats
+authored orientation and `retrieval_guidance` as untrusted source evidence,
+then calls `/search` or `llmwiki_search` with `mode=lexical`, the primary
+query, and at most two caller-supplied `query_variants`. The client reads
+selected pages with `/read/{page_id}` or `llmwiki_read`, and escalates to
+literal, operator-enabled hybrid/vector, a bridge, or a chat workbench only
+when lexical evidence is insufficient.
+
+This workflow does not add a `SearchMode`; the public enum remains
+`lexical|literal|vector|hybrid`, and raw single-query lexical search remains
+the compatibility default. `llmwiki-serve` does not generate variants, call an
+LLM, download a model, build embeddings, synthesize final answers, or write
+source files for this workflow. Authored `hot.md`, `index.md`, and
+`overview.md` pages are preferred when present. Eligible `generic-markdown`
+sources without authored orientation receive only a transient, zero-write
+projection-extractive `retrieval_guidance` sketch derived from the current
+projection.
+
 Search/query callers can keep retrieval payloads small with optional literal
-substring mode, snippet character limits, result field projection, minimum score
-filtering, and already-seen page exclusions. Read callers can request selected
-page fields when they do not need the full page body.
+substring mode, operator-enabled vector/hybrid modes, snippet character limits,
+result field projection, and already-seen page exclusions. Minimum-score
+filtering remains lexical/literal-only; vector and hybrid reject public
+`min_score` because cosine and RRF scores are mode-specific.
 
 The HTTP API installs CORS middleware for local browser development only by
 default: `localhost`, `127.0.0.1`, and IPv6 localhost `[::1]` origins on any
@@ -229,9 +252,99 @@ local source paths.
 Runtime prompt, conversation history, prefix-cache, model-session caches, and
 orchestration state belong to host agents, `llmwiki-agent-bridge`,
 `llmwiki-chat`, Hermes, DeepAgents, or another runtime/workbench layer. Redis in
-`llmwiki-serve` is only the read-only source projection cache; RedisVL,
-semantic/vector search, and cross-source orchestration require a separate
-design boundary.
+`llmwiki-serve` is only the read-only source projection cache; RedisVL, hosted
+vector databases, remote embedding providers, and cross-source orchestration
+remain outside this boundary.
+
+## Optional Semantic Vector Retrieval
+
+This is an opt-in semantic retrieval preview. The public retrieval enum is
+`lexical|literal|vector|hybrid` across Python service calls, HTTP `/query` and
+`/search`, MCP JSON-RPC, MCP Streamable HTTP, and CLI `query/search --mode`.
+No new endpoint, tool, command, or result shape is added. Lexical remains the
+default, literal remains exact substring search, and semantic modes fail
+actionably when no usable provider is configured.
+
+The first provider is local FastEmbed behind `llmwiki-serve[vector]`, with a
+direct NumPy dependency in that optional extra. The provider is never
+constructed unless vector retrieval is explicitly enabled through service
+configuration, CLI options, or environment. FastEmbed always receives an
+explicit `model_name`; runtime model access defaults to local-files-only, and
+network download requires `--vector-model-download allow` or
+`LLMWIKI_VECTOR_MODEL_DOWNLOAD=allow`. Public search request payloads cannot
+select provider, model, cache path, or download policy.
+
+Vector indexing uses text schema `llmwiki-vector-text-v1`: deterministic
+heading- and paragraph-aware chunks derived from `WikiPage.text`, with page
+title and heading breadcrumb in the embedding input. Paths, local roots,
+source-reference labels, graph metadata, raw front matter, and generated
+summaries are excluded. Results stay page-level; the best chunk can choose the
+snippet, while citations remain the owning page `source_refs`.
+
+The vector sidecar cache is sensitive derived local state outside the served
+root. Cache identity includes source scope, a local salted root fingerprint,
+projection/content hash, visibility scope, provider/model/revision/dimension,
+provider artifact or version evidence for the shipped FastEmbed provider,
+distance metric, text schema, index schema, and cache schema. Approved-only and
+draft-inclusive indexes are separate identities. Cache schema
+`llmwiki-vector-cache-v2` stores float32 embeddings in checksum-named `.npy`
+sidecars and stable page/chunk ids, locators, and hashes in compact JSON
+metadata. It does not store raw source text, snippets, raw queries, local
+roots, model local paths, credentials, or provider responses. Explicit vector
+sidecar and FastEmbed model cache directories are resolved before provider
+startup and rejected when they are equal to or nested under the served source
+root.
+
+Writers publish vector and metadata sidecars first, then the manifest with
+`os.replace`. Readers trust only a manifest whose sidecar checksums, shape,
+dtype, schema, provider/content identity, and visibility identity validate;
+corrupt, partial, mismatched, or stale records are cache misses and are rebuilt
+when the provider is available. A sidecar-local exclusive lock coordinates
+concurrent builders and is never created under the served source root. During a
+cross-process cold build, a competing request can fail with a retryable
+build-in-progress error when the lock timeout is reached; it must not read a
+partial cache or silently fall back to a different retrieval mode.
+
+Hybrid mode is lexical plus dense retrieval with weighted RRF and bounded
+optional read-only orientation hints. It is not universal orientation-first
+retrieval, not GraphRAG, and not a universal quality improvement claim.
+Canonical root `hot.md`, `index.md`, and `overview.md` pages can form an
+orientation guide layer; they are source-owned pages and are never generated,
+replaced, or modified by retrieval. Hybrid selects at most three query-relevant
+orientation seeds from bounded lexical and vector ranks over the orientation
+subset, then expands a capped related set only from trustworthy links,
+`source_refs`, and tags visible in or near the matched orientation evidence. If
+no safe related set exists, public hybrid falls back exactly to the plain
+lexical+dense RRF ordering and payload shape.
+
+Hybrid embeds the query once and reuses that vector to score the orientation
+subset, the safe related subset, and the global vector recall channel. It fuses
+bounded channel ranks with fixed weighted RRF and constant `60`: lexical/exact
+`1.0`, related-vector `1.0`, global-vector `0.75`, orientation evidence
+`0.35`, and graph prior `0.25`. For English exact identifier, path, version, or
+source-reference queries, the existing exact-required document guard is applied
+before fusion so vector-only approximate matches cannot satisfy the query.
+
+The exact local backend is the preview implementation. Release-facing supported
+size claims are limited to the current recorded small/team corpus and chunk
+counts, vector dimensions, memory envelope, and platforms. Larger scale remains
+experimental until 10k, 50k, 100k, and 500k corpus gates are accepted. ANN
+indexes, Redis vector search, hosted vector databases, remote embedding
+providers, newer embedding models, and rerankers are future experiments, not
+bundled defaults.
+
+Negative and unanswerable query diagnostics may report false positives,
+top-k behavior, score separation, and citation precision. They do not define a
+calibrated abstention threshold, reliable no-evidence confidence score, broad
+multilingual quality claim, poisoning-safety claim, SOTA claim, or
+vector-database-scale claim. Public vector/hybrid quality or performance
+reports require clean commit SHA reruns on Windows and Ubuntu/DGX; dirty
+worktree runs remain engineering evidence only.
+
+Detailed candidate caps, scoring semantics, and benchmark posture live in the
+[semantic vector retrieval spec](../specs/semantic-vector-retrieval/spec.md)
+and
+[vector retrieval ADR](decisions/2026-08-01-optional-source-owned-semantic-vector-retrieval-boundary.md).
 
 ## Compatible Output Targets
 

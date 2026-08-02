@@ -168,6 +168,7 @@ EXPECTED_WHEEL_FILES = frozenset(
         "llmwiki_serve/adapters.py",
         "llmwiki_serve/api.py",
         "llmwiki_serve/cli.py",
+        "llmwiki_serve/errors.py",
         "llmwiki_serve/io_logging.py",
         "llmwiki_serve/managed_context.py",
         "llmwiki_serve/models.py",
@@ -176,11 +177,36 @@ EXPECTED_WHEEL_FILES = frozenset(
         "llmwiki_serve/py.typed",
         "llmwiki_serve/search.py",
         "llmwiki_serve/service.py",
+        "llmwiki_serve/vector.py",
     }
 )
-FORBIDDEN_WHEEL_PREFIXES = (".github/", "docs/", "scripts/", "tests/")
+FORBIDDEN_WHEEL_PREFIXES = (".github/", "benchmarks/", "docs/", "scripts/", "tests/")
 EXPECTED_SDIST_FILES = frozenset(
     {
+        "benchmarks/agent_guided_lexical/README.md",
+        "benchmarks/agent_guided_lexical/fixture/agent-plan.jsonl",
+        "benchmarks/agent_guided_lexical/fixture/authored/wiki/billing_refund_policy.md",
+        "benchmarks/agent_guided_lexical/fixture/authored/wiki/code_identifier_reference.md",
+        "benchmarks/agent_guided_lexical/fixture/authored/wiki/hot.md",
+        "benchmarks/agent_guided_lexical/fixture/authored/wiki/index.md",
+        "benchmarks/agent_guided_lexical/fixture/authored/wiki/irrelevant_distractor.md",
+        "benchmarks/agent_guided_lexical/fixture/authored/wiki/korean_refund_policy.md",
+        "benchmarks/agent_guided_lexical/fixture/authored/wiki/prompt_injection_safety.md",
+        "benchmarks/agent_guided_lexical/fixture/projection/wiki/billing_refund_policy.md",
+        "benchmarks/agent_guided_lexical/fixture/projection/wiki/code_identifier_reference.md",
+        "benchmarks/agent_guided_lexical/fixture/projection/wiki/irrelevant_distractor.md",
+        "benchmarks/agent_guided_lexical/fixture/projection/wiki/korean_refund_policy.md",
+        "benchmarks/agent_guided_lexical/fixture/projection/wiki/prompt_injection_safety.md",
+        "benchmarks/agent_guided_lexical/fixture/qrels.jsonl",
+        "benchmarks/agent_guided_lexical/fixture/queries.jsonl",
+        "benchmarks/agent_guided_lexical/gates.json",
+        "benchmarks/agent_guided_lexical/report.schema.json",
+        "benchmarks/orientation_mechanism/README.md",
+        "benchmarks/orientation_mechanism/fixture/README.md",
+        "benchmarks/orientation_mechanism/fixture/qrels.jsonl",
+        "benchmarks/orientation_mechanism/fixture/queries.jsonl",
+        "benchmarks/orientation_mechanism/fixture/wiki/hot.md",
+        "benchmarks/orientation_mechanism/fixture/wiki/index.md",
         "CHANGELOG.md",
         "CODE_OF_CONDUCT.md",
         "CONTRIBUTING.md",
@@ -211,20 +237,30 @@ FORBIDDEN_SDIST_COMPONENTS = frozenset(
         ".git",
         ".github",
         ".hg",
+        ".llmwiki-work",
         ".mypy_cache",
         ".nox",
         ".pytest_cache",
         ".ruff_cache",
+        ".runtime-logs",
         ".svn",
         ".tox",
         ".uv-cache",
         ".venv",
         "__pycache__",
         "build",
+        "cache",
+        "caches",
         "candidate-samples",
         "dist",
         "htmlcov",
         "node_modules",
+        "private-artifacts",
+        "private_artifacts",
+        "report-output",
+        "report-outputs",
+        "reports",
+        "runtime-reports",
         "venv",
     }
 )
@@ -237,12 +273,28 @@ FORBIDDEN_SDIST_FILENAMES = frozenset(
         ".netrc",
         ".pypirc",
         "auth.json",
+        "agent-guided-lexical-smoke.json",
+        "benchmark-report.json",
         "candidate-samples.json",
         "coverage.xml",
         "credentials.json",
         "pip.conf",
+        "release-smoke.json",
+        "report.json",
+        "results.json",
+        "run-report.json",
         "token.json",
     }
+)
+FORBIDDEN_SDIST_GENERATED_REPORT_SUFFIXES = (
+    "-report.json",
+    "-reports.json",
+    "-results.json",
+    "-smoke.json",
+    "_report.json",
+    "_reports.json",
+    "_results.json",
+    "_smoke.json",
 )
 FORBIDDEN_SDIST_SUFFIXES = (
     ".crt",
@@ -258,13 +310,14 @@ FORBIDDEN_SDIST_SUFFIXES = (
     ".so",
     ".sqlite",
     ".sqlite3",
+    ".tmp",
 )
 FORBIDDEN_SDIST_CONTENT_CANARIES = (
     ("legacy OpenAI redaction canary", b"sk" + b"-proj-redactionCanarySecret1234567890"),
     ("legacy GitHub redaction canary", b"ghp" + b"_redactionCanarySecret1234567890"),
     ("legacy bearer redaction canary", b"Bearer " + b"headerSecretToken123"),
-    ("local Windows user path canary", b"C:" + rb"\Users\angel\serve-secret.txt"),
-    ("local POSIX user path canary", b"/home/" + b"angel/serve-secret.txt"),
+    ("local Windows user path canary", b"C:" + rb"\Users\example-user\serve-secret.txt"),
+    ("local POSIX user path canary", b"/home/" + b"example-user/serve-secret.txt"),
 )
 
 
@@ -929,10 +982,12 @@ def wheel_api_smoke(
 
 def response_envelope(payload: dict[str, Any], key: str, surface: str) -> dict[str, Any]:
     response = payload.get(key)
-    require(isinstance(response, dict), f"{surface} response envelope missing")
+    if not isinstance(response, dict):
+        raise SmokeFailure(f"{surface} response envelope missing")
+    status_code = response.get("status_code")
     require(
-        response.get("status_code") == 200,
-        f"{surface} returned status {response.get('status_code')}",
+        status_code == 200,
+        f"{surface} returned status {status_code}",
     )
     return response
 
@@ -940,7 +995,8 @@ def response_envelope(payload: dict[str, Any], key: str, surface: str) -> dict[s
 def response_json(payload: dict[str, Any], key: str, surface: str) -> dict[str, Any]:
     response = response_envelope(payload, key, surface)
     body = response.get("json")
-    require(isinstance(body, dict), f"{surface} returned non-object JSON")
+    if not isinstance(body, dict):
+        raise SmokeFailure(f"{surface} returned non-object JSON")
     return body
 
 
@@ -965,8 +1021,10 @@ def assert_wheel_contents(wheel: Path) -> None:
             not forbidden,
             f"wheel included repository-only file(s): {', '.join(forbidden[:5])}",
         )
-        require(metadata, "wheel missing dist-info METADATA")
-        require(entry_points, "wheel missing console entry point metadata")
+        if not metadata:
+            raise SmokeFailure("wheel missing dist-info METADATA")
+        if not entry_points:
+            raise SmokeFailure("wheel missing console entry point metadata")
         require(
             len(license_files) == 2,
             "wheel missing expected dist-info license file(s)",
@@ -1035,7 +1093,10 @@ def normalized_sdist_file_names(archive: tarfile.TarFile) -> tuple[str, set[str]
         path = PurePosixPath(member.name)
         require(not path.is_absolute(), f"sdist contains absolute path: {member.name}")
         parts = path.parts
-        require(parts and ".." not in parts, f"sdist contains unsafe path: {member.name}")
+        require(
+            bool(parts) and ".." not in parts,
+            f"sdist contains unsafe path: {member.name}",
+        )
         require(
             not member.issym() and not member.islnk(),
             f"sdist contains link entry: {member.name}",
@@ -1050,7 +1111,8 @@ def normalized_sdist_file_names(archive: tarfile.TarFile) -> tuple[str, set[str]
 
 def read_sdist_text(archive: tarfile.TarFile, root: str, relative_path: str) -> str:
     file = archive.extractfile(f"{root}/{relative_path}")
-    require(file is not None, f"sdist missing readable file: {relative_path}")
+    if file is None:
+        raise SmokeFailure(f"sdist missing readable file: {relative_path}")
     return file.read().decode("utf-8").replace("\r\n", "\n")
 
 
@@ -1064,7 +1126,8 @@ def scan_sdist_content_canaries(archive: tarfile.TarFile, root: str) -> list[tup
             continue
         relative_name = PurePosixPath(*path.parts[1:]).as_posix()
         file = archive.extractfile(member)
-        require(file is not None, f"sdist missing readable file: {relative_name}")
+        if file is None:
+            raise SmokeFailure(f"sdist missing readable file: {relative_name}")
         data = file.read()
         for reason, canary in FORBIDDEN_SDIST_CONTENT_CANARIES:
             if canary in data:
@@ -1079,9 +1142,11 @@ def read_project_version(pyproject: str) -> str:
         raise SmokeFailure("sdist pyproject.toml could not be parsed") from exc
 
     project = metadata.get("project")
-    require(isinstance(project, dict), "sdist pyproject.toml missing [project] table")
+    if not isinstance(project, dict):
+        raise SmokeFailure("sdist pyproject.toml missing [project] table")
     version = project.get("version")
-    require(isinstance(version, str) and version, "sdist pyproject.toml missing project.version")
+    if not isinstance(version, str) or not version:
+        raise SmokeFailure("sdist pyproject.toml missing project.version")
     return version
 
 
@@ -1090,12 +1155,19 @@ def forbidden_sdist_path_reason(name: str) -> str | None:
     filename = parts[-1]
     if any(component in FORBIDDEN_SDIST_COMPONENTS for component in parts):
         return "cache, VCS, build, or generated artifact path"
+    if "benchmarks" in parts and any(
+        component in {".llmwiki-work", "cache", "caches", "reports", "temp", "tmp"}
+        for component in parts
+    ):
+        return "benchmark report, cache, or temporary artifact path"
     if any(component.endswith(".egg-info") for component in parts):
         return "egg-info build metadata"
     if any(component == ".env" or component.startswith(".env.") for component in parts):
         return "local environment file"
     if filename in FORBIDDEN_SDIST_FILENAMES:
         return "local credential, cache, coverage, or generated artifact file"
+    if filename.endswith(FORBIDDEN_SDIST_GENERATED_REPORT_SUFFIXES):
+        return "generated report output"
     if filename.startswith(("secret", "secrets", "credential", "credentials")):
         return "credential-like filename"
     if filename.endswith(FORBIDDEN_SDIST_SUFFIXES):
@@ -1372,7 +1444,8 @@ def assert_graph_neighbors_payload(payload: dict[str, Any], fixture: Path, surfa
         require(isinstance(node_id, str), f"{surface} node id was not text")
         require("draft" not in node_id.lower(), f"{surface} exposed a draft node")
         if path:
-            require(isinstance(path, str), f"{surface} node path was not text")
+            if not isinstance(path, str):
+                raise SmokeFailure(f"{surface} node path was not text")
             require(
                 not Path(path).is_absolute() and not PurePosixPath(path).is_absolute(),
                 f"{surface} node path exposed an absolute path",
@@ -1383,7 +1456,8 @@ def assert_graph_neighbors_payload(payload: dict[str, Any], fixture: Path, surfa
         require(isinstance(edge, dict), f"{surface} edge was not an object")
         for key in ("source", "target", "relation"):
             value = edge.get(key, "")
-            require(isinstance(value, str) and value, f"{surface} edge {key} missing")
+            if not isinstance(value, str) or not value:
+                raise SmokeFailure(f"{surface} edge {key} missing")
             require("draft" not in value.lower(), f"{surface} edge exposed a draft")
 
     assert_no_private_root_leak(payload, fixture, surface)
@@ -1398,10 +1472,14 @@ def projection_graph_counts(fixture: Path) -> tuple[int, int]:
 def graph_counts(graph: dict[str, Any], surface: str) -> tuple[int, int]:
     nodes = graph.get("nodes")
     edges = graph.get("edges")
-    require(isinstance(nodes, list), f"{surface} nodes were not a list")
-    require(isinstance(edges, list), f"{surface} edges were not a list")
-    require(nodes, f"{surface} returned no nodes")
-    require(edges, f"{surface} returned no edges")
+    if not isinstance(nodes, list):
+        raise SmokeFailure(f"{surface} nodes were not a list")
+    if not isinstance(edges, list):
+        raise SmokeFailure(f"{surface} edges were not a list")
+    if not nodes:
+        raise SmokeFailure(f"{surface} returned no nodes")
+    if not edges:
+        raise SmokeFailure(f"{surface} returned no edges")
     return len(nodes), len(edges)
 
 
@@ -1413,8 +1491,10 @@ def assert_source_refs_payload(payload: dict[str, Any], fixture: Path, surface: 
         f"{surface} bundle id changed",
     )
     source_refs = payload["source_refs"]
-    require(isinstance(source_refs, list), f"{surface} source_refs was not a list")
-    require(source_refs, f"{surface} returned no source refs")
+    if not isinstance(source_refs, list):
+        raise SmokeFailure(f"{surface} source_refs was not a list")
+    if not source_refs:
+        raise SmokeFailure(f"{surface} returned no source refs")
 
     labels = {item.get("label") for item in source_refs if isinstance(item, dict)}
     expected_labels = {"SRC-ART-001", "SRC-HOT", "SRC-INDEX", "SRC-RETURN-001"}
@@ -1593,10 +1673,10 @@ def run_cli_json(*args: str) -> dict[str, Any]:
 
 def llmwiki_cli() -> str:
     cli = shutil.which("llmwiki-serve")
-    require(
-        cli is not None,
-        "llmwiki-serve command is not on PATH; run `uv run python scripts/release_smoke.py`",
-    )
+    if cli is None:
+        raise SmokeFailure(
+            "llmwiki-serve command is not on PATH; run `uv run python scripts/release_smoke.py`"
+        )
     return cli
 
 
