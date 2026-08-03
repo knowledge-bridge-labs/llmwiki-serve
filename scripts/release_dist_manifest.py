@@ -43,7 +43,11 @@ def validated_distribution_files(dist_dir: Path, version: str) -> tuple[Path, ..
         raise DistManifestError(f"dist directory not found: {dist_dir}")
 
     expected = expected_distribution_names(version)
-    regular_files = sorted(path for path in dist_dir.iterdir() if path.is_file())
+    dist_root = dist_dir.resolve(strict=True)
+    regular_files = tuple(
+        _validated_regular_dist_file(path, dist_root=dist_root)
+        for path in sorted(dist_dir.iterdir(), key=lambda candidate: candidate.name)
+    )
     artifact_files = [
         path for path in regular_files if path.name not in IGNORED_DIST_PLACEHOLDER_FILES
     ]
@@ -59,6 +63,24 @@ def validated_distribution_files(dist_dir: Path, version: str) -> tuple[Path, ..
 
     by_name = {path.name: path for path in artifact_files}
     return tuple(by_name[name] for name in sorted(expected))
+
+
+def _validated_regular_dist_file(path: Path, *, dist_root: Path) -> Path:
+    if path.is_symlink():
+        raise DistManifestError(f"dist entry must not be a symlink: {path.name}")
+
+    try:
+        resolved_path = path.resolve(strict=True)
+        resolved_path.relative_to(dist_root)
+    except FileNotFoundError as exc:
+        raise DistManifestError(f"dist entry disappeared while verifying: {path.name}") from exc
+    except ValueError as exc:
+        raise DistManifestError(f"dist entry escapes dist directory: {path.name}") from exc
+
+    if not path.is_file():
+        raise DistManifestError(f"unexpected non-file dist entry: {path.name}")
+
+    return path
 
 
 def build_manifest(dist_dir: Path, version: str) -> dict[str, Any]:
@@ -83,9 +105,19 @@ def verify_manifest(dist_dir: Path, manifest_path: Path) -> dict[str, Any]:
     if not manifest_path.is_file():
         raise DistManifestError(f"missing checksum manifest: {manifest_path}")
 
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    try:
+        manifest = json.loads(
+            manifest_path.read_text(encoding="utf-8"),
+            object_pairs_hook=_reject_duplicate_json_keys,
+        )
+    except json.JSONDecodeError as exc:
+        raise DistManifestError(f"invalid checksum manifest JSON: {exc.msg}") from exc
     if not isinstance(manifest, dict):
         raise DistManifestError("checksum manifest must be a JSON object")
+    if set(manifest) != {"files", "package", "version"}:
+        raise DistManifestError(
+            "checksum manifest must contain exactly package, version, and files"
+        )
     if manifest.get("package") != PACKAGE_NAME:
         raise DistManifestError("unexpected package in checksum manifest")
 
@@ -110,6 +142,15 @@ def verify_manifest(dist_dir: Path, manifest_path: Path) -> dict[str, Any]:
             raise DistManifestError(f"sha256 mismatch for {path.name}")
 
     return manifest
+
+
+def _reject_duplicate_json_keys(pairs: Sequence[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise DistManifestError(f"duplicate key in checksum manifest JSON: {key}")
+        result[key] = value
+    return result
 
 
 def is_sha256_digest(value: object) -> bool:

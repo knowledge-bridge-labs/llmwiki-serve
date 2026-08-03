@@ -1335,6 +1335,29 @@ def test_publish_workflow_limits_oidc_to_minimal_publish_job() -> None:
     assert "dist-sha256.json" in build_steps
     assert "scripts/release_dist_manifest.py write" in build_steps
     assert '"retention-days": 7' in build_steps
+    upload_step = next(
+        step for step in build_job["steps"] if step.get("uses") == "actions/upload-artifact@v4"
+    )
+    assert "scripts/release_dist_manifest.py" in upload_step["with"]["path"]
+
+    publish_step_names = [step.get("name", step.get("uses", "")) for step in publish_job["steps"]]
+    assert publish_step_names.index("Verify downloaded distribution checksums") < (
+        publish_step_names.index("Publish to PyPI")
+    )
+    verify_command = next(
+        step["run"]
+        for step in publish_job["steps"]
+        if step.get("name") == "Verify downloaded distribution checksums"
+    )
+    assert verify_command.split() == [
+        "python",
+        "release-artifact/scripts/release_dist_manifest.py",
+        "verify",
+        "--dist-dir",
+        "release-artifact/dist",
+        "--manifest",
+        "release-artifact/dist-sha256.json",
+    ]
 
     publish_command = next(
         step["run"] for step in publish_job["steps"] if step.get("name") == "Publish to PyPI"
@@ -1348,6 +1371,7 @@ def test_publish_workflow_limits_oidc_to_minimal_publish_job() -> None:
         "release-artifact/dist/*.tar.gz",
     ]
     assert "actions/download-artifact" in publish_steps
+    assert "json.loads" not in publish_steps
     assert "release-artifact/dist/*" not in publish_command.split()
     assert "actions/checkout" not in publish_steps
     assert "uv sync" not in publish_steps
