@@ -7,14 +7,13 @@ This project follows a lightweight public-preview changelog format. Dates use
 
 ## Unreleased
 
+## 0.2.9 - 2026-08-01
+
 - Documented agent-guided lexical retrieval as the recommended direct-agent
   workflow and reconciled the agent-guided spec, tasks, tests, ADR, and release
   guidance with the implemented V1 guidance/query-variant behavior. Benchmark
   notes remain engineering evidence only and do not add public quality or
   performance claims.
-
-## 0.2.9 - 2026-08-01
-
 - Added optional source-owned semantic retrieval preview as `mode=vector` and
   `mode=hybrid` across Python service calls, HTTP `/query` and `/search`, MCP
   JSON-RPC, MCP Streamable HTTP, and CLI `query/search --mode`, without adding
