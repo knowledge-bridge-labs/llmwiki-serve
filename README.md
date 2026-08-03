@@ -34,7 +34,7 @@ enterprise auth, model runtime hosting, or certified MCP/A2A platform claims.
 | [Release checklist](docs/release.md)
 | [Docs portal](https://knowledge-bridge-labs.github.io/llmwiki-docs/)
 | [Release status](https://knowledge-bridge-labs.github.io/llmwiki-docs/status)
-| [Evidence](https://knowledge-bridge-labs.github.io/llmwiki-docs/evidence)
+| [Benchmark reports](benchmarks/verified_sources/reports/README.md)
 | [Contributing](CONTRIBUTING.md)
 | [Security](SECURITY.md)
 | [Support](SUPPORT.md)
@@ -45,6 +45,10 @@ enterprise auth, model runtime hosting, or certified MCP/A2A platform claims.
 > [Release Status & Compatibility](https://knowledge-bridge-labs.github.io/llmwiki-docs/status)
 > matrix.
 > Source checkout remains supported for local development and release smoke tests.
+> The published PyPI `0.2.9` package README is immutable. This GitHub README
+> documents `main` after the `0.2.9` release and will be included in future
+> package versions; it does not change the already-published `0.2.9`
+> distribution.
 
 ## Start Here
 
@@ -63,6 +67,34 @@ Obsidian-style folder as a read-only Knowledge Source.
 
 [![First-run demo poster](https://knowledge-bridge-labs.github.io/llmwiki-docs/demo/first-run/first-run-poster.png)](https://knowledge-bridge-labs.github.io/llmwiki-docs/demo)
 
+## 0.2.9 Highlights
+
+- Backward-compatible default lexical retrieval: existing clients that ignore
+  new guidance fields keep the same `mode=lexical` behavior.
+- Agent-guided lexical workflow: authored `hot.md`, `index.md`, and
+  `overview.md` orientation is surfaced first when present, and generic
+  Markdown receives transient zero-write retrieval guidance so the client agent
+  can choose better exact terms before search.
+- Optional vector and hybrid retrieval preview: install the `vector` extra and
+  enable a provider explicitly when a local semantic sidecar is appropriate.
+- Optional Redis/Valkey projection cache: install the `redis` extra only for
+  long-running deployments that need shared projection reuse.
+- Client workflow: direct Codex, Claude Code, Copilot, IDE agents, and scripts
+  can call `llmwiki_context` / `/query` first, then use `search` and `read`;
+  escalate to `llmwiki-agent-bridge` or `llmwiki-chat` when answer synthesis or
+  human inspection belongs outside the source server.
+
+Evidence statement: the `0.2.9` default lexical regression gate showed no
+detected ranking regression versus the `0.2.6` baseline on the recorded SciFact
+and Korean judged-pool smoke runs, with median latency improving in those local
+runs. These are compatibility and regression signals, not broad superiority or
+quality-certification claims. See the public
+[Release Status](https://knowledge-bridge-labs.github.io/llmwiki-docs/status)
+page for package status and the committed
+[benchmark reports](benchmarks/verified_sources/reports/README.md) for
+methodology, numbers, and caveats. A dedicated hosted Docs evidence page can
+replace this link once it is deployed.
+
 ## 10-Minute Quick Start
 
 Install `uv` and use Python 3.11 or newer:
@@ -72,16 +104,28 @@ uv --version
 uv python install 3.11
 ```
 
-Run the bundled sample wiki from a source checkout:
+Install the current public-preview CLI from PyPI:
 
 ```bash
-git clone https://github.com/knowledge-bridge-labs/llmwiki-serve.git
-cd llmwiki-serve
-uv sync --extra dev
+uv tool install llmwiki-serve
+llmwiki-serve --help
+```
 
-uv run llmwiki-serve manifest ./examples/sample-wiki
-uv run llmwiki-serve query ./examples/sample-wiki "release readiness"
-uv run llmwiki-serve serve ./examples/sample-wiki --host 127.0.0.1 --port 8765
+Use quotes around extras so shells do not interpret the brackets:
+
+| Install path | Command | Use when |
+| --- | --- | --- |
+| Base | `uv tool install llmwiki-serve` | You want the default local read-only lexical source server. |
+| Vector preview | `uv tool install "llmwiki-serve[vector]"` | You will explicitly enable local semantic vector or hybrid retrieval. |
+| Redis/Valkey cache | `uv tool install "llmwiki-serve[redis]"` | A long-running deployment needs projection reuse across workers or restarts. |
+| Vector + Redis | `uv tool install "llmwiki-serve[vector,redis]"` | You need both optional local semantic retrieval and a shared projection cache. |
+
+Point the CLI at any existing Markdown, Obsidian-style, or LLMWiki folder:
+
+```bash
+llmwiki-serve manifest ./my-wiki
+llmwiki-serve query ./my-wiki "what should an agent know?"
+llmwiki-serve serve ./my-wiki --host 127.0.0.1 --port 8765
 ```
 
 By default, `serve` writes local request/response debugging events to
@@ -92,7 +136,7 @@ By default, `serve` writes local request/response debugging events to
 In another terminal, query the local server:
 
 ```bash
-uv run llmwiki-serve ls
+llmwiki-serve ls
 
 curl -s http://127.0.0.1:8765/manifest
 
@@ -106,12 +150,12 @@ PowerShell object body. Plain `curl` may resolve to PowerShell's
 `Invoke-WebRequest` alias and handle JSON quoting differently.
 
 You have succeeded when `manifest` returns page/source metadata and `query`
-returns a context pack with cited pages from `examples/sample-wiki`. Point the
-same commands at your own Markdown folder when you are ready:
+returns a context pack with cited pages from your Markdown folder. Use the same
+pattern for other local or mounted wiki folders:
 
 ```bash
-uv run llmwiki-serve query /path/to/wiki-folder "what should an agent know?"
-uv run llmwiki-serve serve /path/to/wiki-folder --host 127.0.0.1 --port 8765
+llmwiki-serve query /path/to/wiki-folder "what should an agent know?"
+llmwiki-serve serve /path/to/wiki-folder --host 127.0.0.1 --port 8765
 ```
 
 Generated wiki producers that can atomically update a build marker after
@@ -119,7 +163,7 @@ ingest/compile may opt into marker-based freshness checks for long-running
 servers:
 
 ```bash
-uv run llmwiki-serve serve /path/to/wiki-folder \
+llmwiki-serve serve /path/to/wiki-folder \
   --host 127.0.0.1 \
   --port 8765 \
   --producer-manifest .llmwiki-producer-manifest.json
@@ -130,17 +174,28 @@ source-changing build. Without that contract, keep the default strict source
 scan or use `--refresh-interval-seconds` when a short visibility delay is
 acceptable.
 
-Install the current public-preview CLI from PyPI with one of:
-
-```bash
-uv tool install llmwiki-serve
-# or
-pipx install llmwiki-serve
-```
-
 Pin the version listed in the
 [Release Status & Compatibility](https://knowledge-bridge-labs.github.io/llmwiki-docs/status)
-matrix when you need a reproducible public-preview package install.
+matrix when you need a reproducible public-preview package install:
+
+```bash
+uv tool install llmwiki-serve==0.2.9
+```
+
+## Contributor Development Path
+
+Use a source checkout when editing this repository, running release smoke tests,
+or trying the bundled sample wiki:
+
+```bash
+git clone https://github.com/knowledge-bridge-labs/llmwiki-serve.git
+cd llmwiki-serve
+uv sync --extra dev
+
+uv run llmwiki-serve manifest ./examples/sample-wiki
+uv run llmwiki-serve query ./examples/sample-wiki "release readiness"
+uv run llmwiki-serve serve ./examples/sample-wiki --host 127.0.0.1 --port 8765
+```
 
 ## What It Serves
 
@@ -564,7 +619,7 @@ constants, fallback rules, and benchmark posture, see the
 Most users should start without Redis:
 
 ```bash
-pip install llmwiki-serve
+uv tool install llmwiki-serve
 llmwiki-serve serve ./wiki --host 127.0.0.1 --port 8765
 ```
 
@@ -578,7 +633,7 @@ Install the optional extra and pass an explicit namespace and source id for
 shared deployments:
 
 ```bash
-pip install "llmwiki-serve[redis]"
+uv tool install "llmwiki-serve[redis]"
 llmwiki-serve serve ./wiki \
   --projection-store redis \
   --redis-url redis://127.0.0.1:6379/0 \
@@ -704,11 +759,12 @@ packaged wheel CLI installation.
 
 Optional validation paths are documented in [docs/release.md](docs/release.md):
 real local-server curl checks, pinned public upstream sample snapshot smoke, and
-generated candidate sample artifacts. Current public compatibility-smoke
-evidence, including the 12-case actual-pinned Windows report, is summarized on
-the
-[Evidence](https://knowledge-bridge-labs.github.io/llmwiki-docs/evidence)
-page. These are compatibility-smoke records for the current serving contract,
+generated candidate sample artifacts. Current public release status is
+summarized on the
+[Release Status](https://knowledge-bridge-labs.github.io/llmwiki-docs/status)
+page, and repository benchmark evidence lives under
+[`benchmarks/verified_sources/reports/`](benchmarks/verified_sources/reports/README.md).
+These are compatibility-smoke records for the current serving contract,
 not quality certification or upstream producer certification. They do not
 certify retrieval quality, answer quality, upstream producer versions, full
 MCP/A2A protocol support, private wiki safety, live network deployment,
@@ -760,7 +816,7 @@ report JSON; local report outputs belong in runtime paths such as
 
 - [Docs portal](https://knowledge-bridge-labs.github.io/llmwiki-docs/)
 - [Release Status & Compatibility](https://knowledge-bridge-labs.github.io/llmwiki-docs/status)
-- [Evidence](https://knowledge-bridge-labs.github.io/llmwiki-docs/evidence)
+- [Benchmark reports](benchmarks/verified_sources/reports/README.md)
 - [Architecture](docs/architecture.md)
 - [Examples](examples/README.md)
 - [Release checklist](docs/release.md)
