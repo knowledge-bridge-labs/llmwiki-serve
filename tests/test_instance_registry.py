@@ -1333,10 +1333,22 @@ def test_publish_workflow_limits_oidc_to_minimal_publish_job() -> None:
     assert "dist/*.whl" in build_steps
     assert "dist/*.tar.gz" in build_steps
     assert "dist-sha256.json" in build_steps
+    assert "scripts/release_dist_manifest.py write" in build_steps
     assert '"retention-days": 7' in build_steps
 
+    publish_command = next(
+        step["run"] for step in publish_job["steps"] if step.get("name") == "Publish to PyPI"
+    )
+    assert publish_command.split() == [
+        "uv",
+        "publish",
+        "--trusted-publishing",
+        "always",
+        "release-artifact/dist/*.whl",
+        "release-artifact/dist/*.tar.gz",
+    ]
     assert "actions/download-artifact" in publish_steps
-    assert "uv publish --trusted-publishing always release-artifact/dist/*" in publish_steps
+    assert "release-artifact/dist/*" not in publish_command.split()
     assert "actions/checkout" not in publish_steps
     assert "uv sync" not in publish_steps
     assert "uv run" not in publish_steps
