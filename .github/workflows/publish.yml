@@ -56,37 +56,10 @@ jobs:
       - name: Twine check distributions
         run: uvx twine check dist/*
       - name: Write distribution checksum manifest
-        shell: bash
-        run: |
-          python - <<'PY'
-          import hashlib
-          import json
-          import tomllib
-          from pathlib import Path
-
-          version = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))[
-              "project"
-          ]["version"]
-          expected = {
-              f"llmwiki_serve-{version}-py3-none-any.whl",
-              f"llmwiki_serve-{version}.tar.gz",
-          }
-          files = sorted(path for path in Path("dist").iterdir() if path.is_file())
-          actual = {path.name for path in files}
-          if actual != expected:
-              raise SystemExit(f"unexpected dist files: {sorted(actual)} != {sorted(expected)}")
-          manifest = {
-              "package": "llmwiki-serve",
-              "version": version,
-              "files": {
-                  path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in files
-              },
-          }
-          Path("dist-sha256.json").write_text(
-              json.dumps(manifest, indent=2, sort_keys=True) + "\n",
-              encoding="utf-8",
-          )
-          PY
+        run: >
+          python scripts/release_dist_manifest.py write
+          --dist-dir dist
+          --manifest dist-sha256.json
       - uses: actions/upload-artifact@v4
         with:
           name: pypi-dist
@@ -94,6 +67,7 @@ jobs:
             dist/*.whl
             dist/*.tar.gz
             dist-sha256.json
+            scripts/release_dist_manifest.py
           if-no-files-found: error
           retention-days: 7
 
@@ -117,35 +91,12 @@ jobs:
       - name: Install uv publish tool
         run: python -m pip install uv
       - name: Verify downloaded distribution checksums
-        shell: bash
-        run: |
-          python - <<'PY'
-          import hashlib
-          import json
-          from pathlib import Path
-
-          root = Path("release-artifact")
-          manifest_path = root / "dist-sha256.json"
-          if not manifest_path.is_file():
-              raise SystemExit("missing dist-sha256.json artifact")
-          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-          if manifest.get("package") != "llmwiki-serve":
-              raise SystemExit("unexpected package in checksum manifest")
-          files = manifest.get("files")
-          if not isinstance(files, dict) or len(files) != 2:
-              raise SystemExit("checksum manifest must describe exactly two dist files")
-          expected_names = set(files)
-          dist = root / "dist"
-          actual_names = {path.name for path in dist.iterdir() if path.is_file()}
-          if actual_names != expected_names:
-              raise SystemExit(
-                  f"downloaded dist files changed: {sorted(actual_names)} != "
-                  f"{sorted(expected_names)}"
-              )
-          for name, expected_hash in files.items():
-              observed_hash = hashlib.sha256((dist / name).read_bytes()).hexdigest()
-              if observed_hash != expected_hash:
-                  raise SystemExit(f"sha256 mismatch for {name}")
-          PY
+        run: >
+          python release-artifact/scripts/release_dist_manifest.py verify
+          --dist-dir release-artifact/dist
+          --manifest release-artifact/dist-sha256.json
       - name: Publish to PyPI
-        run: uv publish --trusted-publishing always release-artifact/dist/*
+        run: >
+          uv publish --trusted-publishing always
+          release-artifact/dist/*.whl
+          release-artifact/dist/*.tar.gz
