@@ -2,13 +2,20 @@ from __future__ import annotations
 
 import hashlib
 import os
+import threading
 import time
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any, Literal
 
 from .adapters import load_wiki
+from .guided_retrieval import (
+    AGENT_GUIDED_LEXICAL_CAPABILITY,
+    build_retrieval_guidance,
+    effective_lexical_query_channels,
+)
 from .managed_context import (
     ManagedContextOption,
     ManagedContextRuntime,
@@ -25,6 +32,7 @@ from .models import (
     GraphNode,
     ProjectionMetadata,
     RawOriginsMetadata,
+    RetrievalGuidanceFallbackMode,
     SearchMode,
     SearchResult,
     SourceBundleManifest,
@@ -32,6 +40,7 @@ from .models import (
     SourceRefsResponse,
     WikiIndex,
     WikiManifest,
+    WikiPage,
 )
 from .projection import canonical_relation, normalize_key, project_wiki, slug
 from .projection_store import (
@@ -46,9 +55,35 @@ from .search import (
     SearchCorpus,
     build_search_corpus,
     context_orientation,
+    exact_required_page_ids_for_query,
     normalize_analyzer_profile,
+    normalize_search_mode,
     project_search_result,
+    role_rank,
     search_corpus,
+    visible_pages,
+)
+from .vector import (
+    HYBRID_ORIENTATION_CANDIDATE_LIMIT,
+    EmbeddingProvider,
+    VectorConfig,
+    VectorIndex,
+    VectorIndexCache,
+    VectorSearchError,
+    VectorVisibilityScope,
+    create_embedding_provider,
+    disabled_vector_error,
+    hybrid_candidate_depth,
+    normalize_vector_config,
+    orientation_exclude_page_ids,
+    provider_artifact_fingerprint,
+    resolve_vector_cache_dir,
+    resolve_vector_model_cache_dir,
+    safe_model_label,
+    search_vector_index,
+)
+from .vector import (
+    hybrid_search_results_for_vector_index as hybrid_search_results,
 )
 
 SourceSignature = tuple[tuple[str, int, int], ...]
@@ -75,7 +110,8 @@ IGNORED_SIGNATURE_PARTS = {
     "build",
 }
 DEFAULT_GRAPH_LIMIT = 100
-MANAGED_CONTEXT_HIT_ROUTES = {"search", "literal"}
+LEXICAL_VARIANT_RRF_K = 60
+MANAGED_CONTEXT_HIT_ROUTES = {"search", "literal", "vector", "hybrid"}
 READ_FIELD_ORDER = (
     "id",
     "title",
@@ -95,6 +131,15 @@ READ_FIELD_ORDER = (
 READ_FIELDS = set(READ_FIELD_ORDER)
 
 
+@dataclass(frozen=True)
+class _RetrievalSnapshot:
+    index: WikiIndex
+    signature: SourceSignature
+    projection_signature: _ProjectionSignature
+    freshness_signature: _ProjectionSignature
+    projection_signature_digest: str
+
+
 class LlmWikiService:
     def __init__(
         self,
@@ -107,6 +152,8 @@ class LlmWikiService:
         source_id: str | None = None,
         managed_context: ManagedContextOption = None,
         analyzer_profile: AnalyzerProfile = DEFAULT_ANALYZER_PROFILE,
+        vector_config: bool | VectorConfig | None = None,
+        vector_provider: EmbeddingProvider | None = None,
         clock: Callable[[], float] | None = None,
         _managed_context_clock: Callable[[], float] | None = None,
     ) -> None:
@@ -119,14 +166,39 @@ class LlmWikiService:
         self.explicit_source_id = source_id
         self.managed_context = ManagedContextRuntime(self.root, managed_context)
         self.analyzer_profile = normalize_analyzer_profile(analyzer_profile)
+        self.vector_config = normalize_vector_config(
+            vector_config,
+            enabled_if_provider=vector_provider is not None,
+        )
+        if self.vector_config.enabled:
+            resolved_cache_dir = resolve_vector_cache_dir(self.root, self.vector_config.cache_dir)
+            resolved_model_cache_dir = (
+                resolve_vector_model_cache_dir(self.root, self.vector_config.model_cache_dir)
+                if self.vector_config.model_cache_dir is not None
+                else None
+            )
+            self.vector_config = replace(
+                self.vector_config,
+                cache_dir=resolved_cache_dir,
+                model_cache_dir=resolved_model_cache_dir,
+            )
+        self._vector_provider_override = vector_provider
+        self._vector_provider: EmbeddingProvider | None = vector_provider
+        self._vector_provider_lock = threading.RLock()
+        self._vector_cache: VectorIndexCache | None = None
+        self._loaded_vector_indexes: dict[tuple[str, ...], VectorIndex] = {}
+        self._loaded_vector_indexes_lock = threading.RLock()
+        self._vector_availability_verified = self._vector_provider_is_usable(vector_provider)
         self._clock = clock or time.monotonic
         self._managed_context_clock = _managed_context_clock or time.time
+        self._index_lock = threading.RLock()
         self._last_refresh_check: float | None = None
         self._index: WikiIndex | None = None
         self._views: _IndexViews | None = None
         self._signature: SourceSignature | None = None
         self._projection_signature: _ProjectionSignature | None = None
         self._freshness_signature: _ProjectionSignature | None = None
+        self._retrieval_snapshot: _RetrievalSnapshot | None = None
         self._signature_cache: _SourceSignatureCache | _ProducerManifestSignatureCache
         if producer_manifest_path is None:
             self._signature_cache = _SourceSignatureCache(self.root)
@@ -137,9 +209,16 @@ class LlmWikiService:
             )
 
     def index(self, *, refresh: bool = False) -> WikiIndex:
+        return self._index_snapshot(refresh=refresh).index
+
+    def _index_snapshot(self, *, refresh: bool = False) -> _RetrievalSnapshot:
+        with self._index_lock:
+            return self._index_snapshot_unlocked(refresh=refresh)
+
+    def _index_snapshot_unlocked(self, *, refresh: bool = False) -> _RetrievalSnapshot:
         if self._can_reuse_cached_index(refresh=refresh):
-            assert self._index is not None
-            return self._index
+            assert self._retrieval_snapshot is not None
+            return self._retrieval_snapshot
 
         snapshot = self._signature_cache.current_snapshot(refresh=refresh)
         projection_signature = projection_signature_digest(snapshot.projection_signature)
@@ -165,18 +244,53 @@ class LlmWikiService:
                 )
                 record = ProjectionRecord(key=key, index=index)
                 self.projection_store.put(record)
-            self._index = record.index
-            self._views = None
-            self._signature = snapshot.signature
-            self._projection_signature = snapshot.projection_signature
-            self._freshness_signature = snapshot.freshness_signature
+            self._publish_index_snapshot(
+                record.index,
+                signature=snapshot.signature,
+                projection_signature=snapshot.projection_signature,
+                freshness_signature=snapshot.freshness_signature,
+                projection_signature_digest_value=projection_signature,
+            )
+        elif self._retrieval_snapshot is None:
+            assert self._index is not None
+            self._publish_index_snapshot(
+                self._index,
+                signature=snapshot.signature,
+                projection_signature=snapshot.projection_signature,
+                freshness_signature=snapshot.freshness_signature,
+                projection_signature_digest_value=projection_signature,
+            )
         self._last_refresh_check = self._clock() if self.refresh_interval_seconds > 0 else None
-        return self._index
+        assert self._retrieval_snapshot is not None
+        return self._retrieval_snapshot
+
+    def _publish_index_snapshot(
+        self,
+        index: WikiIndex,
+        *,
+        signature: SourceSignature,
+        projection_signature: _ProjectionSignature,
+        freshness_signature: _ProjectionSignature,
+        projection_signature_digest_value: str,
+    ) -> None:
+        self._index = index
+        self._views = None
+        self._clear_loaded_vector_indexes()
+        self._signature = signature
+        self._projection_signature = projection_signature
+        self._freshness_signature = freshness_signature
+        self._retrieval_snapshot = _RetrievalSnapshot(
+            index=index,
+            signature=signature,
+            projection_signature=projection_signature,
+            freshness_signature=freshness_signature,
+            projection_signature_digest=projection_signature_digest_value,
+        )
 
     def _can_reuse_cached_index(self, *, refresh: bool) -> bool:
         if (
             refresh
-            or self._index is None
+            or self._retrieval_snapshot is None
             or self.refresh_interval_seconds <= 0
             or self._last_refresh_check is None
         ):
@@ -184,7 +298,8 @@ class LlmWikiService:
         return self._clock() - self._last_refresh_check < self.refresh_interval_seconds
 
     def manifest(self, *, enable_a2a_compat: bool = False) -> WikiManifest:
-        index = self.index()
+        snapshot = self._index_snapshot()
+        index = snapshot.index
         hot = next((page.path for page in index.pages if page.role == "hot"), "")
         idx = next((page.path for page in index.pages if page.role == "index"), "")
         overview = next((page.path for page in index.pages if page.role == "overview"), "")
@@ -198,11 +313,16 @@ class LlmWikiService:
             "llmwiki_source_refs",
             "mcp-jsonrpc",
             "mcp-streamable-http",
+            "llmwiki_retrieval_v1",
+            AGENT_GUIDED_LEXICAL_CAPABILITY,
+            "llmwiki_search_mode_lexical",
+            "llmwiki_search_mode_literal",
         ]
+        capabilities.extend(self._vector_capabilities())
         if enable_a2a_compat:
             capabilities.append("a2a-message")
         source_id = self._source_id_for_index(index)
-        projection_signature = projection_signature_digest(self._projection_signature or ())
+        projection_signature = snapshot.projection_signature_digest
         bundle_id = source_bundle_id(source_id, projection_signature)
         return WikiManifest(
             title=index.title,
@@ -246,33 +366,47 @@ class LlmWikiService:
         snippet_chars: int | None = None,
         min_score: float | None = None,
         exclude_page_ids: Sequence[str] | None = None,
+        query_variants: Sequence[Any] | None = None,
     ) -> ContextPack:
-        index = self.index()
+        snapshot = self._index_snapshot()
+        index = snapshot.index
         views = self._index_views(index)
-        managed_scope = self._managed_context_scope(index)
+        managed_scope = self._managed_context_scope(
+            index,
+            signature=snapshot.signature,
+            projection_signature=snapshot.projection_signature,
+        )
         managed_now = self._managed_context_clock()
         orientation_evidence_results: list[SearchResult] | None = None
         if self.managed_context.active_for_index(index) and query.strip():
-            orientation_evidence_results = search_corpus(
-                views.search_corpus(include_drafts),
+            orientation_evidence_results = self._search_result_objects(
+                index,
+                views,
                 query,
                 limit=limit,
+                include_drafts=include_drafts,
                 mode=mode,
                 snippet_chars=snippet_chars,
                 min_score=min_score,
                 exclude_page_ids=exclude_page_ids,
+                query_variants=query_variants,
+                projection_signature_digest_value=snapshot.projection_signature_digest,
             )
         managed_prior = self.managed_context.prior(index, managed_scope, now=managed_now)
-        evidence_results = search_corpus(
-            views.search_corpus(include_drafts),
+        evidence_results = self._search_result_objects(
+            index,
+            views,
             query,
             limit=limit,
+            include_drafts=include_drafts,
             mode=mode,
             snippet_chars=snippet_chars,
             min_score=min_score,
             exclude_page_ids=exclude_page_ids,
+            query_variants=query_variants,
             managed_prior=managed_prior,
             managed_tie_band=self.managed_context.config.lexical_tie_band,
+            projection_signature_digest_value=snapshot.projection_signature_digest,
         )
         managed_orientation = self.managed_context.orientation(
             index,
@@ -326,6 +460,12 @@ class LlmWikiService:
             evidence=evidence,
             limitations=limitations,
             graph=views.graph_view(include_drafts).payload(120),
+            retrieval_guidance=build_retrieval_guidance(
+                index,
+                query=query,
+                include_drafts=include_drafts,
+                fallback_modes=self._retrieval_fallback_modes(),
+            ),
         )
 
     def search(
@@ -339,22 +479,32 @@ class LlmWikiService:
         snippet_chars: int | None = None,
         min_score: float | None = None,
         exclude_page_ids: Sequence[str] | None = None,
+        query_variants: Sequence[Any] | None = None,
     ) -> list[dict[str, Any]]:
-        index = self.index()
+        snapshot = self._index_snapshot()
+        index = snapshot.index
         views = self._index_views(index)
-        managed_scope = self._managed_context_scope(index)
+        managed_scope = self._managed_context_scope(
+            index,
+            signature=snapshot.signature,
+            projection_signature=snapshot.projection_signature,
+        )
         managed_now = self._managed_context_clock()
         managed_prior = self.managed_context.prior(index, managed_scope, now=managed_now)
-        results = search_corpus(
-            views.search_corpus(include_drafts),
+        results = self._search_result_objects(
+            index,
+            views,
             query,
             limit=limit,
+            include_drafts=include_drafts,
             mode=mode,
             snippet_chars=snippet_chars,
             min_score=min_score,
             exclude_page_ids=exclude_page_ids,
+            query_variants=query_variants,
             managed_prior=managed_prior,
             managed_tie_band=self.managed_context.config.lexical_tie_band,
+            projection_signature_digest_value=snapshot.projection_signature_digest,
         )
         self.managed_context.record_hits(
             index,
@@ -371,15 +521,284 @@ class LlmWikiService:
             for item in results
         ]
 
+    def _search_result_objects(
+        self,
+        index: WikiIndex,
+        views: _IndexViews,
+        query: str,
+        *,
+        limit: int,
+        include_drafts: bool,
+        mode: SearchMode,
+        snippet_chars: int | None,
+        min_score: float | None,
+        exclude_page_ids: Sequence[str] | None,
+        query_variants: Sequence[Any] | None = None,
+        managed_prior: Callable[[SearchResult], float] | None = None,
+        managed_tie_band: float = 0.0,
+        projection_signature_digest_value: str | None = None,
+    ) -> list[SearchResult]:
+        normalized_mode = normalize_search_mode(mode)
+        channels = effective_lexical_query_channels(
+            query,
+            query_variants,
+            mode=normalized_mode,
+        )
+        if normalized_mode in {"lexical", "literal"}:
+            corpus = views.search_corpus(include_drafts)
+            if normalized_mode == "lexical" and len(channels) > 1:
+                return fused_lexical_variant_results(
+                    corpus,
+                    channels,
+                    limit=limit,
+                    snippet_chars=snippet_chars,
+                    min_score=min_score,
+                    exclude_page_ids=exclude_page_ids,
+                    managed_prior=managed_prior,
+                    managed_tie_band=managed_tie_band,
+                )
+            return search_corpus(
+                corpus,
+                query,
+                limit=limit,
+                mode=normalized_mode,
+                snippet_chars=snippet_chars,
+                min_score=min_score,
+                exclude_page_ids=exclude_page_ids,
+                managed_prior=managed_prior,
+                managed_tie_band=managed_tie_band,
+            )
+        if min_score is not None:
+            raise VectorSearchError(
+                "min_score is not supported for vector or hybrid search. "
+                "Remove min_score or use lexical/literal mode."
+            )
+        if normalized_mode == "vector":
+            return self._vector_result_objects(
+                index,
+                visible_pages(index.pages, include_drafts),
+                query,
+                limit=limit,
+                include_drafts=include_drafts,
+                snippet_chars=snippet_chars,
+                exclude_page_ids=exclude_page_ids,
+                projection_signature_digest_value=projection_signature_digest_value,
+            )
+        corpus = views.search_corpus(include_drafts)
+        candidate_limit = hybrid_candidate_depth(limit, total_docs=len(corpus.documents))
+        orientation_lexical_results = search_corpus(
+            corpus,
+            query,
+            limit=HYBRID_ORIENTATION_CANDIDATE_LIMIT,
+            mode="lexical",
+            snippet_chars=snippet_chars,
+            min_score=None,
+            exclude_page_ids=orientation_exclude_page_ids(corpus.pages, exclude_page_ids),
+        )
+        lexical_results = search_corpus(
+            corpus,
+            query,
+            limit=candidate_limit,
+            mode="lexical",
+            snippet_chars=snippet_chars,
+            min_score=None,
+            exclude_page_ids=exclude_page_ids,
+        )
+        provider = self._vector_provider_or_error()
+        cache = self._vector_index_cache()
+        visibility_scope: VectorVisibilityScope = "all" if include_drafts else "approved"
+        visible = list(corpus.pages)
+        source_id = self._source_id_for_index(index)
+        projection_signature = projection_signature_digest_value or projection_signature_digest(
+            self._projection_signature or ()
+        )
+        vector_index = self._loaded_vector_index(
+            index=index,
+            pages=visible,
+            provider=provider,
+            cache=cache,
+            source_id=source_id,
+            projection_signature=projection_signature,
+            visibility_scope=visibility_scope,
+        )
+        results = hybrid_search_results(
+            lexical_results=lexical_results,
+            orientation_lexical_results=orientation_lexical_results,
+            vector_index=vector_index,
+            provider=provider,
+            pages=visible,
+            corpus=corpus,
+            query=query,
+            limit=limit,
+            candidate_limit=candidate_limit,
+            snippet_chars=snippet_chars,
+            exclude_page_ids=exclude_page_ids,
+        )
+        self._remember_verified_vector_availability(provider)
+        return results
+
+    def _vector_result_objects(
+        self,
+        index: WikiIndex,
+        pages: Sequence[WikiPage],
+        query: str,
+        *,
+        limit: int,
+        include_drafts: bool,
+        snippet_chars: int | None,
+        exclude_page_ids: Sequence[str] | None,
+        projection_signature_digest_value: str | None = None,
+    ) -> list[SearchResult]:
+        provider = self._vector_provider_or_error()
+        cache = self._vector_index_cache()
+        visibility_scope: VectorVisibilityScope = "all" if include_drafts else "approved"
+        visible = list(pages)
+        source_id = self._source_id_for_index(index)
+        projection_signature = projection_signature_digest_value or projection_signature_digest(
+            self._projection_signature or ()
+        )
+        vector_index = self._loaded_vector_index(
+            index=index,
+            pages=visible,
+            provider=provider,
+            cache=cache,
+            source_id=source_id,
+            projection_signature=projection_signature,
+            visibility_scope=visibility_scope,
+        )
+        results = search_vector_index(
+            vector_index,
+            provider=provider,
+            pages=visible,
+            query=query,
+            limit=limit,
+            snippet_chars=snippet_chars,
+            exclude_page_ids=exclude_page_ids,
+        )
+        self._remember_verified_vector_availability(provider)
+        return results
+
+    def _loaded_vector_index(
+        self,
+        *,
+        index: WikiIndex,
+        pages: Sequence[WikiPage],
+        provider: EmbeddingProvider,
+        cache: VectorIndexCache,
+        visibility_scope: VectorVisibilityScope,
+        source_id: str,
+        projection_signature: str,
+    ) -> VectorIndex:
+        key = (
+            str(id(index)),
+            visibility_scope,
+            source_id,
+            projection_signature,
+            provider.provider_id,
+            provider_artifact_fingerprint(provider),
+            safe_model_label(provider.model_id),
+            safe_model_label(provider.model_revision),
+            str(provider.dimension),
+            provider.distance_metric,
+        )
+        with self._loaded_vector_indexes_lock:
+            loaded = self._loaded_vector_indexes.get(key)
+            if loaded is not None:
+                return loaded
+            loaded = cache.load_or_build(
+                provider=provider,
+                pages=pages,
+                source_id=source_id,
+                projection_signature=projection_signature,
+                visibility_scope=visibility_scope,
+                package_version=package_version(),
+            )
+            self._loaded_vector_indexes[key] = loaded
+            return loaded
+
+    def _clear_loaded_vector_indexes(self) -> None:
+        with self._loaded_vector_indexes_lock:
+            self._loaded_vector_indexes.clear()
+
+    def _vector_provider_or_error(self) -> EmbeddingProvider:
+        if not self.vector_config.enabled:
+            raise disabled_vector_error()
+        with self._vector_provider_lock:
+            if self._vector_provider is None:
+                self._vector_provider = create_embedding_provider(self.vector_config)
+            return self._vector_provider
+
+    def _vector_index_cache(self) -> VectorIndexCache:
+        if self._vector_cache is None:
+            self._vector_cache = VectorIndexCache(
+                root=self.root,
+                cache_dir=self.vector_config.cache_dir,
+            )
+        return self._vector_cache
+
+    def _vector_capabilities(self) -> list[str]:
+        if not self.vector_config.enabled:
+            return []
+        if self._verified_vector_available():
+            return ["llmwiki_search_mode_vector", "llmwiki_search_mode_hybrid"]
+        try:
+            provider = self._vector_provider_or_error()
+            self._vector_index_cache()
+        except VectorSearchError:
+            self._forget_verified_vector_availability()
+            return []
+        if not self._vector_provider_is_usable(provider):
+            self._forget_verified_vector_availability()
+            return []
+        self._remember_verified_vector_availability(provider)
+        return ["llmwiki_search_mode_vector", "llmwiki_search_mode_hybrid"]
+
+    def _retrieval_fallback_modes(self) -> list[RetrievalGuidanceFallbackMode]:
+        modes: list[RetrievalGuidanceFallbackMode] = ["literal"]
+        if self._verified_vector_available():
+            modes.append("hybrid")
+            modes.append("vector")
+        return modes
+
+    def _verified_vector_available(self) -> bool:
+        if not self.vector_config.enabled:
+            return False
+        with self._vector_provider_lock:
+            if self._vector_provider_override is not None:
+                return self._vector_provider_is_usable(self._vector_provider_override)
+            return (
+                self._vector_availability_verified
+                and self._vector_cache is not None
+                and self._vector_provider_is_usable(self._vector_provider)
+            )
+
+    def _remember_verified_vector_availability(self, provider: EmbeddingProvider) -> None:
+        with self._vector_provider_lock:
+            self._vector_availability_verified = self._vector_provider_is_usable(provider)
+
+    def _forget_verified_vector_availability(self) -> None:
+        with self._vector_provider_lock:
+            self._vector_availability_verified = False
+
+    def _vector_provider_is_usable(self, provider: EmbeddingProvider | None) -> bool:
+        if not self.vector_config.enabled or provider is None:
+            return False
+        try:
+            dimension = int(getattr(provider, "dimension", 0))
+        except (TypeError, ValueError):
+            return False
+        return dimension > 0 and getattr(provider, "distance_metric", "") == "cosine"
+
     def _index_views(self, index: WikiIndex | None = None) -> _IndexViews:
-        current = index or self.index()
-        if (
-            self._views is None
-            or self._views.index is not current
-            or self._views.analyzer_profile != self.analyzer_profile
-        ):
-            self._views = _IndexViews.build(current, analyzer_profile=self.analyzer_profile)
-        return self._views
+        with self._index_lock:
+            current = index or self._index_snapshot_unlocked().index
+            if (
+                self._views is None
+                or self._views.index is not current
+                or self._views.analyzer_profile != self.analyzer_profile
+            ):
+                self._views = _IndexViews.build(current, analyzer_profile=self.analyzer_profile)
+            return self._views
 
     def read(
         self,
@@ -388,8 +807,13 @@ class LlmWikiService:
         include_drafts: bool = False,
         fields: Sequence[str] | None = None,
     ) -> dict[str, Any]:
-        index = self.index()
-        managed_scope = self._managed_context_scope(index)
+        snapshot = self._index_snapshot()
+        index = snapshot.index
+        managed_scope = self._managed_context_scope(
+            index,
+            signature=snapshot.signature,
+            projection_signature=snapshot.projection_signature,
+        )
         for page in index.pages:
             if page.id == page_id or page.path == page_id:
                 if not include_drafts and not page.approved_for_serving:
@@ -404,14 +828,24 @@ class LlmWikiService:
                 return project_read_payload(page.model_dump(mode="json"), fields)
         return {"found": False}
 
-    def _managed_context_scope(self, index: WikiIndex) -> ManagedContextScope:
+    def _managed_context_scope(
+        self,
+        index: WikiIndex,
+        *,
+        signature: SourceSignature | None = None,
+        projection_signature: _ProjectionSignature | None = None,
+    ) -> ManagedContextScope:
         return self.managed_context.scope(
             source_id=self._source_id_for_index(index),
             adapter_kind=index.adapter,
             projection_signature_digest=managed_projection_signature_digest(
-                self._projection_signature or ()
+                projection_signature
+                if projection_signature is not None
+                else self._projection_signature or ()
             ),
-            source_signature_digest=managed_source_signature_digest(self._signature),
+            source_signature_digest=managed_source_signature_digest(
+                signature if signature is not None else self._signature
+            ),
         )
 
     def source_refs(self, *, include_drafts: bool = False) -> SourceRefsResponse:
@@ -523,6 +957,13 @@ def project_read_payload(payload: dict[str, Any], fields: Sequence[str] | None) 
         if normalized in READ_FIELDS and normalized not in requested:
             requested.append(normalized)
     return {field: payload[field] for field in READ_FIELD_ORDER if field in requested}
+
+
+def package_version() -> str:
+    try:
+        return version("llmwiki-serve")
+    except PackageNotFoundError:
+        return "unknown"
 
 
 @dataclass
@@ -735,6 +1176,63 @@ def projection_store_endpoint(
 def managed_context_hit_page_ids(results: Sequence[Any]) -> list[str]:
     return [
         item.page_id for item in results if getattr(item, "route", "") in MANAGED_CONTEXT_HIT_ROUTES
+    ]
+
+
+def fused_lexical_variant_results(
+    corpus: SearchCorpus,
+    channels: Sequence[str],
+    *,
+    limit: int,
+    snippet_chars: int | None,
+    min_score: float | None,
+    exclude_page_ids: Sequence[str] | None,
+    managed_prior: Callable[[SearchResult], float] | None,
+    managed_tie_band: float,
+) -> list[SearchResult]:
+    fused_scores: dict[str, float] = {}
+    exemplars: dict[str, SearchResult] = {}
+    primary_ranks: dict[str, int] = {}
+    best_ranks: dict[str, int] = {}
+    exact_required_ids = exact_required_page_ids_for_query(corpus, channels[0])
+
+    for channel_index, channel in enumerate(channels):
+        channel_results = search_corpus(
+            corpus,
+            channel,
+            limit=limit,
+            mode="lexical",
+            snippet_chars=snippet_chars,
+            min_score=min_score,
+            exclude_page_ids=exclude_page_ids,
+            managed_prior=managed_prior,
+            managed_tie_band=managed_tie_band,
+        )
+        for rank, result in enumerate(channel_results, start=1):
+            if exact_required_ids is not None and result.page_id not in exact_required_ids:
+                continue
+            fused_scores[result.page_id] = fused_scores.get(result.page_id, 0.0) + (
+                1.0 / (LEXICAL_VARIANT_RRF_K + rank)
+            )
+            best_ranks[result.page_id] = min(best_ranks.get(result.page_id, rank), rank)
+            if channel_index == 0:
+                primary_ranks[result.page_id] = rank
+            if result.page_id not in exemplars or channel_index == 0:
+                exemplars[result.page_id] = result
+
+    ranked_ids = sorted(
+        fused_scores,
+        key=lambda page_id: (
+            -fused_scores[page_id],
+            primary_ranks.get(page_id, 1_000_000),
+            best_ranks.get(page_id, 1_000_000),
+            role_rank(exemplars[page_id].role),
+            exemplars[page_id].path,
+        ),
+    )
+    return [
+        exemplars[page_id].model_copy(update={"score": round(fused_scores[page_id], 6)})
+        for page_id in ranked_ids[:limit]
     ]
 
 

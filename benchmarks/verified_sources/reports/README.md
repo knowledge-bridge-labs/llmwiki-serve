@@ -82,6 +82,34 @@ uv run python -c "import json; from pathlib import Path; from scripts.benchmark_
 
 The final reports above passed that validator on this branch.
 
+## NoMIRACL Korean Judged-Pool Diagnostics
+
+NoMIRACL-ko reports, when present, are Korean judged-pool diagnostics for
+`LlmWikiService.search(query, limit=100)`. They are not full MIRACL-ko corpus
+recall results and do not define answer abstention behavior.
+
+Required public report policy gates for these reports:
+
+- `benchmark_claim_scope` must remain `judged-pool-only`.
+- `full_corpus` and `evaluation_pool.full_corpus` must remain `false`.
+- `evaluation_pool.protocol` must remain `judged_pool`.
+- `abstention_policy.supported` and `abstention_policy.evaluated` must remain
+  `false`.
+- `report_policy.calibrated_threshold_claim_allowed` must remain `false`.
+- `non_relevant_diagnostics` and `score_separation` are diagnostic-only; they
+  retain top-k non-relevant exposure and descriptive score-separation metrics
+  without publishing calibrated thresholds.
+- `tested_size_envelope` records the report's tested corpus/query/qrel counts;
+  it is a size envelope for the run, not a public performance claim.
+- `retrieval_schema.vector_search_backend` may identify exact cosine search
+  over loaded chunk vectors when vector-backed modes are run.
+
+NoMIRACL-ko public reports can be validated with:
+
+```powershell
+uv run python -c "import json; from pathlib import Path; from scripts.benchmark_adapters.nomiracl_ko_runner import validate_public_report; files=sorted(Path('benchmarks/verified_sources/reports').glob('*nomiracl-ko*.json')); [validate_public_report(json.loads(p.read_text(encoding='utf-8'))) for p in files]; print(f'validated {len(files)} NoMIRACL-ko report(s)')"
+```
+
 ## Rerun Notes
 
 Benchmark adapters are repo-level reproducibility tooling, not installed
@@ -147,3 +175,16 @@ performance claim or a release gate.
 The compatibility-smoke reports document retrieval and telemetry for public
 source variants. Their quality gates remain separate from the SciFact public
 retrieval benchmark.
+
+## Curated Orientation Mechanism Benchmark
+
+`benchmarks/orientation_mechanism/` contains a separate synthetic Markdown
+fixture and runner for the LLMWiki-aware hybrid orientation mechanism. It checks
+hot/index/overview-first related-vector behavior, boilerplate resistance, exact
+identifier preservation, exact no-orientation fallback to plain RRF, and
+approved-only draft isolation.
+
+This is a curated functional mechanism benchmark, not an external retrieval
+quality benchmark and not a language-quality headline. Its runner writes
+sanitized local reports under ignored workspace paths unless an explicit output
+path is provided.

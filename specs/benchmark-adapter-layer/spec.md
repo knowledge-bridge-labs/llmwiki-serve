@@ -56,6 +56,9 @@ contract before adding dataset-specific loaders or publishing quality tables.
 - Establish the first public recognized retrieval baseline on BEIR SciFact full
   official test split using all official test queries, official qrels, top-100
   retrieval, and BEIR-comparable primary metrics.
+- Add a Korean NoMIRACL judged-pool adapter as multilingual smoke evidence for
+  retrieval behavior. This is not a full MIRACL-ko corpus run, not a leaderboard
+  result, and not headline full-corpus recall evidence.
 - Support BRIGHT retrieval, ALCE citation, RAGTruth hallucination-only labels,
   CRAG non-commercial answer-quality research, MuSiQue and 2WikiMultiHopQA
   multi-hop labels, curated hard-negative/unanswerable labels, and local
@@ -167,6 +170,49 @@ contract before adding dataset-specific loaders or publishing quality tables.
   Pyserini/Anserini flat BM25 references. Reports must exclude raw query text,
   raw document text, private paths, private hosts, provider endpoints,
   credentials, and local run manifests.
+- `REQ-018`: The Korean NoMIRACL adapter uses only official
+  `miracl/nomiracl` Hugging Face dataset files or the official
+  `project-miracl/nomiracl` GitHub project as provenance, pinned to revision
+  `ecd08778d0426a5ca28ac99763b0c9ddc2c78e68` under Apache-2.0. Acquisition
+  must verify the resolved HF revision, license metadata, expected Korean file
+  paths, exact file sizes, SHA-256 digests, and row/count invariants, and fail
+  closed on mismatch.
+- `REQ-019`: The NoMIRACL-ko materializer writes generated Markdown and bundle
+  files only under `.llmwiki-work/benchmark-adapters/` or another local path
+  outside git. It verifies and reports the official full Korean corpus counts
+  (53,048 rows, 37,658 unique documents, 15,390 duplicate rows), but default
+  evaluation materialization is `protocol: judged_pool`, `full_corpus: false`:
+  all 213 `dev.relevant` queries plus the deterministic 213-query
+  `dev.non_relevant` sample, and only the unique documents referenced by those
+  selected qrel rows. Every selected qrel document must resolve from the
+  official Korean corpus or materialization fails. The materializer uses stable
+  safe filenames and `original_id` frontmatter, deduplicating only identical
+  repeated docids. It must not synthesize or modify `hot.md`, `index.md`,
+  `overview.md`, or `quickstart.md`, and it must not mutate older full-corpus
+  local materializations.
+- `REQ-020`: NoMIRACL-ko dev relevant reporting uses 213 relevant queries,
+  3,057 judged qrel rows, and the official positive-relevance subset for
+  retrieval metrics. The adapter records the observed positive qrel count
+  separately because the official relevant qrel file also contains zero-grade
+  assessed rows.
+- `REQ-021`: NoMIRACL-ko non-relevant diagnostics use a deterministic
+  213-query sample from official `dev.non_relevant` topics selected by sorting
+  query ids by SHA-256 of a documented fixed seed/rule, then query id, and
+  taking the first 213. This sample is for top-score and exposure diagnostics
+  only; it must not be used to claim an abstention threshold or full-corpus
+  negative recall.
+- `REQ-022`: NoMIRACL-ko retrieval reports compare `lexical` with the legacy
+  analyzer, `vector`, benchmark-only `plain-rrf`, and public `hybrid` through
+  one reusable service/projection/corpus/provider/index where feasible. Reports
+  include nDCG@10, Recall@5/10/100, MRR@10, Precision@10, MAP@100 for relevant
+  queries, non-relevant top-score p50/p95, positive-vs-non-relevant score
+  separation diagnostics, embedding call/model-cache telemetry,
+  provider/model/cache/projection/timing/RSS
+  provenance, Korean labels, official full corpus counts, actual evaluation
+  pool counts/checksums, `protocol: judged_pool`, `full_corpus: false`, and
+  aggregate orientation fallback diagnostics. Reports must state that the
+  NoMIRACL pool has no LLMWiki orientation pages, so hybrid is expected to fall
+  back to plain RRF when no safe related set exists.
 - `REQ-016`: Windows local and DGX Spark Ubuntu full runs must reproduce the
   same artifact/source checksums and deterministic quality metrics exactly.
   Latency and payload timing are reported separately per environment class and
@@ -392,6 +438,7 @@ from public reports.
 | Adapter | Primary role | Initial status | Safety posture |
 | --- | --- | --- | --- |
 | BEIR SciFact official test split | First public recognized retrieval baseline | Launch priority | Use the official BEIR `scifact.zip`, official test queries and qrels, top-100 retrieval, archive MD5 plus computed SHA-256, per-component license metadata, and sanitized aggregate reports only. Treat the Markdown projection result as an informal same-data comparison, not BEIR certification. |
+| NoMIRACL Korean dev judged pool | Korean multilingual smoke evidence | Current vector branch | Use official `miracl/nomiracl` Korean dev relevant plus deterministic dev non-relevant sample at pinned revision `ecd08778d0426a5ca28ac99763b0c9ddc2c78e68`, Apache-2.0. Publish sanitized aggregate judged-pool reports only; do not claim full MIRACL-ko corpus recall, NoMIRACL abstention thresholds, or leaderboard status. |
 | Local LLMWiki/OpenWiki variants | Compatibility and local retrieval/projection checks | MVP | Local-only by default; publish aggregate metrics only after private text/path review. |
 | BRIGHT | Next reasoning-intensive retrieval benchmark | Next | Use pinned Hugging Face/GitHub revisions; require attribution, component license, and checksum metadata. |
 | ALCE | Citation evaluation labels | MVP | Bridge consumes citation artifacts; serve does not claim answer synthesis quality. |
@@ -422,6 +469,11 @@ come later.
   answerable, unanswerable, unknown where applicable, single-hop, multi-hop,
   citation-labeled, and local-fixture classes. This smoke is not public
   recognized benchmark evidence.
+- NoMIRACL-ko judged-pool smoke: relevant metrics use all selected relevant
+  qrels with relevance greater than zero as positives, while non-relevant
+  diagnostics use only the deterministic dev non-relevant sample. Score
+  separation is descriptive because lexical, vector, and RRF scores are not
+  calibrated probabilities.
 - Sampling rule: stratification may use predeclared task-class labels such as
   answerability, multi-hop, citation, and local-fixture status. It must not use
   qrel identities, relevance counts, retrieved ranks, model outputs, or

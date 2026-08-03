@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "llmwiki-serve"
-version = "0.2.8"
+version = "0.2.9"
 description = "Serve existing Markdown, Obsidian-style, or LLMWiki folders as cited agent-readable context."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -36,6 +36,10 @@ dependencies = [
 [project.optional-dependencies]
 redis = [
   "redis>=5",
+]
+vector = [
+  "fastembed>=0.8.0,<0.9.0",
+  "numpy>=2.4.6,<2.5.0",
 ]
 dev = [
   "certifi>=2026.6.17",
@@ -70,6 +74,8 @@ include = [
   "/SECURITY.md",
   "/SUPPORT.md",
   "/THIRD_PARTY_NOTICES.md",
+  "/benchmarks/agent_guided_lexical",
+  "/benchmarks/orientation_mechanism",
   "/docs",
   "/examples",
   "/pyproject.toml",
@@ -80,10 +86,12 @@ include = [
 ]
 exclude = [
   "/.github",
+  "/.llmwiki-work",
   "/.mypy_cache",
   "/.nox",
   "/.pytest_cache",
   "/.ruff_cache",
+  "/.runtime-logs",
   "/.tox",
   "/.venv",
   "/build",
@@ -92,6 +100,11 @@ exclude = [
   "/docs/quickstart-agent-context.md",
   "/htmlcov",
   "/specs/gtm-*",
+  "/benchmarks/**/report-output",
+  "/benchmarks/**/report-outputs",
+  "/benchmarks/**/reports",
+  "/**/.llmwiki-work",
+  "/**/.runtime-logs",
   "/**/.DS_Store",
   "/**/.env",
   "/**/.env.*",

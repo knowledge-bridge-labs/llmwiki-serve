@@ -3,14 +3,17 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Literal, TypeAlias
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 PageRole = Literal["hot", "index", "overview", "topic"]
 ReviewState = Literal[
     "approved", "reviewed", "verified", "draft", "proposed", "needs_review", "unknown"
 ]
 GraphNeighborhoodDirection = Literal["out", "in", "both"]
-SearchMode = Literal["lexical", "literal"]
+SearchMode = Literal["lexical", "literal", "vector", "hybrid"]
+RetrievalGuidanceOrientationSource = Literal["authored", "projection_extractive", "none"]
+RetrievalGuidanceContentTrust = Literal["untrusted_source_evidence"]
+RetrievalGuidanceFallbackMode = Literal["literal", "hybrid", "vector"]
 
 NON_SERVING_STATUSES = {
     "draft",
@@ -116,6 +119,155 @@ class WikiPageProjection(BaseModel):
 ContextSearchResult: TypeAlias = SearchResult | SearchResultProjection
 
 
+def _trimmed_unique_strings(
+    values: list[str],
+    *,
+    field_name: str,
+    max_item_chars: int,
+) -> list[str]:
+    result: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        if not isinstance(value, str):
+            raise ValueError(f"{field_name} entries must be strings")
+        text = value.strip()
+        if not text:
+            raise ValueError(f"{field_name} entries must be non-empty strings")
+        if len(text) > max_item_chars:
+            raise ValueError(f"{field_name} entries must be at most {max_item_chars} characters")
+        key = text.casefold()
+        if key in seen:
+            raise ValueError(f"{field_name} entries must be unique")
+        seen.add(key)
+        result.append(text)
+    return result
+
+
+def _safe_relative_path(value: str, *, field_name: str) -> str:
+    text = value.strip()
+    if not text:
+        raise ValueError(f"{field_name} must be non-empty")
+    if len(text) > 1024:
+        raise ValueError(f"{field_name} must be at most 1024 characters")
+    if "\\" in text or text.startswith("/") or "://" in text:
+        raise ValueError(f"{field_name} must be a source-relative path using / separators")
+    parts = text.split("/")
+    if any(part in {"", ".."} for part in parts):
+        raise ValueError(f"{field_name} must not contain empty or .. path segments")
+    if len(parts[0]) == 2 and parts[0][1] == ":":
+        raise ValueError(f"{field_name} must not be an absolute path")
+    return text
+
+
+class FolderCard(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    path: str
+    page_count: int = Field(ge=1)
+    terms: list[str] = Field(max_length=8)
+
+    @field_validator("path")
+    @classmethod
+    def validate_path(cls, value: str) -> str:
+        return _safe_relative_path(value, field_name="path")
+
+    @field_validator("terms")
+    @classmethod
+    def validate_terms(cls, value: list[str]) -> list[str]:
+        return _trimmed_unique_strings(value, field_name="terms", max_item_chars=120)
+
+
+class PageCard(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    page_id: str = Field(min_length=1, max_length=512)
+    title: str = Field(min_length=1, max_length=240)
+    path: str
+    headings: list[str] = Field(max_length=8)
+    terms: list[str] = Field(max_length=12)
+    exact_identifiers: list[str] = Field(max_length=8)
+    excerpt: str = Field(min_length=1, max_length=240)
+
+    @field_validator("page_id", "title", "excerpt")
+    @classmethod
+    def trim_required_text(cls, value: str) -> str:
+        text = value.strip()
+        if not text:
+            raise ValueError("field must be a non-empty string")
+        return text
+
+    @field_validator("path")
+    @classmethod
+    def validate_path(cls, value: str) -> str:
+        return _safe_relative_path(value, field_name="path")
+
+    @field_validator("headings")
+    @classmethod
+    def validate_headings(cls, value: list[str]) -> list[str]:
+        return _trimmed_unique_strings(value, field_name="headings", max_item_chars=160)
+
+    @field_validator("terms")
+    @classmethod
+    def validate_terms(cls, value: list[str]) -> list[str]:
+        return _trimmed_unique_strings(value, field_name="terms", max_item_chars=120)
+
+    @field_validator("exact_identifiers")
+    @classmethod
+    def validate_exact_identifiers(cls, value: list[str]) -> list[str]:
+        return _trimmed_unique_strings(
+            value,
+            field_name="exact_identifiers",
+            max_item_chars=240,
+        )
+
+
+class RetrievalGuidance(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: Literal["llmwiki.retrieval_guidance.v1"]
+    orientation_source: RetrievalGuidanceOrientationSource
+    content_trust: RetrievalGuidanceContentTrust
+    max_query_variants: Literal[2]
+    character_budget: int = Field(ge=1, le=6000)
+    folder_cards: list[FolderCard] = Field(max_length=8)
+    page_cards: list[PageCard] = Field(max_length=12)
+    suggested_terms: list[str] = Field(max_length=16)
+    exact_identifiers: list[str] = Field(max_length=16)
+    fallback_modes: list[RetrievalGuidanceFallbackMode]
+
+    @field_validator("suggested_terms")
+    @classmethod
+    def validate_suggested_terms(cls, value: list[str]) -> list[str]:
+        return _trimmed_unique_strings(value, field_name="suggested_terms", max_item_chars=120)
+
+    @field_validator("exact_identifiers")
+    @classmethod
+    def validate_exact_identifiers(cls, value: list[str]) -> list[str]:
+        return _trimmed_unique_strings(
+            value,
+            field_name="exact_identifiers",
+            max_item_chars=240,
+        )
+
+    @field_validator("fallback_modes")
+    @classmethod
+    def validate_fallback_modes(
+        cls,
+        value: list[RetrievalGuidanceFallbackMode],
+    ) -> list[RetrievalGuidanceFallbackMode]:
+        ordered = ["literal", "hybrid", "vector"]
+        seen: set[str] = set()
+        result: list[RetrievalGuidanceFallbackMode] = []
+        for mode in value:
+            if mode in seen:
+                raise ValueError("fallback_modes entries must be unique")
+            seen.add(mode)
+            result.append(mode)
+        if result != [mode for mode in ordered if mode in seen]:
+            raise ValueError("fallback_modes must be ordered as literal, hybrid, vector")
+        return result
+
+
 class ContextPack(BaseModel):
     query: str
     wiki_title: str
@@ -129,6 +281,7 @@ class ContextPack(BaseModel):
     evidence: list[ContextSearchResult] = Field(default_factory=list)
     limitations: list[str] = Field(default_factory=list)
     graph: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
+    retrieval_guidance: RetrievalGuidance | None = None
 
 
 class GraphNeighborhoodResponse(BaseModel):

@@ -7,6 +7,68 @@ This project follows a lightweight public-preview changelog format. Dates use
 
 ## Unreleased
 
+## 0.2.9 - 2026-08-01
+
+- Documented agent-guided lexical retrieval as the recommended direct-agent
+  workflow and reconciled the agent-guided spec, tasks, tests, ADR, and release
+  guidance with the implemented V1 guidance/query-variant behavior. Benchmark
+  notes remain engineering evidence only and do not add public quality or
+  performance claims.
+- Added optional source-owned semantic retrieval preview as `mode=vector` and
+  `mode=hybrid` across Python service calls, HTTP `/query` and `/search`, MCP
+  JSON-RPC, MCP Streamable HTTP, and CLI `query/search --mode`, without adding
+  new endpoints, tools, commands, or result fields. Lexical remains the default
+  retrieval mode.
+- Added `llmwiki-serve[vector]` with local FastEmbed `0.8.x` and direct NumPy
+  `2.4.x` dependency bounds. Vector dependencies, provider construction, model
+  access, index builds, and vector sidecar writes remain absent unless an
+  operator explicitly enables vector retrieval.
+- Added local FastEmbed provider configuration with explicit model name,
+  local-files-only default model access, operator-only download opt-in, and
+  redacted provider/model metadata. The explicit candidate model is
+  `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` via FastEmbed's
+  `qdrant/paraphrase-multilingual-MiniLM-L12-v2-onnx-Q` source revision
+  `faf4aa4225822f3bc6376869cb1164e8e3feedd0`, dimension `384`, license
+  `apache-2.0`.
+- Added deterministic heading/paragraph vector chunking, exact cosine page
+  ranking, fixed-`k=60` lexical+dense hybrid reciprocal rank fusion, bounded
+  optional read-only orientation hints from source-owned `hot.md`, `index.md`,
+  and `overview.md`, English exact-identifier guards before hybrid fusion,
+  vector/hybrid `min_score` rejection, and managed-context hit recording for
+  semantic routes. Retrieval does not rewrite orientation files and is not a
+  GraphRAG or universal quality-improvement claim.
+- Added an external vector sidecar cache with redacted salted identity,
+  approved/draft visibility isolation, checksum-named float32 `.npy` vector
+  sidecars, compact JSON chunk metadata, manifest-last atomic publish,
+  sidecar-local locking, corruption-as-miss rebuild behavior, and no raw source
+  text, snippets, raw queries, local roots, model local paths, or secrets in
+  cache records.
+- Added exact retrieval capability strings in health, manifest, source-bundle,
+  and MCP metadata. Vector and hybrid capabilities are advertised only when a
+  configured provider is usable; disabled semantic requests now fail
+  actionably instead of falling back to lexical.
+- Added full SciFact vector/hybrid benchmark runner support and regression tests
+  for lexical, vector, plain-RRF, and production hybrid evaluation paths. These
+  scripts remain offline benchmark tooling under `scripts/benchmark_adapters/`,
+  not installed `llmwiki-serve` commands.
+- Added NoMIRACL-ko judged-pool acquisition, materialization, vector/hybrid
+  runner support, and tests for Korean retrieval diagnostics. The judged-pool
+  protocol is local benchmark evidence only and is not a full MIRACL-ko corpus
+  claim.
+- Added a curated LLMWiki orientation mechanism benchmark fixture, runner, and
+  fake-provider tests for orientation-related hybrid behavior, boilerplate
+  resistance, exact identifier preservation, exact no-orientation fallback, and
+  approved-only draft isolation. The report is labeled non-authoritative and is
+  not an external retrieval-quality, language-quality, poisoning-safety, or
+  abstention benchmark.
+- Documented that current vector/hybrid Windows and DGX Spark Ubuntu
+  small/team dirty-snapshot runs are engineering evidence only. No public
+  vector/hybrid quality or performance claim is release evidence until the
+  report is committed under `benchmarks/verified_sources/reports/`, tied to a
+  clean release revision, validated by the public report gates, and free of
+  private paths or secrets. Larger corpus claims remain experimental until
+  10k/50k/100k/500k gates are accepted.
+
 ## 0.2.8 - 2026-08-01
 
 - Recorded the final analyzer release decision: legacy lexical ranking remains

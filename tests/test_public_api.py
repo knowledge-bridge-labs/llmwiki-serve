@@ -38,6 +38,9 @@ def test_openapi_contract_covers_core_http_response_models() -> None:
     assert {"/.well-known/agent-card.json", "/message:send"} <= set(a2a_schema["paths"])
     assert {
         "ContextPack",
+        "RetrievalGuidance",
+        "FolderCard",
+        "PageCard",
         "WikiManifest",
         "SearchResponse",
         "SearchResultProjection",
@@ -106,9 +109,58 @@ def test_openapi_contract_covers_core_http_response_models() -> None:
         "snippet_chars",
         "min_score",
         "exclude_page_ids",
+        "query_variants",
     } <= set(query_request_schema["properties"])
     assert "analyzer_profile" not in query_request_schema["properties"]
-    assert query_request_schema["properties"]["mode"]["enum"] == ["lexical", "literal"]
+    assert query_request_schema["properties"]["mode"]["enum"] == [
+        "lexical",
+        "literal",
+        "vector",
+        "hybrid",
+    ]
+    assert query_request_schema["properties"]["query_variants"]["maxItems"] == 2
+    assert query_request_schema["properties"]["query_variants"]["type"] == "array"
+    assert "retrieval_guidance" in schema["components"]["schemas"]["ContextPack"]["properties"]
+    guidance_schema = schema["components"]["schemas"]["RetrievalGuidance"]
+    assert guidance_schema["additionalProperties"] is False
+    assert guidance_schema["required"] == [
+        "schema_version",
+        "orientation_source",
+        "content_trust",
+        "max_query_variants",
+        "character_budget",
+        "folder_cards",
+        "page_cards",
+        "suggested_terms",
+        "exact_identifiers",
+        "fallback_modes",
+    ]
+    assert {
+        "schema_version",
+        "orientation_source",
+        "content_trust",
+        "max_query_variants",
+        "character_budget",
+        "folder_cards",
+        "page_cards",
+        "suggested_terms",
+        "exact_identifiers",
+        "fallback_modes",
+    } <= set(guidance_schema["properties"])
+    assert schema["components"]["schemas"]["FolderCard"]["required"] == [
+        "path",
+        "page_count",
+        "terms",
+    ]
+    assert schema["components"]["schemas"]["PageCard"]["required"] == [
+        "page_id",
+        "title",
+        "path",
+        "headings",
+        "terms",
+        "exact_identifiers",
+        "excerpt",
+    ]
     assert (
         schema["paths"]["/read/{page_id}"]["get"]["responses"]["404"]["content"][
             "application/json"

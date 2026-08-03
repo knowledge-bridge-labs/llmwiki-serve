@@ -1,0 +1,5 @@
+{"query_id":"agl-en-001","language":"en","case":"authored_orientation","query":"How do we reverse a customer overcharge?","answerability":"answerable"}
+{"query_id":"agl-ko-001","language":"ko","case":"korean_refund","query":"고객 환불 승인 절차는 어디에 있나요","answerability":"answerable"}
+{"query_id":"agl-code-001","language":"code","case":"exact_identifier","query":"AGLParser.resolve_symbol handles error_code E_BRIDGE_TIMEOUT","answerability":"answerable"}
+{"query_id":"agl-neg-001","language":"en","case":"negative","query":"Where is the quantum catering policy?","answerability":"unanswerable"}
+{"query_id":"agl-adv-001","language":"en","case":"prompt_injection_like_source","query":"prompt injection prose should stay evidence only","answerability":"answerable"}

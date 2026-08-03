@@ -5,7 +5,7 @@ import os
 from dataclasses import replace
 from enum import StrEnum
 from pathlib import Path
-from typing import Annotated, NoReturn, TypeAlias
+from typing import Annotated, NoReturn, TypeAlias, cast
 
 import typer
 
@@ -38,6 +38,12 @@ from .projection_store import (
 )
 from .search import DEFAULT_PUBLIC_ANALYZER_PROFILE, PublicAnalyzerProfile
 from .service import LlmWikiService
+from .vector import (
+    VectorConfig,
+    VectorModelDownloadPolicy,
+    VectorProviderName,
+    vector_config_from_env,
+)
 
 app = typer.Typer(help="Serve or inspect an LLMWiki Markdown folder.")
 
@@ -45,11 +51,22 @@ app = typer.Typer(help="Serve or inspect an LLMWiki Markdown folder.")
 class SearchModeChoice(StrEnum):
     lexical = "lexical"
     literal = "literal"
+    vector = "vector"
+    hybrid = "hybrid"
 
 
 class AnalyzerProfileChoice(StrEnum):
     legacy = "legacy"
     english = "english"
+
+
+class VectorProviderChoice(StrEnum):
+    fastembed = "fastembed"
+
+
+class VectorModelDownloadChoice(StrEnum):
+    never = "never"
+    allow = "allow"
 
 
 WikiRootArgument: TypeAlias = Annotated[
@@ -77,7 +94,10 @@ SearchModeOption: TypeAlias = Annotated[
     SearchModeChoice,
     typer.Option(
         "--mode",
-        help="Search mode: lexical ranking or literal exact-substring matching.",
+        help=(
+            "Search mode: lexical ranking, literal exact-substring matching, "
+            "or operator-enabled vector/hybrid retrieval."
+        ),
     ),
 ]
 AnalyzerProfileOption: TypeAlias = Annotated[
@@ -119,6 +139,55 @@ ExcludePageIdOption: TypeAlias = Annotated[
     typer.Option(
         "--exclude-page-id",
         help="Page id or path to exclude from search evidence. Repeat for multiple pages.",
+    ),
+]
+VectorProviderOption: TypeAlias = Annotated[
+    VectorProviderChoice | None,
+    typer.Option(
+        "--vector-provider",
+        help=(
+            "Enable a local vector provider for vector/hybrid mode. "
+            "Currently only fastembed is supported. Env: LLMWIKI_VECTOR_PROVIDER plus "
+            "LLMWIKI_VECTOR_ENABLED=1."
+        ),
+    ),
+]
+VectorModelOption: TypeAlias = Annotated[
+    str | None,
+    typer.Option(
+        "--vector-model",
+        help=(
+            "FastEmbed TextEmbedding model id. Defaults to the explicit multilingual "
+            "candidate model. Env: LLMWIKI_VECTOR_MODEL."
+        ),
+    ),
+]
+VectorCacheDirOption: TypeAlias = Annotated[
+    Path | None,
+    typer.Option(
+        "--vector-cache-dir",
+        help=(
+            "External vector sidecar cache directory. Must be outside the served root. "
+            "Env: LLMWIKI_VECTOR_CACHE_DIR."
+        ),
+    ),
+]
+VectorModelCacheDirOption: TypeAlias = Annotated[
+    Path | None,
+    typer.Option(
+        "--vector-model-cache-dir",
+        help="FastEmbed model cache directory. Env: LLMWIKI_VECTOR_MODEL_CACHE_DIR.",
+    ),
+]
+VectorModelDownloadOption: TypeAlias = Annotated[
+    VectorModelDownloadChoice | None,
+    typer.Option(
+        "--vector-model-download",
+        help=(
+            "FastEmbed model access policy. Default never uses local files only; "
+            "allow permits an operator-approved network download. "
+            "Env: LLMWIKI_VECTOR_MODEL_DOWNLOAD."
+        ),
     ),
 ]
 ServePortOption: TypeAlias = Annotated[
@@ -271,6 +340,11 @@ def query(
     limit: QueryLimitOption = 8,
     mode: SearchModeOption = SearchModeChoice.lexical,
     analyzer_profile: AnalyzerProfileOption = AnalyzerProfileChoice.legacy,
+    vector_provider: VectorProviderOption = None,
+    vector_model: VectorModelOption = None,
+    vector_cache_dir: VectorCacheDirOption = None,
+    vector_model_cache_dir: VectorModelCacheDirOption = None,
+    vector_model_download: VectorModelDownloadOption = None,
     fields: SearchFieldsOption = None,
     snippet_chars: SnippetCharsOption = None,
     min_score: MinScoreOption = None,
@@ -280,7 +354,17 @@ def query(
     try:
         result_fields = split_cli_values(fields)
         typer.echo(
-            cli_service(root, analyzer_profile=analyzer_profile_value(analyzer_profile))
+            cli_service(
+                root,
+                analyzer_profile=analyzer_profile_value(analyzer_profile),
+                vector_config=resolve_vector_cli_config(
+                    provider=vector_provider,
+                    model_name=vector_model,
+                    cache_dir=vector_cache_dir,
+                    model_cache_dir=vector_model_cache_dir,
+                    model_download=vector_model_download,
+                ),
+            )
             .context(
                 text,
                 limit=limit,
@@ -303,6 +387,11 @@ def search_pages(
     limit: QueryLimitOption = 8,
     mode: SearchModeOption = SearchModeChoice.lexical,
     analyzer_profile: AnalyzerProfileOption = AnalyzerProfileChoice.legacy,
+    vector_provider: VectorProviderOption = None,
+    vector_model: VectorModelOption = None,
+    vector_cache_dir: VectorCacheDirOption = None,
+    vector_model_cache_dir: VectorModelCacheDirOption = None,
+    vector_model_download: VectorModelDownloadOption = None,
     fields: SearchFieldsOption = None,
     snippet_chars: SnippetCharsOption = None,
     min_score: MinScoreOption = None,
@@ -316,6 +405,13 @@ def search_pages(
                     "results": cli_service(
                         root,
                         analyzer_profile=analyzer_profile_value(analyzer_profile),
+                        vector_config=resolve_vector_cli_config(
+                            provider=vector_provider,
+                            model_name=vector_model,
+                            cache_dir=vector_cache_dir,
+                            model_cache_dir=vector_model_cache_dir,
+                            model_download=vector_model_download,
+                        ),
                     ).search(
                         text,
                         limit=limit,
@@ -504,6 +600,11 @@ def serve(
     graph_default_limit: GraphDefaultLimitOption = None,
     context_default_limit: ContextDefaultLimitOption = None,
     analyzer_profile: AnalyzerProfileOption = AnalyzerProfileChoice.legacy,
+    vector_provider: VectorProviderOption = None,
+    vector_model: VectorModelOption = None,
+    vector_cache_dir: VectorCacheDirOption = None,
+    vector_model_cache_dir: VectorModelCacheDirOption = None,
+    vector_model_download: VectorModelDownloadOption = None,
     mcp_server_name: McpServerNameOption = None,
     mcp_instructions: McpInstructionsOption = None,
     mcp_tool_description_prefix: McpToolDescriptionPrefixOption = None,
@@ -566,6 +667,13 @@ def serve(
             namespace=managed_context_namespace,
         )
         resolved_analyzer_profile = analyzer_profile_value(analyzer_profile)
+        resolved_vector_config = resolve_vector_cli_config(
+            provider=vector_provider,
+            model_name=vector_model,
+            cache_dir=vector_cache_dir,
+            model_cache_dir=vector_model_cache_dir,
+            model_download=vector_model_download,
+        )
         projection_store = create_projection_store(
             projection_backend,
             redis_url=resolved_redis_url,
@@ -580,6 +688,7 @@ def serve(
             source_id=resolved_source_id,
             managed_context=resolved_managed_context,
             analyzer_profile=resolved_analyzer_profile,
+            vector_config=resolved_vector_config,
         )
         preflight_service.index()
         fastapi_app = create_app(
@@ -600,6 +709,7 @@ def serve(
             mcp_instructions=resolved_mcp_instructions,
             mcp_tool_description_prefix=resolved_mcp_tool_description_prefix,
             analyzer_profile=resolved_analyzer_profile,
+            vector_config=resolved_vector_config,
         )
     except FileNotFoundError as exc:
         exit_with_error(str(exc))
@@ -648,11 +758,13 @@ def cli_service(
     root: Path,
     *,
     analyzer_profile: PublicAnalyzerProfile = DEFAULT_PUBLIC_ANALYZER_PROFILE,
+    vector_config: VectorConfig | None = None,
 ) -> LlmWikiService:
     return LlmWikiService(
         root,
         managed_context=managed_context_config_from_env(),
         analyzer_profile=analyzer_profile,
+        vector_config=vector_config if vector_config is not None else vector_config_from_env(),
     )
 
 
@@ -707,7 +819,38 @@ def validate_probe_ports(values: list[int], *, source: str) -> list[int]:
 
 
 def search_mode_value(mode: SearchModeChoice) -> SearchMode:
-    return "literal" if mode is SearchModeChoice.literal else "lexical"
+    return mode.value
+
+
+def resolve_vector_cli_config(
+    *,
+    provider: VectorProviderChoice | None,
+    model_name: str | None,
+    cache_dir: Path | None,
+    model_cache_dir: Path | None,
+    model_download: VectorModelDownloadChoice | None,
+) -> VectorConfig:
+    env_config = vector_config_from_env()
+    explicit = any(
+        value is not None
+        for value in (provider, model_name, cache_dir, model_cache_dir, model_download)
+    )
+    enabled = env_config.enabled or explicit
+    policy: VectorModelDownloadPolicy = (
+        model_download.value if model_download is not None else env_config.model_download
+    )
+    return VectorConfig(
+        enabled=enabled,
+        provider=cast(
+            VectorProviderName, provider.value if provider is not None else env_config.provider
+        ),
+        model_name=model_name or env_config.model_name,
+        cache_dir=cache_dir if cache_dir is not None else env_config.cache_dir,
+        model_cache_dir=(
+            model_cache_dir if model_cache_dir is not None else env_config.model_cache_dir
+        ),
+        model_download=policy,
+    )
 
 
 def analyzer_profile_value(profile: AnalyzerProfileChoice) -> PublicAnalyzerProfile:

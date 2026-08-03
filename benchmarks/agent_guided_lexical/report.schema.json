@@ -1,0 +1,1385 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "llmwiki-agent-guided-lexical-benchmark-report-v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "schema_version",
+    "runner",
+    "benchmark_class",
+    "dataset",
+    "surface",
+    "package_version",
+    "implementation_revision",
+    "runtime_environment",
+    "fixture",
+    "constraints",
+    "arms",
+    "per_query",
+    "metric_definitions",
+    "provenance",
+    "limitations"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "llmwiki-agent-guided-lexical-benchmark-report-v1"
+    },
+    "schema_version": {
+      "const": "0.2.0"
+    },
+    "runner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": {
+          "const": "agent-guided-lexical-benchmark-runner"
+        },
+        "version": {
+          "const": "0.2.0"
+        }
+      }
+    },
+    "benchmark_class": {
+      "const": "bounded-engineering-harness"
+    },
+    "dataset": {
+      "const": "agent-guided-lexical-curated-fixture-v2"
+    },
+    "surface": {
+      "type": "string"
+    },
+    "package_version": {
+      "type": "string"
+    },
+    "implementation_revision": {
+      "type": "string"
+    },
+    "runtime_environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "platform", "python_version", "machine"],
+      "properties": {
+        "os": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "python_version": {
+          "type": "string"
+        },
+        "machine": {
+          "type": "string"
+        }
+      }
+    },
+    "fixture": {
+      "$ref": "#/$defs/fixture"
+    },
+    "constraints": {
+      "$ref": "#/$defs/constraints"
+    },
+    "arms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authored_raw_lexical",
+        "authored_agent_guided_lexical",
+        "projection_raw_lexical",
+        "projection_sketch_agent_guided_lexical",
+        "authored_raw_hybrid",
+        "projection_raw_hybrid"
+      ],
+      "properties": {
+        "authored_raw_lexical": {
+          "$ref": "#/$defs/arm"
+        },
+        "authored_agent_guided_lexical": {
+          "$ref": "#/$defs/arm"
+        },
+        "projection_raw_lexical": {
+          "$ref": "#/$defs/arm"
+        },
+        "projection_sketch_agent_guided_lexical": {
+          "$ref": "#/$defs/arm"
+        },
+        "authored_raw_hybrid": {
+          "$ref": "#/$defs/arm"
+        },
+        "projection_raw_hybrid": {
+          "$ref": "#/$defs/arm"
+        }
+      }
+    },
+    "per_query": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authored_raw_lexical",
+        "authored_agent_guided_lexical",
+        "projection_raw_lexical",
+        "projection_sketch_agent_guided_lexical",
+        "authored_raw_hybrid",
+        "projection_raw_hybrid"
+      ],
+      "properties": {
+        "authored_raw_lexical": {
+          "$ref": "#/$defs/per_query_arm"
+        },
+        "authored_agent_guided_lexical": {
+          "$ref": "#/$defs/per_query_arm"
+        },
+        "projection_raw_lexical": {
+          "$ref": "#/$defs/per_query_arm"
+        },
+        "projection_sketch_agent_guided_lexical": {
+          "$ref": "#/$defs/per_query_arm"
+        },
+        "authored_raw_hybrid": {
+          "$ref": "#/$defs/per_query_arm"
+        },
+        "projection_raw_hybrid": {
+          "$ref": "#/$defs/per_query_arm"
+        }
+      }
+    },
+    "metric_definitions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "nDCG@5",
+        "Recall@5",
+        "MAP@5",
+        "citation_precision@5",
+        "negative_false_positive_rate@5"
+      ],
+      "properties": {
+        "nDCG@5": {
+          "$ref": "#/$defs/metric_definition"
+        },
+        "Recall@5": {
+          "$ref": "#/$defs/metric_definition"
+        },
+        "MAP@5": {
+          "$ref": "#/$defs/metric_definition"
+        },
+        "citation_precision@5": {
+          "$ref": "#/$defs/metric_definition"
+        },
+        "negative_false_positive_rate@5": {
+          "$ref": "#/$defs/metric_definition"
+        }
+      }
+    },
+    "provenance": {
+      "$ref": "#/$defs/provenance"
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "$ref": "#/$defs/authored_raw_lexical_skipped"
+      },
+      "then": {
+        "$ref": "#/$defs/authored_raw_lexical_empty_per_query"
+      }
+    },
+    {
+      "if": {
+        "$ref": "#/$defs/authored_raw_lexical_available"
+      },
+      "then": {
+        "$ref": "#/$defs/authored_raw_lexical_measured_per_query"
+      }
+    },
+    {
+      "if": {
+        "$ref": "#/$defs/authored_agent_guided_lexical_skipped"
+      },
+      "then": {
+        "$ref": "#/$defs/authored_agent_guided_lexical_empty_per_query"
+      }
+    },
+    {
+      "if": {
+        "$ref": "#/$defs/authored_agent_guided_lexical_available"
+      },
+      "then": {
+        "$ref": "#/$defs/authored_agent_guided_lexical_measured_per_query"
+      }
+    },
+    {
+      "if": {
+        "$ref": "#/$defs/projection_raw_lexical_skipped"
+      },
+      "then": {
+        "$ref": "#/$defs/projection_raw_lexical_empty_per_query"
+      }
+    },
+    {
+      "if": {
+        "$ref": "#/$defs/projection_raw_lexical_available"
+      },
+      "then": {
+        "$ref": "#/$defs/projection_raw_lexical_measured_per_query"
+      }
+    },
+    {
+      "if": {
+        "$ref": "#/$defs/projection_sketch_agent_guided_lexical_skipped"
+      },
+      "then": {
+        "$ref": "#/$defs/projection_sketch_agent_guided_lexical_empty_per_query"
+      }
+    },
+    {
+      "if": {
+        "$ref": "#/$defs/projection_sketch_agent_guided_lexical_available"
+      },
+      "then": {
+        "$ref": "#/$defs/projection_sketch_agent_guided_lexical_measured_per_query"
+      }
+    },
+    {
+      "if": {
+        "$ref": "#/$defs/authored_raw_hybrid_skipped"
+      },
+      "then": {
+        "$ref": "#/$defs/authored_raw_hybrid_empty_per_query"
+      }
+    },
+    {
+      "if": {
+        "$ref": "#/$defs/authored_raw_hybrid_available"
+      },
+      "then": {
+        "$ref": "#/$defs/authored_raw_hybrid_measured_per_query"
+      }
+    },
+    {
+      "if": {
+        "$ref": "#/$defs/projection_raw_hybrid_skipped"
+      },
+      "then": {
+        "$ref": "#/$defs/projection_raw_hybrid_empty_per_query"
+      }
+    },
+    {
+      "if": {
+        "$ref": "#/$defs/projection_raw_hybrid_available"
+      },
+      "then": {
+        "$ref": "#/$defs/projection_raw_hybrid_measured_per_query"
+      }
+    }
+  ],
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "fixture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "content_sha256",
+        "queries_sha256",
+        "qrels_sha256",
+        "agent_plan_sha256",
+        "corpora",
+        "query_counts",
+        "qrel_counts",
+        "agent_plan_row_count",
+        "languages",
+        "cases"
+      ],
+      "properties": {
+        "path": {
+          "const": "benchmarks/agent_guided_lexical/fixture"
+        },
+        "content_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "queries_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "qrels_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "agent_plan_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "corpora": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["authored", "projection"],
+          "properties": {
+            "authored": {
+              "$ref": "#/$defs/corpus"
+            },
+            "projection": {
+              "$ref": "#/$defs/corpus"
+            }
+          }
+        },
+        "query_counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["total", "evaluated", "negative"],
+          "properties": {
+            "total": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "evaluated": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "negative": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "qrel_counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["total", "positive"],
+          "properties": {
+            "total": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "positive": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "agent_plan_row_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "languages": {
+          "type": "array",
+          "items": {
+            "enum": ["code", "en", "ko"]
+          }
+        },
+        "cases": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "corpus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "content_sha256", "orientation_source_expected", "page_count"],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "content_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "orientation_source_expected": {
+          "enum": ["authored", "projection_extractive"]
+        },
+        "page_count": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runner_calls_llm",
+        "llm_call_count",
+        "variants_generated_from_qrels",
+        "max_query_variants",
+        "source_qrels_separated",
+        "original_page_citations_only",
+        "public_superiority_claim",
+        "raw_hybrid_requires_explicit_provider",
+        "semantic_leakage_mechanically_proven",
+        "release_evidence_requires_independent_source_only_plans_before_qrels",
+        "fixture_is_release_evidence",
+        "cold_cache_mechanically_verified",
+        "service_instance_isolation_verified",
+        "service_instance_isolation_method"
+      ],
+      "properties": {
+        "runner_calls_llm": {
+          "const": false
+        },
+        "llm_call_count": {
+          "const": 0
+        },
+        "variants_generated_from_qrels": {
+          "const": false
+        },
+        "max_query_variants": {
+          "const": 2
+        },
+        "source_qrels_separated": {
+          "const": true
+        },
+        "original_page_citations_only": {
+          "const": true
+        },
+        "public_superiority_claim": {
+          "const": false
+        },
+        "raw_hybrid_requires_explicit_provider": {
+          "const": true
+        },
+        "semantic_leakage_mechanically_proven": {
+          "const": false
+        },
+        "release_evidence_requires_independent_source_only_plans_before_qrels": {
+          "const": true
+        },
+        "fixture_is_release_evidence": {
+          "const": false
+        },
+        "cold_cache_mechanically_verified": {
+          "const": false
+        },
+        "service_instance_isolation_verified": {
+          "const": true
+        },
+        "service_instance_isolation_method": {
+          "const": "factory_return_object_identity_unique_per_request"
+        }
+      }
+    },
+    "arm": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/available_arm"
+        },
+        {
+          "$ref": "#/$defs/skipped_arm"
+        }
+      ]
+    },
+    "available_arm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "corpus",
+        "status",
+        "retrieval_guidance_orientation_source",
+        "metrics",
+        "usage",
+        "latency_ms",
+        "payload_bytes",
+        "limitations"
+      ],
+      "properties": {
+        "corpus": {
+          "enum": ["authored", "projection"]
+        },
+        "status": {
+          "const": "available"
+        },
+        "retrieval_guidance_orientation_source": {
+          "enum": ["authored", "projection_extractive"]
+        },
+        "metrics": {
+          "$ref": "#/$defs/metrics"
+        },
+        "usage": {
+          "$ref": "#/$defs/available_usage"
+        },
+        "latency_ms": {
+          "$ref": "#/$defs/distribution"
+        },
+        "payload_bytes": {
+          "$ref": "#/$defs/distribution"
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "skipped_arm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "corpus",
+        "status",
+        "retrieval_guidance_orientation_source",
+        "metrics",
+        "usage",
+        "latency_ms",
+        "payload_bytes",
+        "limitations"
+      ],
+      "properties": {
+        "corpus": {
+          "enum": ["authored", "projection"]
+        },
+        "status": {
+          "const": "skipped"
+        },
+        "retrieval_guidance_orientation_source": {
+          "const": "not_applicable"
+        },
+        "metrics": {
+          "const": null
+        },
+        "usage": {
+          "$ref": "#/$defs/skipped_usage"
+        },
+        "latency_ms": {
+          "const": null
+        },
+        "payload_bytes": {
+          "const": null
+        },
+        "limitations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "nDCG@5",
+        "Recall@5",
+        "MAP@5",
+        "citation_precision@5",
+        "negative_false_positive_rate@5"
+      ],
+      "properties": {
+        "nDCG@5": {
+          "type": "number"
+        },
+        "Recall@5": {
+          "type": "number"
+        },
+        "MAP@5": {
+          "type": "number"
+        },
+        "citation_precision@5": {
+          "type": "number"
+        },
+        "negative_false_positive_rate@5": {
+          "type": "number"
+        }
+      }
+    },
+    "available_usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cold_usage_cache",
+        "cache_isolation",
+        "public_context_requests",
+        "public_search_requests",
+        "internal_lexical_channel_evaluations",
+        "adapter_search_calls",
+        "read_calls",
+        "variant_count",
+        "query_character_count",
+        "character_counting_method",
+        "cold_usage_cache_evidence",
+        "token_count_source",
+        "input_tokens",
+        "output_tokens",
+        "accounting_source",
+        "llm_calls",
+        "service_instance_isolation_verified",
+        "service_instance_isolation_method"
+      ],
+      "properties": {
+        "cold_usage_cache": {
+          "const": null
+        },
+        "cache_isolation": {
+          "const": "unknown"
+        },
+        "public_context_requests": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "public_search_requests": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "internal_lexical_channel_evaluations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "adapter_search_calls": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "read_calls": {
+          "const": 0
+        },
+        "variant_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "query_character_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "character_counting_method": {
+          "const": "unicode code points after JSON decoding"
+        },
+        "cold_usage_cache_evidence": {
+          "const": "unknown"
+        },
+        "token_count_source": {
+          "type": "string"
+        },
+        "input_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "output_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "accounting_source": {
+          "type": "string"
+        },
+        "llm_calls": {
+          "const": 0
+        },
+        "service_instance_isolation_verified": {
+          "const": true
+        },
+        "service_instance_isolation_method": {
+          "const": "factory_return_object_identity_unique_per_request"
+        }
+      }
+    },
+    "skipped_usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cold_usage_cache",
+        "cache_isolation",
+        "public_context_requests",
+        "public_search_requests",
+        "internal_lexical_channel_evaluations",
+        "adapter_search_calls",
+        "read_calls",
+        "variant_count",
+        "query_character_count",
+        "character_counting_method",
+        "cold_usage_cache_evidence",
+        "token_count_source",
+        "input_tokens",
+        "output_tokens",
+        "accounting_source",
+        "llm_calls",
+        "service_instance_isolation_verified",
+        "service_instance_isolation_method"
+      ],
+      "properties": {
+        "cold_usage_cache": {
+          "const": null
+        },
+        "cache_isolation": {
+          "const": "not-applicable"
+        },
+        "public_context_requests": {
+          "const": 0
+        },
+        "public_search_requests": {
+          "const": 0
+        },
+        "internal_lexical_channel_evaluations": {
+          "const": 0
+        },
+        "adapter_search_calls": {
+          "const": 0
+        },
+        "read_calls": {
+          "const": 0
+        },
+        "variant_count": {
+          "const": 0
+        },
+        "query_character_count": {
+          "const": 0
+        },
+        "character_counting_method": {
+          "const": "not-applicable"
+        },
+        "cold_usage_cache_evidence": {
+          "const": "not-applicable"
+        },
+        "token_count_source": {
+          "const": "not-applicable"
+        },
+        "input_tokens": {
+          "const": 0
+        },
+        "output_tokens": {
+          "const": 0
+        },
+        "accounting_source": {
+          "const": "not-applicable"
+        },
+        "llm_calls": {
+          "const": 0
+        },
+        "service_instance_isolation_verified": {
+          "const": false
+        },
+        "service_instance_isolation_method": {
+          "const": "not-applicable"
+        }
+      }
+    },
+    "distribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count", "p50", "p95"],
+      "properties": {
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "p50": {
+          "type": ["number", "null"]
+        },
+        "p95": {
+          "type": ["number", "null"]
+        }
+      }
+    },
+    "per_query_arm": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/per_query_row"
+      }
+    },
+    "per_query_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "query_id",
+        "answerability",
+        "ranked_page_ids",
+        "public_search_requests",
+        "internal_lexical_channel_evaluations",
+        "adapter_search_calls",
+        "query_variant_count"
+      ],
+      "properties": {
+        "query_id": {
+          "type": "string"
+        },
+        "answerability": {
+          "enum": ["answerable", "unanswerable"]
+        },
+        "ranked_page_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "public_search_requests": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "internal_lexical_channel_evaluations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "adapter_search_calls": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "query_variant_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "authored_raw_lexical_skipped": {
+      "$ref": "#/$defs/status_authored_raw_lexical_skipped"
+    },
+    "authored_raw_lexical_available": {
+      "$ref": "#/$defs/status_authored_raw_lexical_available"
+    },
+    "authored_raw_lexical_empty_per_query": {
+      "$ref": "#/$defs/per_query_authored_raw_lexical_empty"
+    },
+    "authored_raw_lexical_measured_per_query": {
+      "$ref": "#/$defs/per_query_authored_raw_lexical_measured"
+    },
+    "authored_agent_guided_lexical_skipped": {
+      "$ref": "#/$defs/status_authored_agent_guided_lexical_skipped"
+    },
+    "authored_agent_guided_lexical_available": {
+      "$ref": "#/$defs/status_authored_agent_guided_lexical_available"
+    },
+    "authored_agent_guided_lexical_empty_per_query": {
+      "$ref": "#/$defs/per_query_authored_agent_guided_lexical_empty"
+    },
+    "authored_agent_guided_lexical_measured_per_query": {
+      "$ref": "#/$defs/per_query_authored_agent_guided_lexical_measured"
+    },
+    "projection_raw_lexical_skipped": {
+      "$ref": "#/$defs/status_projection_raw_lexical_skipped"
+    },
+    "projection_raw_lexical_available": {
+      "$ref": "#/$defs/status_projection_raw_lexical_available"
+    },
+    "projection_raw_lexical_empty_per_query": {
+      "$ref": "#/$defs/per_query_projection_raw_lexical_empty"
+    },
+    "projection_raw_lexical_measured_per_query": {
+      "$ref": "#/$defs/per_query_projection_raw_lexical_measured"
+    },
+    "projection_sketch_agent_guided_lexical_skipped": {
+      "$ref": "#/$defs/status_projection_sketch_agent_guided_lexical_skipped"
+    },
+    "projection_sketch_agent_guided_lexical_available": {
+      "$ref": "#/$defs/status_projection_sketch_agent_guided_lexical_available"
+    },
+    "projection_sketch_agent_guided_lexical_empty_per_query": {
+      "$ref": "#/$defs/per_query_projection_sketch_agent_guided_lexical_empty"
+    },
+    "projection_sketch_agent_guided_lexical_measured_per_query": {
+      "$ref": "#/$defs/per_query_projection_sketch_agent_guided_lexical_measured"
+    },
+    "authored_raw_hybrid_skipped": {
+      "$ref": "#/$defs/status_authored_raw_hybrid_skipped"
+    },
+    "authored_raw_hybrid_available": {
+      "$ref": "#/$defs/status_authored_raw_hybrid_available"
+    },
+    "authored_raw_hybrid_empty_per_query": {
+      "$ref": "#/$defs/per_query_authored_raw_hybrid_empty"
+    },
+    "authored_raw_hybrid_measured_per_query": {
+      "$ref": "#/$defs/per_query_authored_raw_hybrid_measured"
+    },
+    "projection_raw_hybrid_skipped": {
+      "$ref": "#/$defs/status_projection_raw_hybrid_skipped"
+    },
+    "projection_raw_hybrid_available": {
+      "$ref": "#/$defs/status_projection_raw_hybrid_available"
+    },
+    "projection_raw_hybrid_empty_per_query": {
+      "$ref": "#/$defs/per_query_projection_raw_hybrid_empty"
+    },
+    "projection_raw_hybrid_measured_per_query": {
+      "$ref": "#/$defs/per_query_projection_raw_hybrid_measured"
+    },
+    "status_authored_raw_lexical_skipped": {
+      "properties": {
+        "arms": {
+          "properties": {
+            "authored_raw_lexical": {
+              "properties": {
+                "status": {
+                  "const": "skipped"
+                }
+              },
+              "required": ["status"]
+            }
+          }
+        }
+      }
+    },
+    "status_authored_raw_lexical_available": {
+      "properties": {
+        "arms": {
+          "properties": {
+            "authored_raw_lexical": {
+              "properties": {
+                "status": {
+                  "const": "available"
+                }
+              },
+              "required": ["status"]
+            }
+          }
+        }
+      }
+    },
+    "per_query_authored_raw_lexical_empty": {
+      "properties": {
+        "per_query": {
+          "properties": {
+            "authored_raw_lexical": {
+              "maxItems": 0
+            }
+          }
+        }
+      }
+    },
+    "per_query_authored_raw_lexical_measured": {
+      "properties": {
+        "per_query": {
+          "properties": {
+            "authored_raw_lexical": {
+              "minItems": 1
+            }
+          }
+        }
+      }
+    },
+    "status_authored_agent_guided_lexical_skipped": {
+      "properties": {
+        "arms": {
+          "properties": {
+            "authored_agent_guided_lexical": {
+              "properties": {
+                "status": {
+                  "const": "skipped"
+                }
+              },
+              "required": ["status"]
+            }
+          }
+        }
+      }
+    },
+    "status_authored_agent_guided_lexical_available": {
+      "properties": {
+        "arms": {
+          "properties": {
+            "authored_agent_guided_lexical": {
+              "properties": {
+                "status": {
+                  "const": "available"
+                }
+              },
+              "required": ["status"]
+            }
+          }
+        }
+      }
+    },
+    "per_query_authored_agent_guided_lexical_empty": {
+      "properties": {
+        "per_query": {
+          "properties": {
+            "authored_agent_guided_lexical": {
+              "maxItems": 0
+            }
+          }
+        }
+      }
+    },
+    "per_query_authored_agent_guided_lexical_measured": {
+      "properties": {
+        "per_query": {
+          "properties": {
+            "authored_agent_guided_lexical": {
+              "minItems": 1
+            }
+          }
+        }
+      }
+    },
+    "status_projection_raw_lexical_skipped": {
+      "properties": {
+        "arms": {
+          "properties": {
+            "projection_raw_lexical": {
+              "properties": {
+                "status": {
+                  "const": "skipped"
+                }
+              },
+              "required": ["status"]
+            }
+          }
+        }
+      }
+    },
+    "status_projection_raw_lexical_available": {
+      "properties": {
+        "arms": {
+          "properties": {
+            "projection_raw_lexical": {
+              "properties": {
+                "status": {
+                  "const": "available"
+                }
+              },
+              "required": ["status"]
+            }
+          }
+        }
+      }
+    },
+    "per_query_projection_raw_lexical_empty": {
+      "properties": {
+        "per_query": {
+          "properties": {
+            "projection_raw_lexical": {
+              "maxItems": 0
+            }
+          }
+        }
+      }
+    },
+    "per_query_projection_raw_lexical_measured": {
+      "properties": {
+        "per_query": {
+          "properties": {
+            "projection_raw_lexical": {
+              "minItems": 1
+            }
+          }
+        }
+      }
+    },
+    "status_projection_sketch_agent_guided_lexical_skipped": {
+      "properties": {
+        "arms": {
+          "properties": {
+            "projection_sketch_agent_guided_lexical": {
+              "properties": {
+                "status": {
+                  "const": "skipped"
+                }
+              },
+              "required": ["status"]
+            }
+          }
+        }
+      }
+    },
+    "status_projection_sketch_agent_guided_lexical_available": {
+      "properties": {
+        "arms": {
+          "properties": {
+            "projection_sketch_agent_guided_lexical": {
+              "properties": {
+                "status": {
+                  "const": "available"
+                }
+              },
+              "required": ["status"]
+            }
+          }
+        }
+      }
+    },
+    "per_query_projection_sketch_agent_guided_lexical_empty": {
+      "properties": {
+        "per_query": {
+          "properties": {
+            "projection_sketch_agent_guided_lexical": {
+              "maxItems": 0
+            }
+          }
+        }
+      }
+    },
+    "per_query_projection_sketch_agent_guided_lexical_measured": {
+      "properties": {
+        "per_query": {
+          "properties": {
+            "projection_sketch_agent_guided_lexical": {
+              "minItems": 1
+            }
+          }
+        }
+      }
+    },
+    "status_authored_raw_hybrid_skipped": {
+      "properties": {
+        "arms": {
+          "properties": {
+            "authored_raw_hybrid": {
+              "properties": {
+                "status": {
+                  "const": "skipped"
+                }
+              },
+              "required": ["status"]
+            }
+          }
+        }
+      }
+    },
+    "status_authored_raw_hybrid_available": {
+      "properties": {
+        "arms": {
+          "properties": {
+            "authored_raw_hybrid": {
+              "properties": {
+                "status": {
+                  "const": "available"
+                }
+              },
+              "required": ["status"]
+            }
+          }
+        }
+      }
+    },
+    "per_query_authored_raw_hybrid_empty": {
+      "properties": {
+        "per_query": {
+          "properties": {
+            "authored_raw_hybrid": {
+              "maxItems": 0
+            }
+          }
+        }
+      }
+    },
+    "per_query_authored_raw_hybrid_measured": {
+      "properties": {
+        "per_query": {
+          "properties": {
+            "authored_raw_hybrid": {
+              "minItems": 1
+            }
+          }
+        }
+      }
+    },
+    "status_projection_raw_hybrid_skipped": {
+      "properties": {
+        "arms": {
+          "properties": {
+            "projection_raw_hybrid": {
+              "properties": {
+                "status": {
+                  "const": "skipped"
+                }
+              },
+              "required": ["status"]
+            }
+          }
+        }
+      }
+    },
+    "status_projection_raw_hybrid_available": {
+      "properties": {
+        "arms": {
+          "properties": {
+            "projection_raw_hybrid": {
+              "properties": {
+                "status": {
+                  "const": "available"
+                }
+              },
+              "required": ["status"]
+            }
+          }
+        }
+      }
+    },
+    "per_query_projection_raw_hybrid_empty": {
+      "properties": {
+        "per_query": {
+          "properties": {
+            "projection_raw_hybrid": {
+              "maxItems": 0
+            }
+          }
+        }
+      }
+    },
+    "per_query_projection_raw_hybrid_measured": {
+      "properties": {
+        "per_query": {
+          "properties": {
+            "projection_raw_hybrid": {
+              "minItems": 1
+            }
+          }
+        }
+      }
+    },
+    "metric_definition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner", "description"],
+      "properties": {
+        "owner": {
+          "const": "serve"
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["implementation", "inputs", "plan"],
+      "properties": {
+        "implementation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["revision", "revision_source", "dirty", "dirty_detection"],
+          "properties": {
+            "revision": {
+              "type": "string"
+            },
+            "revision_source": {
+              "enum": ["argument", "git", "unknown"]
+            },
+            "dirty": {
+              "type": ["boolean", "null"]
+            },
+            "dirty_detection": {
+              "enum": ["git-status", "unknown"]
+            }
+          }
+        },
+        "inputs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "fixture_tree_sha256",
+            "authored_corpus_sha256",
+            "projection_corpus_sha256",
+            "queries_sha256",
+            "qrels_sha256",
+            "agent_plan_sha256"
+          ],
+          "properties": {
+            "fixture_tree_sha256": {
+              "$ref": "#/$defs/digest"
+            },
+            "authored_corpus_sha256": {
+              "$ref": "#/$defs/digest"
+            },
+            "projection_corpus_sha256": {
+              "$ref": "#/$defs/digest"
+            },
+            "queries_sha256": {
+              "$ref": "#/$defs/digest"
+            },
+            "qrels_sha256": {
+              "$ref": "#/$defs/digest"
+            },
+            "agent_plan_sha256": {
+              "$ref": "#/$defs/digest"
+            }
+          }
+        },
+        "plan": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_id",
+            "provenance_schema_version",
+            "row_count",
+            "generator_kinds",
+            "models",
+            "human_fixture_ids",
+            "prompt_template_revisions",
+            "prompt_template_sha256",
+            "source_context_digests",
+            "input_digests",
+            "timestamp_utc_values",
+            "stable_fixture_marker",
+            "accounting_sources"
+          ],
+          "properties": {
+            "schema_id": {
+              "const": "llmwiki-agent-guided-lexical-plan-v1"
+            },
+            "provenance_schema_version": {
+              "const": "llmwiki.agent_plan_provenance.v1"
+            },
+            "row_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "generator_kinds": {
+              "type": "array",
+              "items": {
+                "enum": ["external_agent", "llm", "human_fixture"]
+              }
+            },
+            "models": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "human_fixture_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "prompt_template_revisions": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "prompt_template_sha256": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/digest"
+              }
+            },
+            "source_context_digests": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/digest"
+              }
+            },
+            "input_digests": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/digest"
+              }
+            },
+            "timestamp_utc_values": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "stable_fixture_marker": {
+              "type": "boolean"
+            },
+            "accounting_sources": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

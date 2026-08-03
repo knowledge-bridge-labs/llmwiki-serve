@@ -17,6 +17,7 @@ from urllib.request import urlopen
 
 import psutil
 import pytest
+import yaml
 from typer.testing import CliRunner
 
 from llmwiki_serve.cli import app as cli_app
@@ -1304,6 +1305,44 @@ def test_ci_release_smoke_command_does_not_depend_on_shell_globs() -> None:
     assert "scripts/release_smoke.py --dist-dir dist --allow-network-install" in workflow
     assert "scripts/release_smoke.py --wheel dist/*.whl --sdist dist/*.tar.gz" not in readme
     assert "scripts/release_smoke.py --dist-dir dist" in readme
+
+
+def test_publish_workflow_limits_oidc_to_minimal_publish_job() -> None:
+    workflow_path = Path(__file__).parents[1] / ".github" / "workflows" / "publish.yml"
+    if not workflow_path.exists():
+        pytest.skip("repository checkout only; .github workflows are omitted from the sdist")
+    workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+    assert isinstance(workflow, dict)
+    jobs = workflow["jobs"]
+    build_job = jobs["build"]
+    publish_job = jobs["publish"]
+
+    assert build_job["permissions"] == {"contents": "read"}
+    assert "id-token" not in build_job["permissions"]
+    assert publish_job["needs"] == "build"
+    assert publish_job["environment"] == "pypi"
+    assert publish_job["permissions"] == {"contents": "read", "id-token": "write"}
+
+    build_steps = json.dumps(build_job["steps"], sort_keys=True)
+    publish_steps = json.dumps(publish_job["steps"], sort_keys=True)
+    assert "actions/checkout" in build_steps
+    assert "uv sync --extra dev --extra vector --locked" in build_steps
+    assert "uv build" in build_steps
+    assert "twine check dist/*" in build_steps
+    assert "actions/upload-artifact" in build_steps
+    assert "dist/*.whl" in build_steps
+    assert "dist/*.tar.gz" in build_steps
+    assert "dist-sha256.json" in build_steps
+    assert '"retention-days": 7' in build_steps
+
+    assert "actions/download-artifact" in publish_steps
+    assert "uv publish --trusted-publishing always release-artifact/dist/*" in publish_steps
+    assert "actions/checkout" not in publish_steps
+    assert "uv sync" not in publish_steps
+    assert "uv run" not in publish_steps
+    assert "pytest" not in publish_steps
+    assert "ruff" not in publish_steps
+    assert "mypy" not in publish_steps
 
 
 def process_entries_with_listener(

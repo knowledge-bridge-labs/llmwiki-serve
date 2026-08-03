@@ -10,6 +10,7 @@ from typing import Final, Literal, TypeAlias
 
 import snowballstemmer  # type: ignore[import-untyped]
 
+from .errors import LlmWikiUserError
 from .models import SearchMode, SearchResult, SearchResultProjection, WikiIndex, WikiPage
 
 TOKEN_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*(?:[가-힣]+)?|[가-힣]+")
@@ -79,6 +80,7 @@ SEARCH_RESULT_FIELD_ORDER = (
     "route",
 )
 SEARCH_RESULT_FIELDS = set(SEARCH_RESULT_FIELD_ORDER)
+SEARCH_MODES: tuple[SearchMode, ...] = ("lexical", "literal", "vector", "hybrid")
 ManagedPrior = Callable[[SearchResult], float]
 TokenPostings = Mapping[str, tuple[tuple[int, int], ...]]
 
@@ -206,6 +208,7 @@ def search_corpus(
     managed_prior: ManagedPrior | None = None,
     managed_tie_band: float = 0.0,
 ) -> list[SearchResult]:
+    mode = normalize_search_mode(mode)
     if mode == "literal":
         return literal_search_corpus(
             corpus,
@@ -216,6 +219,11 @@ def search_corpus(
             exclude_page_ids=exclude_page_ids,
             managed_prior=managed_prior,
             managed_tie_band=managed_tie_band,
+        )
+    if mode in {"vector", "hybrid"}:
+        raise LlmWikiUserError(
+            f"Search mode {mode!r} requires a configured vector provider through "
+            "LlmWikiService, create_app, or the llmwiki-serve CLI."
         )
     tokens = unique_tokens(tokenize(query, analyzer_profile=corpus.analyzer_profile))
     exact_query_token = single_exact_compound_query_token(query, corpus.analyzer_profile)
@@ -755,6 +763,14 @@ def exact_required_doc_indexes(corpus: SearchCorpus, exact_query_token: str) -> 
     return doc_indexes
 
 
+def exact_required_page_ids_for_query(corpus: SearchCorpus, query: str) -> set[str] | None:
+    exact_query_token = single_exact_compound_query_token(query, corpus.analyzer_profile)
+    required_doc_indexes = exact_required_doc_indexes(corpus, exact_query_token)
+    if required_doc_indexes is None:
+        return None
+    return {corpus.documents[index].page.id for index in required_doc_indexes}
+
+
 def add_exact_channel_scores(
     candidate_scores: dict[int, float],
     *,
@@ -827,6 +843,13 @@ def normalize_analyzer_profile(value: str) -> AnalyzerProfile:
     if value in ANALYZER_PROFILES:
         return value
     raise ValueError(f"unknown analyzer profile: {value!r}")
+
+
+def normalize_search_mode(value: str) -> SearchMode:
+    normalized = str(value or "lexical").strip().lower()
+    if normalized in SEARCH_MODES:
+        return normalized
+    raise LlmWikiUserError("unknown search mode: expected lexical, literal, vector, or hybrid")
 
 
 def normalize_public_analyzer_profile(value: str) -> PublicAnalyzerProfile:

@@ -26,10 +26,14 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: python -m pip install uv
-      - run: uv sync --extra dev --locked
+      - run: uv sync --locked
+      - run: uv run python -c "import importlib.util; assert importlib.util.find_spec('fastembed') is None; assert importlib.util.find_spec('numpy') is None; from llmwiki_serve import LlmWikiService; print('base install smoke ok')"
+      - run: uv run llmwiki-serve query ./examples/sample-wiki "release readiness"
+      - run: uv sync --extra dev --extra vector --locked
       - run: uv run ruff format --check .
       - run: uv run ruff check --output-format=github .
       - run: uv run mypy src
+      - run: uv run mypy scripts/benchmark_adapters/scifact_runner.py
       - run: uv run pytest
       - run: uv build
       - run: uv run python scripts/release_smoke.py --dist-dir dist --allow-network-install
@@ -48,10 +52,14 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: python -m pip install uv
-      - run: uv sync --extra dev --locked
+      - run: uv sync --locked
+      - run: uv run python -c "import importlib.util; assert importlib.util.find_spec('fastembed') is None; assert importlib.util.find_spec('numpy') is None; from llmwiki_serve import LlmWikiService; print('base install smoke ok')"
+      - run: uv run llmwiki-serve query ./examples/sample-wiki "release readiness"
+      - run: uv sync --extra dev --extra vector --locked
       - run: uv run ruff format --check .
       - run: uv run ruff check --output-format=github .
       - run: uv run mypy src
+      - run: uv run mypy scripts/benchmark_adapters/scifact_runner.py
       - run: uv run pytest
       - run: uv build
       - run: uv run python scripts/release_smoke.py --dist-dir dist --allow-network-install

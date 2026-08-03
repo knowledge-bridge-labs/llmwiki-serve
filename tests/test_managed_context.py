@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 
@@ -969,7 +971,7 @@ def _record_hit_in_process(args: tuple[str, str, float]) -> bool:
         ),
         _managed_context_clock=lambda: now,
     )
-    return service.read("alpha")["id"] == "alpha"
+    return cast(str, service.read("alpha")["id"]) == "alpha"
 
 
 def _record_hit_with_generated_salt_in_process(args: tuple[str, str, float]) -> bool:
@@ -983,7 +985,7 @@ def _record_hit_with_generated_salt_in_process(args: tuple[str, str, float]) -> 
         ),
         _managed_context_clock=lambda: now,
     )
-    return service.read("alpha")["id"] == "alpha"
+    return cast(str, service.read("alpha")["id"]) == "alpha"
 
 
 def source_tree_snapshot(root: Path) -> dict[str, str]:
@@ -993,17 +995,17 @@ def source_tree_snapshot(root: Path) -> dict[str, str]:
     return snapshot
 
 
-def managed_record_payload(state_dir: Path):
+def managed_record_payload(state_dir: Path) -> dict[str, Any]:
     payloads = [
         json.loads(path.read_text(encoding="utf-8"))
         for path in state_dir.rglob("*.json")
         if path.name != "salt.json"
     ]
     assert len(payloads) == 1
-    return payloads[0]
+    return cast(dict[str, Any], payloads[0])
 
 
-def step_clock(start: float):
+def step_clock(start: float) -> Callable[[], float]:
     current = start
 
     def now() -> float:
