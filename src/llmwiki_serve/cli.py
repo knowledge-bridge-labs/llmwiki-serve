@@ -239,7 +239,11 @@ GraphStoreOption: TypeAlias = Annotated[
     GraphStoreBackend | None,
     typer.Option(
         "--graph-store",
-        help="Derived graph snapshot cache backend. Use sqlite for a local sidecar cache.",
+        help=(
+            "Derived graph snapshot cache backend: none (default) or sqlite. "
+            "Env: LLMWIKI_GRAPH_STORE. sqlite requires --graph-store-path or "
+            "LLMWIKI_GRAPH_STORE_PATH outside the served root."
+        ),
     ),
 ]
 GraphStorePathOption: TypeAlias = Annotated[
@@ -247,8 +251,8 @@ GraphStorePathOption: TypeAlias = Annotated[
     typer.Option(
         "--graph-store-path",
         help=(
-            "SQLite database path for --graph-store=sqlite. Must be outside the served root. "
-            "Env: LLMWIKI_GRAPH_STORE_PATH."
+            "SQLite database path for --graph-store=sqlite. Required for sqlite and must "
+            "be outside the served root. Env: LLMWIKI_GRAPH_STORE_PATH."
         ),
     ),
 ]
@@ -263,7 +267,10 @@ GraphStoreFailurePolicyOption: TypeAlias = Annotated[
     GraphStoreFailurePolicy,
     typer.Option(
         "--graph-store-failure-policy",
-        help="GraphStore outage behavior. fallback-local keeps serving from process memory.",
+        help=(
+            "SQLite GraphStore backend failure behavior. Default: fallback-local recomputes "
+            "from the current projection at runtime; fail-fast raises on backend errors."
+        ),
     ),
 ]
 GraphDefaultLimitOption: TypeAlias = Annotated[
@@ -671,7 +678,11 @@ def serve(
         projection_backend = resolve_projection_store_backend(projection_store_backend)
         graph_backend = resolve_graph_store_backend(graph_store_backend)
         resolved_redis_url = redis_url or os.getenv("LLMWIKI_REDIS_URL")
-        resolved_graph_store_path = resolve_graph_store_path(graph_store_path, root=root)
+        resolved_graph_store_path = resolve_graph_store_path(
+            graph_store_path,
+            root=root,
+            backend=graph_backend,
+        )
         resolved_namespace = cache_namespace or os.getenv("LLMWIKI_CACHE_NAMESPACE") or "default"
         resolved_source_id = source_id or os.getenv("LLMWIKI_SOURCE_ID")
         resolved_graph_default_limit = resolve_int_option_env(
@@ -800,7 +811,14 @@ def resolve_graph_store_backend(value: GraphStoreBackend | None) -> GraphStoreBa
     return "none"
 
 
-def resolve_graph_store_path(value: Path | None, *, root: Path) -> Path | None:
+def resolve_graph_store_path(
+    value: Path | None,
+    *,
+    root: Path,
+    backend: GraphStoreBackend,
+) -> Path | None:
+    if backend == "none" and value is None:
+        return None
     path = value
     if path is None:
         env_value = os.getenv("LLMWIKI_GRAPH_STORE_PATH")

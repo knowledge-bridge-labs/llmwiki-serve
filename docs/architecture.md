@@ -272,8 +272,12 @@ llmwiki-serve serve ./wiki \
   --graph-store-path ../.llmwiki-cache/wiki-graph.sqlite
 ```
 
-CLI graph-store paths are resolved before startup and rejected when they are
-equal to or nested under the served source root. This preserves the read-only
+`LLMWIKI_GRAPH_STORE=sqlite` and `LLMWIKI_GRAPH_STORE_PATH=<path>` provide the
+same opt-in for process managers. The default backend is `none`; an explicit
+`--graph-store none` disables the GraphStore and ignores
+`LLMWIKI_GRAPH_STORE_PATH`. SQLite requires a graph-store path. CLI
+graph-store paths are resolved before startup and rejected when they are equal
+to or nested under the served source root. This preserves the read-only
 source-folder guarantee. Library callers can inject a `GraphStore` instance
 directly when embedding the service.
 
@@ -284,10 +288,13 @@ produce a new projection signature and miss the old graph snapshot. Snapshot
 rows include a payload digest, so malformed JSON, row-count mismatch, or
 digest mismatch is treated as a cache miss instead of served graph evidence.
 
-`fallback-local` is the default failure policy and recomputes the graph from
-the current projection when the SQLite cache is missing or invalid. `fail-fast`
-raises a redacted runtime error on backend exceptions. Error messages do not
-include local source paths or raw SQLite details.
+Missing, invalid, stale, malformed, or digest-mismatched SQLite snapshots are
+cache misses and recompute the graph from the current projection. Startup
+configuration remains strict: the SQLite path must be supplied, outside the
+served root, and openable before serving starts. After startup, `fallback-local`
+is the default failure policy and recomputes from the current projection on
+backend exceptions. `fail-fast` raises a redacted runtime error instead. Error
+messages do not include local source paths or raw SQLite details.
 
 SQLite GraphStore does not expose raw SQL or Cypher to HTTP or MCP clients. The
 public graph contract remains bounded full-graph and neighborhood lookup. The

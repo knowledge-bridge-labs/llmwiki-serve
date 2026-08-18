@@ -646,6 +646,18 @@ llmwiki-serve serve ./wiki \
   --graph-store-path ../.llmwiki-cache/wiki-graph.sqlite
 ```
 
+Environment equivalents are available for process managers:
+
+```bash
+LLMWIKI_GRAPH_STORE=sqlite
+LLMWIKI_GRAPH_STORE_PATH=../.llmwiki-cache/wiki-graph.sqlite
+```
+
+`LLMWIKI_GRAPH_STORE` defaults to `none`. Passing `--graph-store none`
+explicitly disables the GraphStore and ignores `LLMWIKI_GRAPH_STORE_PATH`;
+SQLite is used only with `--graph-store sqlite` or `LLMWIKI_GRAPH_STORE=sqlite`
+and requires a graph-store path outside the served root.
+
 Use it when the same long-running server repeatedly serves graph-heavy
 requests or when agent workflows call `/graph`, `/graph/neighborhood`,
 `llmwiki_graph`, or `llmwiki_graph_neighbors` many times over the same
@@ -657,8 +669,14 @@ The SQLite file is sensitive derived local state. It stores graph node labels,
 paths, relations, source-ref and tag nodes, and metadata after visibility
 filtering. Keep it outside the served root, protect it like the source wiki,
 and do not publish the file, raw rows, or private graph snippets. If the file
-is missing, invalid, or stale, the server recomputes the graph from the current
-projection; `--graph-store-failure-policy fail-fast` stops on backend errors.
+is missing, invalid, or stale, the server treats it as a cache miss and
+recomputes the graph from the current projection.
+
+Startup configuration remains strict: `sqlite` requires a path and the path
+must be outside the served root and openable as SQLite. After startup,
+`--graph-store-failure-policy fallback-local` is the default runtime policy and
+keeps serving by recomputing from the current projection on backend errors;
+`fail-fast` raises a redacted runtime error instead.
 
 SQLite GraphStore is not a graph query language backend. The public graph
 surface remains the existing bounded graph APIs. The internal typed graph

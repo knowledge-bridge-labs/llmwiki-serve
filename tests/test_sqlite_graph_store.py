@@ -360,6 +360,40 @@ def test_cli_can_enable_sqlite_graph_store_outside_served_root(
     assert_graph_payload_is_closed(captured["graph"])
 
 
+def test_cli_explicit_graph_store_none_ignores_graph_store_env_path(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    import uvicorn
+
+    root = tmp_path / "wiki"
+    root.mkdir()
+    write_markdown(root / "index.md", "# Index\n\nRequired copy.")
+    env_graph_store_path = root / ".llmwiki-work" / "env-graph.sqlite"
+    captured: dict[str, Any] = {}
+
+    def fake_run(app: Any, *, host: str, port: int) -> None:
+        client = TestClient(app)
+        captured["manifest"] = client.get("/manifest").json()
+        captured["graph"] = client.get("/graph?limit=500").json()
+
+    monkeypatch.setattr(uvicorn, "run", fake_run)
+    result = CliRunner().invoke(
+        cli_app,
+        ["serve", str(root), "--graph-store", "none"],
+        env={
+            "LLMWIKI_GRAPH_STORE": "sqlite",
+            "LLMWIKI_GRAPH_STORE_PATH": str(env_graph_store_path),
+        },
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "llmwiki_graph_store" not in captured["manifest"]["capabilities"]
+    assert "llmwiki_graph_store_sqlite" not in captured["manifest"]["capabilities"]
+    assert not env_graph_store_path.exists()
+    assert_graph_payload_is_closed(captured["graph"])
+
+
 def test_cli_rejects_sqlite_graph_store_path_inside_served_root() -> None:
     result = CliRunner().invoke(
         cli_app,
