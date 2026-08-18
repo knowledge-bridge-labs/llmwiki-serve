@@ -46,9 +46,8 @@ enterprise auth, model runtime hosting, or certified MCP/A2A platform claims.
 > matrix.
 > Source checkout remains supported for local development and release smoke tests.
 > The published PyPI `0.2.9` package README is immutable. This GitHub README
-> documents `main` after the `0.2.9` release and will be included in future
-> package versions; it does not change the already-published `0.2.9`
-> distribution.
+> documents the `0.2.10` release line and will be included in the `0.2.10`
+> package; it does not change the already-published `0.2.9` distribution.
 
 ## Start Here
 
@@ -66,6 +65,23 @@ to see `llmwiki-serve` project an already-existing LLMWiki, Markdown, or
 Obsidian-style folder as a read-only Knowledge Source.
 
 [![First-run demo poster](https://knowledge-bridge-labs.github.io/llmwiki-docs/demo/first-run/first-run-poster.png)](https://knowledge-bridge-labs.github.io/llmwiki-docs/demo)
+
+## 0.2.10 Highlights
+
+- Optional SQLite GraphStore: `serve` can cache visibility-scoped derived graph
+  snapshots in a local SQLite sidecar outside the served source root.
+- No new install extra for GraphStore: the base package uses Python's standard
+  `sqlite3`; `[vector]` and `[redis]` remain separate opt-ins for semantic
+  retrieval and Redis/Valkey projection reuse.
+- Backward-compatible default behavior: `llmwiki-serve serve ./wiki` still runs
+  with no GraphStore, creates no SQLite database, and preserves existing HTTP
+  and MCP graph response shapes.
+- Operator controls: enable SQLite explicitly with
+  `--graph-store sqlite --graph-store-path <outside-root.sqlite>` or
+  `LLMWIKI_GRAPH_STORE=sqlite` plus `LLMWIKI_GRAPH_STORE_PATH`.
+- GraphRAG groundwork: internal typed graph operations support bounded
+  traversal over projected nodes and edges without exposing raw SQL, Cypher, or
+  another raw query language over public HTTP or MCP.
 
 ## 0.2.9 Highlights
 
@@ -194,7 +210,7 @@ Pin the version listed in the
 matrix when you need a reproducible public-preview package install:
 
 ```bash
-uv tool install llmwiki-serve==0.2.9
+uv tool install llmwiki-serve==0.2.10
 ```
 
 ## Contributor Development Path
