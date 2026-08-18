@@ -189,9 +189,10 @@ def test_service_context_http_and_mcp_graph_match_no_store_with_sqlite(
     )
 
     assert sqlite_service.graph(limit=500) == default_service.graph(limit=500)
-    assert sqlite_service.context("required copy").graph == default_service.context(
-        "required copy"
-    ).graph
+    assert (
+        sqlite_service.context("required copy").graph
+        == default_service.context("required copy").graph
+    )
 
     default_client = TestClient(create_app(FIXTURE))
     sqlite_client = TestClient(
@@ -202,9 +203,10 @@ def test_service_context_http_and_mcp_graph_match_no_store_with_sqlite(
         "llmwiki_graph_store",
         "llmwiki_graph_store_sqlite",
     ]
-    assert sqlite_client.get("/graph?limit=500").json() == default_client.get(
-        "/graph?limit=500"
-    ).json()
+    assert (
+        sqlite_client.get("/graph?limit=500").json()
+        == default_client.get("/graph?limit=500").json()
+    )
     assert mcp_tool_call(sqlite_client, "llmwiki_graph", {"limit": 500}) == mcp_tool_call(
         default_client,
         "llmwiki_graph",

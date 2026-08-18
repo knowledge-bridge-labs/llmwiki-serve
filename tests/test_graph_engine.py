@@ -59,9 +59,9 @@ def test_graph_query_backlinks_finds_incoming_page_edges() -> None:
         "page:requester-return",
         "page:artwork-review",
     }
-    assert [
-        (edge.source, edge.target, edge.relation) for edge in response.edges
-    ] == [("page:artwork-review", "page:requester-return", "links_to")]
+    assert [(edge.source, edge.target, edge.relation) for edge in response.edges] == [
+        ("page:artwork-review", "page:requester-return", "links_to")
+    ]
 
 
 def test_graph_query_paths_returns_path_evidence() -> None:
@@ -134,6 +134,4 @@ def test_graph_query_rejects_unknown_nodes() -> None:
     service = LlmWikiService(FIXTURE)
 
     with pytest.raises(ValueError, match="unknown node"):
-        service.graph_query(
-            GraphQueryRequest(operation="neighbors", start_node_id="page:missing")
-        )
+        service.graph_query(GraphQueryRequest(operation="neighbors", start_node_id="page:missing"))

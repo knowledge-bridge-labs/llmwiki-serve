@@ -225,9 +225,7 @@ class _GraphView:
             raise ValueError("graph query referenced an unknown node")
         return node
 
-    def adjacent(
-        self, node_id: str, direction: GraphQueryDirection
-    ) -> Iterable[tuple[int, str]]:
+    def adjacent(self, node_id: str, direction: GraphQueryDirection) -> Iterable[tuple[int, str]]:
         for edge_index, edge in self.iter_edges():
             if (
                 direction in {"out", "both"}

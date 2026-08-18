@@ -110,9 +110,9 @@ class SqliteGraphStore:
             ).fetchall()
 
         try:
-            if int(snapshot["node_count"]) != len(node_rows) or int(
-                snapshot["edge_count"]
-            ) != len(edge_rows):
+            if int(snapshot["node_count"]) != len(node_rows) or int(snapshot["edge_count"]) != len(
+                edge_rows
+            ):
                 return None
             record = GraphRecord(
                 key=key,
@@ -140,9 +140,7 @@ class SqliteGraphStore:
                     for row in edge_rows
                 ],
             )
-            if str(snapshot["payload_digest"]) != graph_record_digest(
-                record.nodes, record.edges
-            ):
+            if str(snapshot["payload_digest"]) != graph_record_digest(record.nodes, record.edges):
                 return None
             return record
         except (TypeError, ValueError, KeyError, json.JSONDecodeError, ValidationError):
@@ -382,8 +380,7 @@ def ensure_schema(connection: sqlite3.Connection) -> None:
         """
     )
     snapshot_columns = {
-        str(row[1])
-        for row in connection.execute("PRAGMA table_info(graph_snapshots)").fetchall()
+        str(row[1]) for row in connection.execute("PRAGMA table_info(graph_snapshots)").fetchall()
     }
     if "payload_digest" not in snapshot_columns:
         connection.execute(
