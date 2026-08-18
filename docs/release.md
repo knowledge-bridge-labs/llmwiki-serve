@@ -95,6 +95,33 @@ versioned release or public release candidate.
    parameter, raw key, cached payload, private path, or wiki snippet was
    recorded.
 
+   For releases that change SQLite GraphStore behavior, also run the focused
+   graph-store and graph-engine gates:
+
+   ```bash
+   uv run pytest -q tests/test_sqlite_graph_store.py tests/test_graph_engine.py
+   uv run pytest -q tests/test_service.py tests/test_public_api.py -p no:cacheprovider
+   ```
+
+   Manual SQLite GraphStore smoke should use a non-sensitive fixture and a
+   graph-store path outside the served root:
+
+   ```bash
+   uv run llmwiki-serve serve ./examples/sample-wiki \
+     --host 127.0.0.1 \
+     --port 8765 \
+     --graph-store sqlite \
+     --graph-store-path .runtime-logs/sample-wiki-graph.sqlite
+   ```
+
+   Verify `/manifest` advertises `llmwiki_graph_store_sqlite`, call
+   `/graph?limit=500` twice to cover cache write then cache hit, and verify
+   `/graph/neighborhood?seed=hot&depth=1&limit=20` returns a closed graph.
+   Confirm the SQLite file remains untracked and outside the served source
+   root. Do not publish the SQLite file, raw rows, local paths, or private graph
+   snippets. For GraphRAG readiness, verify HTTP and MCP graph tools return the
+   same evidence paths as normal no-store serving for the same source.
+
    For releases that change optional semantic retrieval preview behavior, also
    run the vector gates without publishing raw cache artifacts, local roots,
    model local paths, raw vectors, snippets, or private queries:

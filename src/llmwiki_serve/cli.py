@@ -16,6 +16,7 @@ from .api import (
     QUERY_LIMIT_MIN,
     create_app,
 )
+from .graph_store import GraphStoreBackend, GraphStoreFailurePolicy, create_graph_store
 from .instances import (
     HEALTH_PROBE_TIMEOUT_SECONDS,
     InstanceInfo,
@@ -234,11 +235,35 @@ ProjectionStoreOption: TypeAlias = Annotated[
         help=("Projection cache backend. Use redis only after installing llmwiki-serve\\[redis]."),
     ),
 ]
+GraphStoreOption: TypeAlias = Annotated[
+    GraphStoreBackend | None,
+    typer.Option(
+        "--graph-store",
+        help="Derived graph snapshot cache backend. Use sqlite for a local sidecar cache.",
+    ),
+]
+GraphStorePathOption: TypeAlias = Annotated[
+    Path | None,
+    typer.Option(
+        "--graph-store-path",
+        help=(
+            "SQLite database path for --graph-store=sqlite. Must be outside the served root. "
+            "Env: LLMWIKI_GRAPH_STORE_PATH."
+        ),
+    ),
+]
 RedisFailurePolicyOption: TypeAlias = Annotated[
     RedisFailurePolicy,
     typer.Option(
         "--redis-failure-policy",
         help="Redis outage behavior. fallback-local keeps serving from process memory.",
+    ),
+]
+GraphStoreFailurePolicyOption: TypeAlias = Annotated[
+    GraphStoreFailurePolicy,
+    typer.Option(
+        "--graph-store-failure-policy",
+        help="GraphStore outage behavior. fallback-local keeps serving from process memory.",
     ),
 ]
 GraphDefaultLimitOption: TypeAlias = Annotated[
@@ -572,6 +597,8 @@ def serve(
     producer_manifest: ProducerManifestOption = None,
     io_log: IoLogOption = None,
     projection_store_backend: ProjectionStoreOption = None,
+    graph_store_backend: GraphStoreOption = None,
+    graph_store_path: GraphStorePathOption = None,
     redis_url: Annotated[
         str | None,
         typer.Option(
@@ -580,6 +607,7 @@ def serve(
         ),
     ] = None,
     redis_failure_policy: RedisFailurePolicyOption = "fallback-local",
+    graph_store_failure_policy: GraphStoreFailurePolicyOption = "fallback-local",
     cache_namespace: Annotated[
         str | None,
         typer.Option(
@@ -641,7 +669,9 @@ def serve(
 
     try:
         projection_backend = resolve_projection_store_backend(projection_store_backend)
+        graph_backend = resolve_graph_store_backend(graph_store_backend)
         resolved_redis_url = redis_url or os.getenv("LLMWIKI_REDIS_URL")
+        resolved_graph_store_path = resolve_graph_store_path(graph_store_path, root=root)
         resolved_namespace = cache_namespace or os.getenv("LLMWIKI_CACHE_NAMESPACE") or "default"
         resolved_source_id = source_id or os.getenv("LLMWIKI_SOURCE_ID")
         resolved_graph_default_limit = resolve_int_option_env(
@@ -679,6 +709,7 @@ def serve(
             redis_url=resolved_redis_url,
             redis_failure_policy=redis_failure_policy,
         )
+        graph_store = create_graph_store(graph_backend, path=resolved_graph_store_path)
         preflight_service = LlmWikiService(
             root,
             refresh_interval_seconds=refresh_interval_seconds,
@@ -689,6 +720,8 @@ def serve(
             managed_context=resolved_managed_context,
             analyzer_profile=resolved_analyzer_profile,
             vector_config=resolved_vector_config,
+            graph_store=graph_store,
+            graph_store_failure_policy=graph_store_failure_policy,
         )
         preflight_service.index()
         fastapi_app = create_app(
@@ -710,6 +743,8 @@ def serve(
             mcp_tool_description_prefix=resolved_mcp_tool_description_prefix,
             analyzer_profile=resolved_analyzer_profile,
             vector_config=resolved_vector_config,
+            graph_store=graph_store,
+            graph_store_failure_policy=graph_store_failure_policy,
         )
     except FileNotFoundError as exc:
         exit_with_error(str(exc))
@@ -752,6 +787,31 @@ def resolve_projection_store_backend(
     if env_value:
         raise ValueError("LLMWIKI_PROJECTION_STORE must be 'memory' or 'redis'")
     return "memory"
+
+
+def resolve_graph_store_backend(value: GraphStoreBackend | None) -> GraphStoreBackend:
+    if value is not None:
+        return value
+    env_value = os.getenv("LLMWIKI_GRAPH_STORE")
+    if env_value in {"none", "sqlite"}:
+        return cast(GraphStoreBackend, env_value)
+    if env_value:
+        raise ValueError("LLMWIKI_GRAPH_STORE must be 'none' or 'sqlite'")
+    return "none"
+
+
+def resolve_graph_store_path(value: Path | None, *, root: Path) -> Path | None:
+    path = value
+    if path is None:
+        env_value = os.getenv("LLMWIKI_GRAPH_STORE_PATH")
+        path = Path(env_value) if env_value else None
+    if path is None:
+        return None
+    resolved = path.expanduser().resolve(strict=False)
+    resolved_root = root.expanduser().resolve(strict=False)
+    if resolved == resolved_root or resolved_root in resolved.parents:
+        raise ValueError("--graph-store-path must be outside the served root")
+    return resolved
 
 
 def cli_service(

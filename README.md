@@ -174,6 +174,21 @@ source-changing build. Without that contract, keep the default strict source
 scan or use `--refresh-interval-seconds` when a short visibility delay is
 acceptable.
 
+For graph-heavy local servers, add an optional SQLite-derived graph cache
+without changing the source folder:
+
+```bash
+llmwiki-serve serve /path/to/wiki-folder \
+  --host 127.0.0.1 \
+  --port 8765 \
+  --graph-store sqlite \
+  --graph-store-path ../.llmwiki-cache/wiki-graph.sqlite
+```
+
+The graph store path must be outside the served wiki root. It caches projected
+graph snapshots for `/graph`, `/graph/neighborhood`, and MCP graph tools; it is
+not the source of truth and can be deleted safely.
+
 Pin the version listed in the
 [Release Status & Compatibility](https://knowledge-bridge-labs.github.io/llmwiki-docs/status)
 matrix when you need a reproducible public-preview package install:
@@ -489,6 +504,11 @@ details unless documented here.
   `memory` or `redis`. Memory diagnostics return `endpoint: null`; Redis
   diagnostics return a sanitized endpoint label with userinfo, query
   parameters, and fragments removed.
+- Local or single-node deployments that need repeated graph traversal can start
+  `serve` with `--graph-store sqlite --graph-store-path <outside-root.sqlite>`.
+  SQLite GraphStore stores visibility-scoped derived graph snapshots only. It
+  is not a source file, not a vector store, not a raw query database, and not a
+  replacement for source freshness checks.
 - Draft and unpublished pages are withheld by default from read, search,
   context, and graph responses. Visibility blocks explicit non-serving markers:
   `draft: true`, `published: false`, `publish: false`,
@@ -613,6 +633,37 @@ They are not bundled defaults in this preview. For the full boundary, scoring
 constants, fallback rules, and benchmark posture, see the
 [semantic vector retrieval spec](specs/semantic-vector-retrieval/spec.md) and
 [vector retrieval ADR](docs/decisions/2026-08-01-optional-source-owned-semantic-vector-retrieval-boundary.md).
+
+## Optional SQLite GraphStore
+
+SQLite GraphStore is an opt-in derived graph snapshot cache for local and
+single-node deployments. It uses Python's standard `sqlite3` module, so no
+extra package is required:
+
+```bash
+llmwiki-serve serve ./wiki \
+  --graph-store sqlite \
+  --graph-store-path ../.llmwiki-cache/wiki-graph.sqlite
+```
+
+Use it when the same long-running server repeatedly serves graph-heavy
+requests or when agent workflows call `/graph`, `/graph/neighborhood`,
+`llmwiki_graph`, or `llmwiki_graph_neighbors` many times over the same
+projection. The cache key includes schema version, `--cache-namespace`,
+source id, bundle id, projection signature, and draft visibility scope. Source
+changes produce a new projection signature and therefore a new graph snapshot.
+
+The SQLite file is sensitive derived local state. It stores graph node labels,
+paths, relations, source-ref and tag nodes, and metadata after visibility
+filtering. Keep it outside the served root, protect it like the source wiki,
+and do not publish the file, raw rows, or private graph snippets. If the file
+is missing, invalid, or stale, the server recomputes the graph from the current
+projection; `--graph-store-failure-policy fail-fast` stops on backend errors.
+
+SQLite GraphStore is not a graph query language backend. The public graph
+surface remains the existing bounded graph APIs. The internal typed graph
+provider is structured and raw-query-free; future production graph backends
+should preserve that safe contract.
 
 ## Optional Redis/Valkey Projection Cache
 

@@ -10,6 +10,8 @@ ReviewState = Literal[
     "approved", "reviewed", "verified", "draft", "proposed", "needs_review", "unknown"
 ]
 GraphNeighborhoodDirection = Literal["out", "in", "both"]
+GraphQueryDirection: TypeAlias = GraphNeighborhoodDirection
+GraphQueryOperation = Literal["neighbors", "backlinks", "paths", "by_source_ref", "by_tag"]
 SearchMode = Literal["lexical", "literal", "vector", "hybrid"]
 RetrievalGuidanceOrientationSource = Literal["authored", "projection_extractive", "none"]
 RetrievalGuidanceContentTrust = Literal["untrusted_source_evidence"]
@@ -75,6 +77,45 @@ class GraphEdge(BaseModel):
     target: str
     relation: str
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class GraphProviderCapabilities(BaseModel):
+    backend_kind: str
+    query_language: Literal["typed", "cypher", "sql", "sql-pgq"] = "typed"
+    persistent: bool = False
+    local_only: bool = True
+    snapshot_cache: bool = False
+    structured_query: bool = True
+    raw_query: bool = False
+    vector_search: bool = False
+    full_text_search: bool = False
+    safe_for_default: bool = True
+    limitations: list[str] = Field(default_factory=list)
+
+
+class GraphQueryPath(BaseModel):
+    node_ids: list[str] = Field(default_factory=list)
+    edges: list[GraphEdge] = Field(default_factory=list)
+
+
+class GraphQueryRequest(BaseModel):
+    operation: GraphQueryOperation = "neighbors"
+    start_node_id: str = ""
+    target_node_id: str = ""
+    source_ref: str = ""
+    tag: str = ""
+    direction: GraphQueryDirection = "both"
+    relation_allowlist: list[str] = Field(default_factory=list)
+    max_depth: int = Field(default=1, ge=0, le=8)
+    limit: int = Field(default=50, ge=1, le=500)
+
+
+class GraphQueryResponse(BaseModel):
+    provider: GraphProviderCapabilities
+    operation: GraphQueryOperation
+    nodes: list[GraphNode] = Field(default_factory=list)
+    edges: list[GraphEdge] = Field(default_factory=list)
+    paths: list[GraphQueryPath] = Field(default_factory=list)
 
 
 class SearchResult(BaseModel):
