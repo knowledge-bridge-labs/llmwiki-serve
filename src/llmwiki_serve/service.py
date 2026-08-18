@@ -11,6 +11,15 @@ from pathlib import Path
 from typing import Any, Literal
 
 from .adapters import load_wiki
+from .graph_engine import GraphEngineProvider, InMemoryGraphEngineProvider
+from .graph_store import (
+    GraphStore,
+    GraphStoreFailurePolicy,
+    GraphStoreKey,
+    GraphVisibilityScope,
+    graph_record_for_view,
+    safe_graph_store_error,
+)
 from .guided_retrieval import (
     AGENT_GUIDED_LEXICAL_CAPABILITY,
     build_retrieval_guidance,
@@ -30,6 +39,8 @@ from .models import (
     GraphNeighborhoodDirection,
     GraphNeighborhoodResponse,
     GraphNode,
+    GraphQueryRequest,
+    GraphQueryResponse,
     ProjectionMetadata,
     RawOriginsMetadata,
     RetrievalGuidanceFallbackMode,
@@ -154,11 +165,16 @@ class LlmWikiService:
         analyzer_profile: AnalyzerProfile = DEFAULT_ANALYZER_PROFILE,
         vector_config: bool | VectorConfig | None = None,
         vector_provider: EmbeddingProvider | None = None,
+        graph_store: GraphStore | None = None,
+        graph_store_failure_policy: GraphStoreFailurePolicy = "fallback-local",
+        graph_engine: GraphEngineProvider | None = None,
         clock: Callable[[], float] | None = None,
         _managed_context_clock: Callable[[], float] | None = None,
     ) -> None:
         if refresh_interval_seconds < 0:
             raise ValueError("refresh_interval_seconds must be non-negative")
+        if graph_store_failure_policy not in {"fallback-local", "fail-fast"}:
+            raise ValueError("graph_store_failure_policy must be fallback-local or fail-fast")
         self.root = Path(root)
         self.refresh_interval_seconds = refresh_interval_seconds
         self.projection_store = projection_store or InMemoryProjectionStore()
@@ -184,6 +200,9 @@ class LlmWikiService:
             )
         self._vector_provider_override = vector_provider
         self._vector_provider: EmbeddingProvider | None = vector_provider
+        self._graph_store = graph_store
+        self._graph_store_failure_policy = graph_store_failure_policy
+        self._graph_engine = graph_engine or InMemoryGraphEngineProvider()
         self._vector_provider_lock = threading.RLock()
         self._vector_cache: VectorIndexCache | None = None
         self._loaded_vector_indexes: dict[tuple[str, ...], VectorIndex] = {}
@@ -319,6 +338,11 @@ class LlmWikiService:
             "llmwiki_search_mode_literal",
         ]
         capabilities.extend(self._vector_capabilities())
+        if self._graph_store is not None:
+            capabilities.append("llmwiki_graph_store")
+            backend_kind = getattr(self._graph_store, "backend_kind", "")
+            if backend_kind == "sqlite":
+                capabilities.append("llmwiki_graph_store_sqlite")
         if enable_a2a_compat:
             capabilities.append("a2a-message")
         source_id = self._source_id_for_index(index)
@@ -914,7 +938,7 @@ class LlmWikiService:
     def graph(
         self, *, limit: int = DEFAULT_GRAPH_LIMIT, include_drafts: bool = False
     ) -> dict[str, list[dict[str, Any]]]:
-        return self._index_views().graph_view(include_drafts).payload(limit)
+        return self._graph_view(include_drafts=include_drafts).payload(limit)
 
     def graph_neighbors(
         self,
@@ -926,7 +950,7 @@ class LlmWikiService:
         limit: int = 50,
         include_drafts: bool = False,
     ) -> GraphNeighborhoodResponse:
-        graph = self._index_views().graph_view(include_drafts)
+        graph = self._graph_view(include_drafts=include_drafts)
         normalized_seeds = [item.strip() for item in seeds or [] if item.strip()]
         normalized_relations = normalize_relations(relations or [])
         resolved_seeds, unmatched = graph.resolve_seeds(normalized_seeds)
@@ -945,6 +969,64 @@ class LlmWikiService:
             relations=normalized_relations,
             nodes=neighborhood.nodes,
             edges=neighborhood.edges,
+        )
+
+    def graph_query(
+        self, request: GraphQueryRequest, *, include_drafts: bool = False
+    ) -> GraphQueryResponse:
+        graph = self._graph_view(include_drafts=include_drafts)
+        normalized_request = request.model_copy(
+            update={"relation_allowlist": normalize_relations(request.relation_allowlist)}
+        )
+        return self._graph_engine.query(
+            list(graph.nodes),
+            list(graph.edges),
+            normalized_request,
+        )
+
+    def _graph_view(self, *, include_drafts: bool) -> _GraphView:
+        snapshot = self._index_snapshot()
+        if self._graph_store is None:
+            return self._index_views(snapshot.index).graph_view(include_drafts)
+
+        key = self._graph_store_key(snapshot, include_drafts=include_drafts)
+        try:
+            record = self._graph_store.get(key)
+            if record is not None:
+                return _GraphView.build(record.nodes, record.edges)
+        except Exception as exc:
+            if self._graph_store_failure_policy == "fail-fast":
+                raise RuntimeError(f"GraphStore failed: {safe_graph_store_error(exc)}") from exc
+
+        graph = self._index_views(snapshot.index).graph_view(include_drafts)
+        try:
+            self._graph_store.put(
+                graph_record_for_view(
+                    key,
+                    list(graph.nodes),
+                    list(graph.edges),
+                )
+            )
+        except Exception as exc:
+            if self._graph_store_failure_policy == "fail-fast":
+                raise RuntimeError(f"GraphStore failed: {safe_graph_store_error(exc)}") from exc
+        return graph
+
+    def _graph_store_key(
+        self,
+        snapshot: _RetrievalSnapshot,
+        *,
+        include_drafts: bool,
+    ) -> GraphStoreKey:
+        source_id = self._source_id_for_index(snapshot.index)
+        projection_signature = snapshot.projection_signature_digest
+        scope: GraphVisibilityScope = "all" if include_drafts else "approved"
+        return GraphStoreKey(
+            namespace=self.cache_namespace,
+            source_id=source_id,
+            bundle_id=source_bundle_id(source_id, projection_signature),
+            projection_signature=projection_signature,
+            visibility_scope=scope,
         )
 
 

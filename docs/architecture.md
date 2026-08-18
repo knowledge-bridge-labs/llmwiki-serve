@@ -256,6 +256,60 @@ orchestration state belong to host agents, `llmwiki-agent-bridge`,
 vector databases, remote embedding providers, and cross-source orchestration
 remain outside this boundary.
 
+## SQLite GraphStore
+
+SQLite GraphStore is a separate derived cache for visibility-filtered graph
+snapshots. It is not the `ProjectionStore`: Redis/Valkey caches hydrated
+`WikiIndex` projections, while SQLite GraphStore caches the graph view produced
+from a current projection for `/graph`, `/graph/neighborhood`, MCP graph tools,
+and internal typed graph queries.
+
+The default graph store backend is `none`. Operators opt in with:
+
+```bash
+llmwiki-serve serve ./wiki \
+  --graph-store sqlite \
+  --graph-store-path ../.llmwiki-cache/wiki-graph.sqlite
+```
+
+`LLMWIKI_GRAPH_STORE=sqlite` and `LLMWIKI_GRAPH_STORE_PATH=<path>` provide the
+same opt-in for process managers. The default backend is `none`; an explicit
+`--graph-store none` disables the GraphStore and ignores
+`LLMWIKI_GRAPH_STORE_PATH`. SQLite requires a graph-store path. CLI
+graph-store paths are resolved before startup and rejected when they are equal
+to or nested under the served source root. This preserves the read-only
+source-folder guarantee. Library callers can inject a `GraphStore` instance
+directly when embedding the service.
+
+GraphStore keys include schema version, namespace, source id, bundle id,
+projection signature, and visibility scope (`approved` or `all`). Approved-only
+and draft-inclusive graph snapshots are therefore distinct. Source changes
+produce a new projection signature and miss the old graph snapshot. Snapshot
+rows include a payload digest, so malformed JSON, row-count mismatch, or
+digest mismatch is treated as a cache miss instead of served graph evidence.
+
+Missing, invalid, stale, malformed, or digest-mismatched SQLite snapshots are
+cache misses and recompute the graph from the current projection. Startup
+configuration remains strict: the SQLite path must be supplied, outside the
+served root, and openable before serving starts. After startup, `fallback-local`
+is the default failure policy and recomputes from the current projection on
+backend exceptions. `fail-fast` raises a redacted runtime error instead. Error
+messages do not include local source paths or raw SQLite details.
+
+SQLite GraphStore does not expose raw SQL or Cypher to HTTP or MCP clients. The
+public graph contract remains bounded full-graph and neighborhood lookup. The
+internal graph engine provider uses typed operations such as neighbors,
+backlinks, paths, by-source-ref, and by-tag over the normalized graph. Future
+production graph backends should implement this structured contract before any
+raw query language is considered.
+
+The next production graph persistence target after this SQLite release is
+ordinary PostgreSQL tables for `nodes` and `edges` plus indexes and bounded
+recursive CTE traversal. PostgreSQL 19 SQL/PGQ is the preferred future native
+graph-query path after PostgreSQL 19 is generally available and managed
+provider support is proven. Apache AGE remains optional/provider-specific, not
+the default production path.
+
 ## Optional Semantic Vector Retrieval
 
 This is an opt-in semantic retrieval preview. The public retrieval enum is

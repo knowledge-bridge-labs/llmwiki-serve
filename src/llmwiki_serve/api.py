@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field, field_validator
 from . import __version__
 from .adapters import WikiRootError
 from .errors import LlmWikiUserError
+from .graph_store import GraphStore, GraphStoreFailurePolicy
 from .guided_retrieval import (
     AGENT_GUIDED_LEXICAL_CAPABILITY,
     validate_public_query_variants,
@@ -321,6 +322,8 @@ def create_app(
     analyzer_profile: PublicAnalyzerProfile = DEFAULT_PUBLIC_ANALYZER_PROFILE,
     vector_config: bool | VectorConfig | None = None,
     vector_provider: EmbeddingProvider | None = None,
+    graph_store: GraphStore | None = None,
+    graph_store_failure_policy: GraphStoreFailurePolicy = "fallback-local",
 ) -> FastAPI:
     resolved_graph_default_limit = validate_default_limit(
         graph_default_limit,
@@ -356,6 +359,8 @@ def create_app(
         analyzer_profile=resolved_analyzer_profile,
         vector_config=resolved_vector_config,
         vector_provider=vector_provider,
+        graph_store=graph_store,
+        graph_store_failure_policy=graph_store_failure_policy,
     )
     mcp_stream = create_mcp_stream_server(
         service,
