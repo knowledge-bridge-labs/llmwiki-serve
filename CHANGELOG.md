@@ -7,6 +7,30 @@ This project follows a lightweight public-preview changelog format. Dates use
 
 ## Unreleased
 
+## 0.2.10 - 2026-08-18
+
+- Added an opt-in SQLite GraphStore for visibility-scoped derived graph
+  snapshots. The base package includes the SQLite-backed cache through Python's
+  standard `sqlite3` module; no `[sqlite]` or `[graph]` extra is required.
+  Default serving remains unchanged with no graph store configured.
+- Added `--graph-store none|sqlite`, `--graph-store-path`, and
+  `--graph-store-failure-policy` to `serve`, plus
+  `LLMWIKI_GRAPH_STORE` and `LLMWIKI_GRAPH_STORE_PATH` environment
+  configuration for process managers. SQLite paths must stay outside the
+  served source root.
+- Routed `/graph`, `/graph/neighborhood`, `llmwiki_graph`, and
+  `llmwiki_graph_neighbors` through the GraphStore when configured while
+  preserving the existing HTTP and MCP response contracts.
+- Added an internal typed graph query provider for bounded GraphRAG-style
+  operations over projected nodes and edges without exposing raw SQL, Cypher,
+  or another raw query language over public HTTP or MCP surfaces.
+- Added cache keying, payload digests, stale/corrupt cache misses, draft
+  visibility isolation, source-change invalidation, fallback-local runtime
+  behavior, fail-fast runtime policy, and non-SQLite file safety tests.
+- Documented the SQLite GraphStore architecture, release gates, sensitive
+  derived-cache handling, and the PostgreSQL 19 SQL/PGQ re-evaluation path for
+  future production graph backends.
+
 ## 0.2.9 - 2026-08-01
 
 - Documented agent-guided lexical retrieval as the recommended direct-agent
