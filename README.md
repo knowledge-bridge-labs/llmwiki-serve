@@ -45,9 +45,9 @@ enterprise auth, model runtime hosting, or certified MCP/A2A platform claims.
 > [Release Status & Compatibility](https://knowledge-bridge-labs.github.io/llmwiki-docs/status)
 > matrix.
 > Source checkout remains supported for local development and release smoke tests.
-> The published PyPI `0.2.9` package README is immutable. This GitHub README
-> documents the `0.2.10` release line and will be included in the `0.2.10`
-> package; it does not change the already-published `0.2.9` distribution.
+> The published PyPI `0.2.10` package README is immutable. This GitHub README
+> documents the `0.2.11` release line and will be included in the `0.2.11`
+> package; it does not change the already-published `0.2.10` distribution.
 
 ## Start Here
 
@@ -65,6 +65,18 @@ to see `llmwiki-serve` project an already-existing LLMWiki, Markdown, or
 Obsidian-style folder as a read-only Knowledge Source.
 
 [![First-run demo poster](https://knowledge-bridge-labs.github.io/llmwiki-docs/demo/first-run/first-run-poster.png)](https://knowledge-bridge-labs.github.io/llmwiki-docs/demo)
+
+## 0.2.11 Highlights
+
+- MCP `2026-07-28` Streamable HTTP discovery: `/mcp/stream` accepts
+  `server/discover`, advertises supported protocol versions and source
+  capabilities, and returns private non-cacheable discovery envelopes.
+- Progressive MCP metadata: source tools include output schemas,
+  `structuredContent`, and read-only annotations; resources and templates carry
+  audience and priority hints for compatible clients.
+- Sessionless source endpoint behavior: modern `/mcp/stream` responses do not
+  issue `Mcp-Session-Id`, while legacy `/mcp` and existing HTTP routes stay
+  backward compatible.
 
 ## 0.2.10 Highlights
 
@@ -210,7 +222,7 @@ Pin the version listed in the
 matrix when you need a reproducible public-preview package install:
 
 ```bash
-uv tool install llmwiki-serve==0.2.10
+uv tool install llmwiki-serve==0.2.11
 ```
 
 ## Contributor Development Path

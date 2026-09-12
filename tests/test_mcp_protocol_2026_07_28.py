@@ -22,6 +22,12 @@ EXPECTED_TOOL_NAMES = [
     "llmwiki_source_bundle",
 ]
 EXPECTED_RESOURCE_NAMES = ["artwork-review", "hot", "index", "requester-return"]
+EXPECTED_READ_ONLY_TOOL_ANNOTATIONS = {
+    "readOnlyHint": True,
+    "destructiveHint": False,
+    "openWorldHint": False,
+}
+EXPECTED_PAGE_TEMPLATE_ANNOTATIONS = {"audience": ["assistant"], "priority": 0.7}
 SOURCE_QUERY_PROMPT_NAME = "llmwiki_source_grounded_query"
 
 
@@ -101,8 +107,12 @@ def test_mcp_streamable_http_supports_2026_07_28_modern_requests() -> None:
     tool_names = [tool["name"] for tool in tools_result["tools"]]
     assert tool_names == EXPECTED_TOOL_NAMES
     assert all(tool["inputSchema"]["type"] == "object" for tool in tools_result["tools"])
+    assert all("outputSchema" in tool for tool in tools_result["tools"])
     assert all(
-        tool["_meta"]["io.modelcontextprotocol/serverInfo"]["version"] == "0.2.10"
+        tool["annotations"] == EXPECTED_READ_ONLY_TOOL_ANNOTATIONS for tool in tools_result["tools"]
+    )
+    assert all(
+        tool["_meta"]["io.modelcontextprotocol/serverInfo"]["version"] == "0.2.11"
         for tool in [
             context,
             search,
@@ -169,9 +179,19 @@ def test_mcp_streamable_http_resources_and_prompts_are_source_scoped() -> None:
         for resource in resources["resources"]
     )
     assert all(resource["mimeType"] == "text/markdown" for resource in resources["resources"])
+    resource_annotations = {
+        resource["name"]: resource["annotations"] for resource in resources["resources"]
+    }
+    assert resource_annotations == {
+        "artwork-review": {"audience": ["assistant"], "priority": 0.55},
+        "hot": {"audience": ["assistant"], "priority": 1.0},
+        "index": {"audience": ["assistant"], "priority": 0.95},
+        "requester-return": {"audience": ["assistant"], "priority": 0.55},
+    }
     assert "draft-note" not in [resource["name"] for resource in resources["resources"]]
     assert templates["resourceTemplates"] == [
         {
+            "annotations": EXPECTED_PAGE_TEMPLATE_ANNOTATIONS,
             "description": (
                 "Read an approved page from a served LLMWiki source by source id and page id."
             ),
@@ -407,9 +427,7 @@ def test_mcp_streamable_http_enforces_2026_07_28_request_metadata_and_header_con
     assert current_client_empty_meta_result["structuredContent"]["answerable"] is True
     partial_meta_result = assert_mcp_success(partial_meta_tools, 7)["result"]
     assert [tool["name"] for tool in partial_meta_result["tools"]] == EXPECTED_TOOL_NAMES
-    missing_name_result = cast(
-        dict[str, Any], assert_mcp_success(missing_name_header, 8)["result"]
-    )
+    missing_name_result = cast(dict[str, Any], assert_mcp_success(missing_name_header, 8)["result"])
     assert missing_name_result["structuredContent"]["answerable"] is True
     assert_mcp_error(
         mismatched_method_header,
@@ -466,7 +484,7 @@ def test_mcp_streamable_http_legacy_initialize_still_works() -> None:
     assert payload["result"]["protocolVersion"] == "2025-11-25"
     assert payload["result"]["serverInfo"] == {
         "name": "Sample Packaging LLMWiki - LLMWiki Serve",
-        "version": "0.2.10",
+        "version": "0.2.11",
     }
 
 

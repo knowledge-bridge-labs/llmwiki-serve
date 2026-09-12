@@ -17,6 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ResourceNotFoundError, ToolError
+from mcp.types import Annotations, ToolAnnotations
 from mcp.types import Resource as MCPResource
 from pydantic import BaseModel, Field, field_validator
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
@@ -112,6 +113,21 @@ MCP_TOOL_BASE_DESCRIPTIONS = {
         "Return the source bundle manifest with typed source-reference handles."
     ),
 }
+MCP_READ_ONLY_TOOL_ANNOTATIONS = ToolAnnotations(
+    read_only_hint=True,
+    destructive_hint=False,
+    open_world_hint=False,
+)
+MCP_PAGE_RESOURCE_TEMPLATE_ANNOTATIONS = Annotations(
+    audience=["assistant"],
+    priority=0.7,
+)
+MCP_PAGE_RESOURCE_PRIORITY_BY_ROLE: dict[str, float] = {
+    "hot": 1.0,
+    "index": 0.95,
+    "overview": 0.9,
+    "topic": 0.55,
+}
 McpQueryVariants = Annotated[
     tuple[str, ...],
     Field(
@@ -168,6 +184,7 @@ class LlmWikiMCPServer(MCPServer):
                 title=page.title,
                 description=f"Approved {page.role} page from {manifest.source_id}.",
                 mime_type=MCP_PAGE_RESOURCE_MIME_TYPE,
+                annotations=mcp_page_resource_annotations(page),
                 _meta={
                     "io.llmwiki/sourceId": manifest.source_id,
                     "io.llmwiki/pageId": page.id,
@@ -322,9 +339,15 @@ def validate_mcp_streamable_http_request(
         return None
 
     params = request_body.get("params")
-    params_is_object = isinstance(params, dict)
-    meta_supplied = params_is_object and "_meta" in params
-    body_meta = params.get("_meta") if params_is_object else None
+    request_params: dict[str, Any] | None
+    if isinstance(params, dict):
+        request_params = params
+        meta_supplied = "_meta" in params
+        body_meta = params.get("_meta")
+    else:
+        request_params = None
+        meta_supplied = False
+        body_meta = None
     protocol_header = header_value(headers, "mcp-protocol-version")
     method_header = header_value(headers, "mcp-method")
 
@@ -374,7 +397,7 @@ def validate_mcp_streamable_http_request(
                 f"request params._meta.{MCP_META_CLIENT_CAPABILITIES} is malformed",
             )
 
-    expected_name = mcp_required_name_value(method, params)
+    expected_name = mcp_required_name_value(method, request_params)
     if expected_name is not None:
         name_header = header_value(headers, "mcp-name")
         if name_header and decode_mcp_header_value(name_header) != expected_name:
@@ -1285,6 +1308,13 @@ def mcp_page_resource_uri(source_id: str, page_id: str) -> str:
     return f"llmwiki://{quote(source_id, safe='-._~')}/pages/{quote(page_id, safe='-._~')}"
 
 
+def mcp_page_resource_annotations(page: WikiPage) -> Annotations:
+    return Annotations(
+        audience=["assistant"],
+        priority=MCP_PAGE_RESOURCE_PRIORITY_BY_ROLE.get(page.role, 0.55),
+    )
+
+
 def disable_mcp_subscription_capabilities(mcp_stream: MCPServer) -> None:
     lowlevel_server = getattr(mcp_stream, "_lowlevel_server", None)
     request_handlers = getattr(lowlevel_server, "_request_handlers", None)
@@ -1341,6 +1371,7 @@ def create_mcp_stream_server(
         title="LLMWiki Page",
         description="Read an approved page from a served LLMWiki source by source id and page id.",
         mime_type=MCP_PAGE_RESOURCE_MIME_TYPE,
+        annotations=MCP_PAGE_RESOURCE_TEMPLATE_ANNOTATIONS,
     )
     def llmwiki_page(source_id: str, page_id: str) -> str:
         try:
@@ -1384,6 +1415,7 @@ def create_mcp_stream_server(
     @mcp_stream.tool(
         name="llmwiki_context",
         description=metadata.tool_descriptions["llmwiki_context"],
+        annotations=MCP_READ_ONLY_TOOL_ANNOTATIONS,
     )
     def llmwiki_context(
         query: str = "",
@@ -1427,6 +1459,7 @@ def create_mcp_stream_server(
     @mcp_stream.tool(
         name="llmwiki_search",
         description=metadata.tool_descriptions["llmwiki_search"],
+        annotations=MCP_READ_ONLY_TOOL_ANNOTATIONS,
     )
     def llmwiki_search(
         query: str = "",
@@ -1472,6 +1505,7 @@ def create_mcp_stream_server(
     @mcp_stream.tool(
         name="llmwiki_read",
         description=metadata.tool_descriptions["llmwiki_read"],
+        annotations=MCP_READ_ONLY_TOOL_ANNOTATIONS,
     )
     def llmwiki_read(
         page_id: str,
@@ -1490,6 +1524,7 @@ def create_mcp_stream_server(
     @mcp_stream.tool(
         name="llmwiki_graph",
         description=metadata.tool_descriptions["llmwiki_graph"],
+        annotations=MCP_READ_ONLY_TOOL_ANNOTATIONS,
     )
     def llmwiki_graph(
         limit: int = resolved_graph_default_limit,
@@ -1511,6 +1546,7 @@ def create_mcp_stream_server(
     @mcp_stream.tool(
         name="llmwiki_graph_neighbors",
         description=metadata.tool_descriptions["llmwiki_graph_neighbors"],
+        annotations=MCP_READ_ONLY_TOOL_ANNOTATIONS,
     )
     def llmwiki_graph_neighbors(
         seed: str = "",
@@ -1542,6 +1578,7 @@ def create_mcp_stream_server(
     @mcp_stream.tool(
         name="llmwiki_source_refs",
         description=metadata.tool_descriptions["llmwiki_source_refs"],
+        annotations=MCP_READ_ONLY_TOOL_ANNOTATIONS,
     )
     def llmwiki_source_refs(include_drafts: bool = False) -> dict[str, Any]:
         try:
@@ -1554,6 +1591,7 @@ def create_mcp_stream_server(
     @mcp_stream.tool(
         name="llmwiki_source_bundle",
         description=metadata.tool_descriptions["llmwiki_source_bundle"],
+        annotations=MCP_READ_ONLY_TOOL_ANNOTATIONS,
     )
     def llmwiki_source_bundle(include_drafts: bool = False) -> dict[str, Any]:
         try:

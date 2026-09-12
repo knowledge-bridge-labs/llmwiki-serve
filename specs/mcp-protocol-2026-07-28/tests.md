@@ -6,13 +6,15 @@
   `_meta`, advertises `2026-07-28`, server info, tools capability, instructions,
   and cache fields.
 - Modern `tools/list` on `/mcp/stream` succeeds with protocol headers and
-  `_meta`, returns all seven tools in deterministic order, and includes
-  cacheable result fields.
+  `_meta`, returns all seven tools in deterministic order, includes cacheable
+  result fields, and advertises SDK-native `outputSchema` plus read-only tool
+  annotations.
 - Modern `tools/call` on `/mcp/stream` succeeds for representative context,
   graph-neighborhood, and source-bundle calls with matching `Mcp-Name` headers.
 - Modern `resources/list`, `resources/templates/list`, and `resources/read`
   expose source-scoped page resources and read one page through the same
-  visibility boundary as the read tool.
+  visibility boundary as the read tool. Page resources and the page template
+  include resource annotations for assistant-facing progressive discovery.
 - Modern `prompts/list` and `prompts/get` expose the
   `llmwiki_source_grounded_query` prompt.
 - Current-client-compatible modern `tools/call` requests without mirrored

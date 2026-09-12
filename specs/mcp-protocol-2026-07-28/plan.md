@@ -50,6 +50,7 @@
 
 ## Rollout
 
-Ship as a 0.2.10 main-line compatibility update. Release notes should describe
-the `/mcp/stream` modernization as preserving existing tools and paths while
-adding MCP `2026-07-28` request compatibility.
+Ship as a 0.2.11 additive compatibility update on top of the 0.2.10 GraphStore
+release. Release notes should describe the `/mcp/stream` modernization as
+preserving existing tools and paths while adding MCP `2026-07-28` request
+compatibility and progressive read-only metadata.

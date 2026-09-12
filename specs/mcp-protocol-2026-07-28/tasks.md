@@ -8,6 +8,7 @@
 - [x] Add the source-grounded query prompt.
 - [x] Add modern request header/name/meta validation around `/mcp/stream`.
 - [x] Add focused MCP protocol `2026-07-28` tests.
+- [x] Add progressive discovery annotations for read-only tools and page resources.
 - [x] Update sanitized release smoke probes and docs snippets.
 - [x] Run focused pytest.
 - [x] Run ruff and mypy where practical.

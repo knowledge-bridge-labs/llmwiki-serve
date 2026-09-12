@@ -7,6 +7,19 @@ This project follows a lightweight public-preview changelog format. Dates use
 
 ## Unreleased
 
+## 0.2.11 - 2026-09-13
+
+- Added MCP `2026-07-28` Streamable HTTP discovery metadata, including
+  `server/discover`, private cache hints, server `_meta`, structured tool
+  results, output schemas, and sessionless responses for source retrieval.
+- Added read-only MCP tool annotations for all source tools and resource
+  priority annotations for hot, index, overview, topic, and default pages so
+  compatible clients can progressively inspect source context with less schema
+  and resource guesswork.
+- Preserved the 0.2.10 HTTP, MCP JSON-RPC, GraphStore, graph endpoint, and CLI
+  behavior while treating `/mcp/stream` modernization as an additive
+  compatibility surface.
+
 ## 0.2.10 - 2026-08-18
 
 - Added an opt-in SQLite GraphStore for visibility-scoped derived graph

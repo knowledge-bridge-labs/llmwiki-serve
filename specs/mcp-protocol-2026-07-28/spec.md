@@ -21,6 +21,9 @@ per-request protocol metadata.
   `llmwiki_source_bundle`.
 - Add safe source-scoped MCP resources for page reads and one source-grounded
   prompt while preserving the seven existing tools.
+- Add SDK-native progressive discovery metadata for existing read-only tools
+  and page resources without introducing writable capabilities or notification
+  claims.
 - Support modern `2026-07-28` Streamable HTTP requests carrying
   `MCP-Protocol-Version`. Supplied `_meta` request metadata is validated
   strictly; known current clients that omit `_meta` are supported by
@@ -81,6 +84,12 @@ per-request protocol metadata.
   `_meta` protocol fields that conflict with `MCP-Protocol-Version` before SDK
   dispatch. Missing standard `_meta` fields are filled for current-client
   compatibility.
+- `REQ-MCP-2026-012`: Modern `tools/list` advertises SDK-native
+  `outputSchema` and read-only tool annotations for the existing seven tools.
+  Modern `resources/list` and `resources/templates/list` include page-resource
+  annotations that help clients rank source-scoped page context. These hints
+  must not advertise writable behavior, subscriptions, or list-change
+  notifications that the server does not implement.
 
 ## Compatibility
 
