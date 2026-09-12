@@ -348,7 +348,7 @@ All entry points use the same read-only service behavior.
 | CLI | `manifest`, `query`, `search`, `source-refs`, `source-bundle`, `serve`, `ls`, and `status`. |
 | HTTP | `GET /health`, `GET /manifest`, `GET /source-bundle`, `GET /source-refs`, `POST /query`, `POST /search`, `GET /read/{page_id}`, `GET /graph`, `GET /graph/neighborhood`. |
 | MCP-style JSON-RPC | `POST /mcp` with `tools/list` and `tools/call` for `llmwiki_context`, `llmwiki_search`, `llmwiki_read`, `llmwiki_graph`, `llmwiki_graph_neighbors`, `llmwiki_source_refs`, and `llmwiki_source_bundle`. |
-| MCP Streamable HTTP | `POST /mcp/stream` using the official MCP Python SDK FastMCP Streamable HTTP transport for the same seven tools. |
+| MCP Streamable HTTP | `POST /mcp/stream` using the official MCP Python SDK v2 `MCPServer` Streamable HTTP transport for the same seven tools. |
 | A2A-style compatibility | Off by default. Enable `GET /.well-known/agent-card.json` and `POST /message:send` with `llmwiki-serve serve --enable-a2a-compat` or `create_app(..., enable_a2a_compat=True)`. |
 
 `GET /health` is the lightweight readiness and discovery document for
@@ -400,8 +400,8 @@ advertise the matching capabilities. `snippet_chars`, result `fields`, and
 lexical/literal behavior and is rejected for vector or hybrid because vector
 cosine and hybrid RRF scores are mode-specific, not calibrated probabilities.
 
-MCP server metadata is scoped to the served wiki by default. The FastMCP server
-name, FastMCP instructions, and MCP tool descriptions include the manifest
+MCP server metadata is scoped to the served wiki by default. The SDK-backed
+MCP server name, instructions, and MCP tool descriptions include the manifest
 title, description, and source identity so clients can distinguish multiple
 wiki servers. Operators can override this text with `create_app(...,
 mcp_server_name=..., mcp_instructions=...,
@@ -811,9 +811,10 @@ smoke tests.
 
 The current protocol surface is HTTP plus MCP-style JSON-RPC, MCP Streamable
 HTTP, and opt-in A2A-style message shapes. The Streamable HTTP endpoint uses the
-official MCP Python SDK FastMCP transport; the compatibility endpoints are local
-agent and harness surfaces, not a claim of A2A certification, exhaustive runtime
-feature completeness, or upstream producer certification.
+official MCP Python SDK v2 transport and supports MCP `2026-07-28` modern
+requests on `/mcp/stream`; the compatibility endpoints are local agent and
+harness surfaces, not a claim of A2A certification, exhaustive runtime feature
+completeness, or upstream producer certification.
 
 ## Validation
 

@@ -22,6 +22,7 @@ from llmwiki_serve.adapters import (
 )
 from llmwiki_serve.api import (
     MCP_INTERNAL_FAILURE_MESSAGE,
+    MCP_PROTOCOL_VERSION,
     MCP_STREAM_PATH,
     MCP_UNKNOWN_TOOL_MESSAGE,
     MCP_UNSUPPORTED_METHOD_MESSAGE,
@@ -3745,7 +3746,7 @@ def test_invalid_default_limits_fail_early() -> None:
         create_app(FIXTURE, context_default_limit=31)
 
 
-def test_fastmcp_metadata_uses_manifest_scope_and_overrides() -> None:
+def test_mcpserver_metadata_uses_manifest_scope_and_overrides() -> None:
     mcp_stream = create_mcp_stream_server(LlmWikiService(FIXTURE))
     descriptions = {tool.name: tool.description for tool in mcp_stream._tool_manager.list_tools()}
     instructions = mcp_stream.instructions or ""
@@ -4051,11 +4052,6 @@ def test_quickstart_mcp_request_body_smoke() -> None:
 
 
 def test_mcp_streamable_http_tools_list_and_call_smoke() -> None:
-    headers = {
-        "accept": "application/json, text/event-stream",
-        "content-type": "application/json",
-    }
-
     with TestClient(
         create_app(FIXTURE),
         base_url="http://127.0.0.1:8000",
@@ -4063,29 +4059,27 @@ def test_mcp_streamable_http_tools_list_and_call_smoke() -> None:
     ) as client:
         tools_response = client.post(
             MCP_STREAM_PATH,
-            json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
-            headers=headers,
+            json=mcp_stream_request(1, "tools/list"),
+            headers=mcp_stream_headers("tools/list"),
         )
         call_response = client.post(
             MCP_STREAM_PATH,
-            json={
-                "jsonrpc": "2.0",
-                "id": 2,
-                "method": "tools/call",
-                "params": {
+            json=mcp_stream_request(
+                2,
+                "tools/call",
+                {
                     "name": "llmwiki_context",
                     "arguments": {"query": "required copy release readiness", "limit": 4},
                 },
-            },
-            headers=headers,
+            ),
+            headers=mcp_stream_headers("tools/call", "llmwiki_context"),
         )
         search_response = client.post(
             MCP_STREAM_PATH,
-            json={
-                "jsonrpc": "2.0",
-                "id": 4,
-                "method": "tools/call",
-                "params": {
+            json=mcp_stream_request(
+                4,
+                "tools/call",
+                {
                     "name": "llmwiki_search",
                     "arguments": {
                         "query": "requester return",
@@ -4094,24 +4088,23 @@ def test_mcp_streamable_http_tools_list_and_call_smoke() -> None:
                         "snippet_chars": 0,
                     },
                 },
-            },
-            headers=headers,
+            ),
+            headers=mcp_stream_headers("tools/call", "llmwiki_search"),
         )
         read_response = client.post(
             MCP_STREAM_PATH,
-            json={
-                "jsonrpc": "2.0",
-                "id": 5,
-                "method": "tools/call",
-                "params": {
+            json=mcp_stream_request(
+                5,
+                "tools/call",
+                {
                     "name": "llmwiki_read",
                     "arguments": {
                         "page_id": "requester-return",
                         "fields": "id,title",
                     },
                 },
-            },
-            headers=headers,
+            ),
+            headers=mcp_stream_headers("tools/call", "llmwiki_read"),
         )
 
     assert tools_response.status_code == 200
@@ -4151,11 +4144,10 @@ def test_mcp_streamable_http_tools_list_and_call_smoke() -> None:
     ) as client:
         neighbors_response = client.post(
             MCP_STREAM_PATH,
-            json={
-                "jsonrpc": "2.0",
-                "id": 3,
-                "method": "tools/call",
-                "params": {
+            json=mcp_stream_request(
+                3,
+                "tools/call",
+                {
                     "name": "llmwiki_graph_neighbors",
                     "arguments": {
                         "seed": "overview",
@@ -4164,8 +4156,8 @@ def test_mcp_streamable_http_tools_list_and_call_smoke() -> None:
                         "relation": "supports",
                     },
                 },
-            },
-            headers=headers,
+            ),
+            headers=mcp_stream_headers("tools/call", "llmwiki_graph_neighbors"),
         )
 
     assert neighbors_response.status_code == 200
@@ -4405,3 +4397,40 @@ def mcp_tool_call(client: TestClient, name: str, arguments: dict[str, Any]) -> d
 
     assert "error" not in payload
     return cast(dict[str, Any], payload["result"])
+
+
+def mcp_stream_request(
+    request_id: int,
+    method: str,
+    params: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    request_params: dict[str, Any] = {
+        "_meta": {
+            "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
+            "io.modelcontextprotocol/clientInfo": {
+                "name": "llmwiki-serve-service-test",
+                "version": "1.0.0",
+            },
+            "io.modelcontextprotocol/clientCapabilities": {},
+        }
+    }
+    if params:
+        request_params.update(params)
+    return {
+        "jsonrpc": "2.0",
+        "id": request_id,
+        "method": method,
+        "params": request_params,
+    }
+
+
+def mcp_stream_headers(method: str, name: str | None = None) -> dict[str, str]:
+    headers = {
+        "accept": "application/json, text/event-stream",
+        "content-type": "application/json",
+        "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
+        "Mcp-Method": method,
+    }
+    if name is not None:
+        headers["Mcp-Name"] = name
+    return headers

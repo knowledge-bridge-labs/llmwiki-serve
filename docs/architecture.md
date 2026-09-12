@@ -22,9 +22,10 @@ generators to change their output format.
 
 Protocol scope: the current serving surface is HTTP plus MCP-style JSON-RPC, MCP
 Streamable HTTP, and opt-in A2A-style message shapes. Streamable HTTP is served
-through the official MCP Python SDK FastMCP transport; the compatibility
-surfaces are not a claim of A2A protocol certification, exhaustive runtime
-feature completeness, or upstream integration support.
+through the official MCP Python SDK v2 `MCPServer` transport with MCP
+`2026-07-28` modern request support; the compatibility surfaces are not a claim
+of A2A protocol certification, exhaustive runtime feature completeness, or
+upstream integration support.
 
 MCP-facing metadata is scoped to the served source. The Streamable HTTP server
 name and instructions, plus both MCP tool-list surfaces, derive from the current

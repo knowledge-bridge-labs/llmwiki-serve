@@ -15,6 +15,7 @@ from llmwiki_serve.adapters import (
 )
 from llmwiki_serve.api import (
     MCP_INTERNAL_FAILURE_MESSAGE,
+    MCP_PROTOCOL_VERSION,
     MCP_STREAM_PATH,
     MCP_UNKNOWN_TOOL_MESSAGE,
     MCP_UNSUPPORTED_METHOD_MESSAGE,
@@ -24,10 +25,6 @@ from llmwiki_serve.api import (
 
 PUBLIC_NEEDLE = "zzgovpublicneedle"
 DRAFT_NEEDLE = "zzgovdraftsecretneedle"
-STREAM_HEADERS = {
-    "accept": "application/json, text/event-stream",
-    "content-type": "application/json",
-}
 
 
 def test_gov010_network_output_redaction_matrix(tmp_path: Path) -> None:
@@ -300,16 +297,52 @@ def mcp_stream_response(
 ) -> dict[str, Any]:
     response = client.post(
         MCP_STREAM_PATH,
-        json={
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "tools/call",
-            "params": {"name": tool_name, "arguments": arguments},
-        },
-        headers=STREAM_HEADERS,
+        json=mcp_stream_request(
+            1,
+            "tools/call",
+            {"name": tool_name, "arguments": arguments},
+        ),
+        headers=mcp_stream_headers("tools/call", tool_name),
     )
     assert response.status_code == 200, response.text
     return response.json()
+
+
+def mcp_stream_request(
+    request_id: int,
+    method: str,
+    params: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    request_params: dict[str, Any] = {
+        "_meta": {
+            "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
+            "io.modelcontextprotocol/clientInfo": {
+                "name": "llmwiki-serve-governance-test",
+                "version": "1.0.0",
+            },
+            "io.modelcontextprotocol/clientCapabilities": {},
+        }
+    }
+    if params:
+        request_params.update(params)
+    return {
+        "jsonrpc": "2.0",
+        "id": request_id,
+        "method": method,
+        "params": request_params,
+    }
+
+
+def mcp_stream_headers(method: str, name: str | None = None) -> dict[str, str]:
+    headers = {
+        "accept": "application/json, text/event-stream",
+        "content-type": "application/json",
+        "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
+        "Mcp-Method": method,
+    }
+    if name is not None:
+        headers["Mcp-Name"] = name
+    return headers
 
 
 def assert_draft_neighbor_visibility(

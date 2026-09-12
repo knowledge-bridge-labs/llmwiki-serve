@@ -9,7 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from llmwiki_serve.api import MCP_STREAM_PATH, create_app
+from llmwiki_serve.api import MCP_PROTOCOL_VERSION, MCP_STREAM_PATH, create_app
 from llmwiki_serve.errors import LlmWikiUserError
 from llmwiki_serve.guided_retrieval import (
     AGENT_GUIDED_LEXICAL_CAPABILITY,
@@ -672,14 +672,10 @@ def test_empty_query_overview_compatibility_across_surfaces(tmp_path: Path) -> N
     assert stream_context["evidence"][0] == {"page_id": "index", "route": "overview"}
 
 
-def test_fastmcp_query_variants_schema_and_runtime_cap(tmp_path: Path) -> None:
+def test_mcpserver_query_variants_schema_and_runtime_cap(tmp_path: Path) -> None:
     root = tmp_path / "wiki"
     root.mkdir()
     write_markdown(root / "index.md", "# Index\n\nBilling refund workflow.\n")
-    headers = {
-        "accept": "application/json, text/event-stream",
-        "content-type": "application/json",
-    }
 
     with TestClient(
         create_app(root),
@@ -688,8 +684,8 @@ def test_fastmcp_query_variants_schema_and_runtime_cap(tmp_path: Path) -> None:
     ) as stream_client:
         tools_response = stream_client.post(
             MCP_STREAM_PATH,
-            json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
-            headers=headers,
+            json=mcp_stream_request(1, "tools/list"),
+            headers=mcp_stream_headers("tools/list"),
         )
 
     assert tools_response.status_code == 200
@@ -831,10 +827,6 @@ def test_http_and_mcp_query_variants_contract(tmp_path: Path) -> None:
         "message": "query_variants is supported only with mode=lexical",
     }
 
-    headers = {
-        "accept": "application/json, text/event-stream",
-        "content-type": "application/json",
-    }
     with TestClient(
         create_app(root),
         base_url="http://127.0.0.1:8000",
@@ -842,16 +834,15 @@ def test_http_and_mcp_query_variants_contract(tmp_path: Path) -> None:
     ) as stream_client:
         stream_null = stream_client.post(
             MCP_STREAM_PATH,
-            json={
-                "jsonrpc": "2.0",
-                "id": 3,
-                "method": "tools/call",
-                "params": {
+            json=mcp_stream_request(
+                3,
+                "tools/call",
+                {
                     "name": "llmwiki_search",
                     "arguments": {"query": "billing", "query_variants": None},
                 },
-            },
-            headers=headers,
+            ),
+            headers=mcp_stream_headers("tools/call", "llmwiki_search"),
         ).json()
     assert stream_null["result"]["isError"] is True
     assert "query_variants" in stream_null["result"]["content"][0]["text"]
@@ -888,10 +879,6 @@ def mcp_tool_call(client: TestClient, name: str, arguments: dict[str, Any]) -> d
 
 
 def mcp_stream_raw_tool_call(root: Path, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
-    headers = {
-        "accept": "application/json, text/event-stream",
-        "content-type": "application/json",
-    }
     with TestClient(
         create_app(root),
         base_url="http://127.0.0.1:8000",
@@ -901,13 +888,12 @@ def mcp_stream_raw_tool_call(root: Path, name: str, arguments: dict[str, Any]) -
             dict[str, Any],
             stream_client.post(
                 MCP_STREAM_PATH,
-                json={
-                    "jsonrpc": "2.0",
-                    "id": 3,
-                    "method": "tools/call",
-                    "params": {"name": name, "arguments": arguments},
-                },
-                headers=headers,
+                json=mcp_stream_request(
+                    3,
+                    "tools/call",
+                    {"name": name, "arguments": arguments},
+                ),
+                headers=mcp_stream_headers("tools/call", name),
             ).json(),
         )
 
@@ -917,3 +903,40 @@ def mcp_stream_tool_call(root: Path, name: str, arguments: dict[str, Any]) -> di
     result = cast(dict[str, Any], payload["result"])
     assert result["isError"] is False
     return cast(dict[str, Any], result["structuredContent"])
+
+
+def mcp_stream_request(
+    request_id: int,
+    method: str,
+    params: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    request_params: dict[str, Any] = {
+        "_meta": {
+            "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
+            "io.modelcontextprotocol/clientInfo": {
+                "name": "llmwiki-serve-agent-guided-test",
+                "version": "1.0.0",
+            },
+            "io.modelcontextprotocol/clientCapabilities": {},
+        }
+    }
+    if params:
+        request_params.update(params)
+    return {
+        "jsonrpc": "2.0",
+        "id": request_id,
+        "method": method,
+        "params": request_params,
+    }
+
+
+def mcp_stream_headers(method: str, name: str | None = None) -> dict[str, str]:
+    headers = {
+        "accept": "application/json, text/event-stream",
+        "content-type": "application/json",
+        "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
+        "Mcp-Method": method,
+    }
+    if name is not None:
+        headers["Mcp-Name"] = name
+    return headers
