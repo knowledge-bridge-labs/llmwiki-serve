@@ -45,9 +45,9 @@ enterprise auth, model runtime hosting, or certified MCP/A2A platform claims.
 > [Release Status & Compatibility](https://knowledge-bridge-labs.github.io/llmwiki-docs/status)
 > matrix.
 > Source checkout remains supported for local development and release smoke tests.
-> The published PyPI `0.2.9` package README is immutable. This GitHub README
-> documents the `0.2.10` release line and will be included in the `0.2.10`
-> package; it does not change the already-published `0.2.9` distribution.
+> The published PyPI `0.2.10` package README is immutable. This GitHub README
+> documents the `0.2.11` release line and will be included in the `0.2.11`
+> package; it does not change the already-published `0.2.10` distribution.
 
 ## Start Here
 
@@ -65,6 +65,18 @@ to see `llmwiki-serve` project an already-existing LLMWiki, Markdown, or
 Obsidian-style folder as a read-only Knowledge Source.
 
 [![First-run demo poster](https://knowledge-bridge-labs.github.io/llmwiki-docs/demo/first-run/first-run-poster.png)](https://knowledge-bridge-labs.github.io/llmwiki-docs/demo)
+
+## 0.2.11 Highlights
+
+- MCP `2026-07-28` Streamable HTTP discovery: `/mcp/stream` accepts
+  `server/discover`, advertises supported protocol versions and source
+  capabilities, and returns private non-cacheable discovery envelopes.
+- Progressive MCP metadata: source tools include output schemas,
+  `structuredContent`, and read-only annotations; resources and templates carry
+  audience and priority hints for compatible clients.
+- Sessionless source endpoint behavior: modern `/mcp/stream` responses do not
+  issue `Mcp-Session-Id`, while legacy `/mcp` and existing HTTP routes stay
+  backward compatible.
 
 ## 0.2.10 Highlights
 
@@ -210,7 +222,7 @@ Pin the version listed in the
 matrix when you need a reproducible public-preview package install:
 
 ```bash
-uv tool install llmwiki-serve==0.2.10
+uv tool install llmwiki-serve==0.2.11
 ```
 
 ## Contributor Development Path
@@ -348,7 +360,7 @@ All entry points use the same read-only service behavior.
 | CLI | `manifest`, `query`, `search`, `source-refs`, `source-bundle`, `serve`, `ls`, and `status`. |
 | HTTP | `GET /health`, `GET /manifest`, `GET /source-bundle`, `GET /source-refs`, `POST /query`, `POST /search`, `GET /read/{page_id}`, `GET /graph`, `GET /graph/neighborhood`. |
 | MCP-style JSON-RPC | `POST /mcp` with `tools/list` and `tools/call` for `llmwiki_context`, `llmwiki_search`, `llmwiki_read`, `llmwiki_graph`, `llmwiki_graph_neighbors`, `llmwiki_source_refs`, and `llmwiki_source_bundle`. |
-| MCP Streamable HTTP | `POST /mcp/stream` using the official MCP Python SDK FastMCP Streamable HTTP transport for the same seven tools. |
+| MCP Streamable HTTP | `POST /mcp/stream` using the official MCP Python SDK v2 `MCPServer` Streamable HTTP transport for the same seven tools. |
 | A2A-style compatibility | Off by default. Enable `GET /.well-known/agent-card.json` and `POST /message:send` with `llmwiki-serve serve --enable-a2a-compat` or `create_app(..., enable_a2a_compat=True)`. |
 
 `GET /health` is the lightweight readiness and discovery document for
@@ -400,8 +412,8 @@ advertise the matching capabilities. `snippet_chars`, result `fields`, and
 lexical/literal behavior and is rejected for vector or hybrid because vector
 cosine and hybrid RRF scores are mode-specific, not calibrated probabilities.
 
-MCP server metadata is scoped to the served wiki by default. The FastMCP server
-name, FastMCP instructions, and MCP tool descriptions include the manifest
+MCP server metadata is scoped to the served wiki by default. The SDK-backed
+MCP server name, instructions, and MCP tool descriptions include the manifest
 title, description, and source identity so clients can distinguish multiple
 wiki servers. Operators can override this text with `create_app(...,
 mcp_server_name=..., mcp_instructions=...,
@@ -811,9 +823,10 @@ smoke tests.
 
 The current protocol surface is HTTP plus MCP-style JSON-RPC, MCP Streamable
 HTTP, and opt-in A2A-style message shapes. The Streamable HTTP endpoint uses the
-official MCP Python SDK FastMCP transport; the compatibility endpoints are local
-agent and harness surfaces, not a claim of A2A certification, exhaustive runtime
-feature completeness, or upstream producer certification.
+official MCP Python SDK v2 transport and supports MCP `2026-07-28` modern
+requests on `/mcp/stream`; the compatibility endpoints are local agent and
+harness surfaces, not a claim of A2A certification, exhaustive runtime feature
+completeness, or upstream producer certification.
 
 ## Validation
 

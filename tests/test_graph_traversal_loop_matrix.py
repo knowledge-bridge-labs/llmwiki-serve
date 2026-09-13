@@ -7,15 +7,11 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from llmwiki_serve.api import MCP_STREAM_PATH, create_app
+from llmwiki_serve.api import MCP_PROTOCOL_VERSION, MCP_STREAM_PATH, create_app
 from llmwiki_serve.service import LlmWikiService
 
 NATIVE_FIXTURE = Path(__file__).parent / "fixtures" / "native-wiki-root"
 TRAVERSAL_QUERY = "release readiness graph references"
-STREAM_HEADERS = {
-    "accept": "application/json, text/event-stream",
-    "content-type": "application/json",
-}
 
 
 def test_gt010_context_returns_orientation_and_evidence_seed_pages(
@@ -283,13 +279,8 @@ def mcp_stream_tool_call(
     ) as client:
         response = client.post(
             MCP_STREAM_PATH,
-            json={
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "tools/call",
-                "params": {"name": name, "arguments": arguments},
-            },
-            headers=STREAM_HEADERS,
+            json=mcp_stream_request(1, "tools/call", {"name": name, "arguments": arguments}),
+            headers=mcp_stream_headers("tools/call", name),
         )
 
     assert response.status_code == 200, response.text
@@ -311,6 +302,43 @@ def forbid_full_graph_payloads(monkeypatch: pytest.MonkeyPatch) -> None:
         raise AssertionError("GT matrix should use context and graph_neighbors, not full graph")
 
     monkeypatch.setattr(LlmWikiService, "graph", fail_full_graph_payload)
+
+
+def mcp_stream_request(
+    request_id: int,
+    method: str,
+    params: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    request_params: dict[str, Any] = {
+        "_meta": {
+            "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
+            "io.modelcontextprotocol/clientInfo": {
+                "name": "llmwiki-serve-graph-traversal-test",
+                "version": "1.0.0",
+            },
+            "io.modelcontextprotocol/clientCapabilities": {},
+        }
+    }
+    if params:
+        request_params.update(params)
+    return {
+        "jsonrpc": "2.0",
+        "id": request_id,
+        "method": method,
+        "params": request_params,
+    }
+
+
+def mcp_stream_headers(method: str, name: str | None = None) -> dict[str, str]:
+    headers = {
+        "accept": "application/json, text/event-stream",
+        "content-type": "application/json",
+        "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
+        "Mcp-Method": method,
+    }
+    if name is not None:
+        headers["Mcp-Name"] = name
+    return headers
 
 
 def write_draft_loop_wiki(root: Path) -> None:

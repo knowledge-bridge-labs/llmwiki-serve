@@ -38,6 +38,7 @@ from llmwiki_serve.api import (  # noqa: E402
 DEFAULT_DIST_DIR = PROJECT_ROOT / "dist"
 DEFAULT_FIXTURE = PROJECT_ROOT / "examples" / "sample-wiki"
 SMOKE_QUERY = "required copy release readiness"
+MCP_PROTOCOL_VERSION = "2026-07-28"
 WHEEL_API_SMOKE_SCRIPT = r"""
 import contextlib
 import json
@@ -52,6 +53,41 @@ HEADERS = {
     "accept": "application/json, text/event-stream",
     "content-type": "application/json",
 }
+MCP_PROTOCOL_VERSION = "2026-07-28"
+
+
+def mcp_meta():
+    return {
+        "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
+        "io.modelcontextprotocol/clientInfo": {
+            "name": "llmwiki-serve-wheel-smoke",
+            "version": "1.0.0",
+        },
+        "io.modelcontextprotocol/clientCapabilities": {},
+    }
+
+
+def stream_headers(method, name=None):
+    headers = {
+        **HEADERS,
+        "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
+        "Mcp-Method": method,
+    }
+    if name is not None:
+        headers["Mcp-Name"] = name
+    return headers
+
+
+def stream_request(request_id, method, params=None):
+    request_params = {"_meta": mcp_meta()}
+    if params:
+        request_params.update(params)
+    return {
+        "jsonrpc": "2.0",
+        "id": request_id,
+        "method": method,
+        "params": request_params,
+    }
 
 
 def response_payload(response):
@@ -106,38 +142,36 @@ with contextlib.redirect_stdout(sys.stderr):
         stream_tools = response_payload(
             client.post(
                 "/mcp/stream",
-                json={"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
-                headers=HEADERS,
+                json=stream_request(2, "tools/list"),
+                headers=stream_headers("tools/list"),
             )
         )
         stream_source_bundle = response_payload(
             client.post(
                 "/mcp/stream",
-                json={
-                    "jsonrpc": "2.0",
-                    "id": 3,
-                    "method": "tools/call",
-                    "params": {
+                json=stream_request(
+                    3,
+                    "tools/call",
+                    {
                         "name": "llmwiki_source_bundle",
                         "arguments": {},
                     },
-                },
-                headers=HEADERS,
+                ),
+                headers=stream_headers("tools/call", "llmwiki_source_bundle"),
             )
         )
         stream_graph_neighbors = response_payload(
             client.post(
                 "/mcp/stream",
-                json={
-                    "jsonrpc": "2.0",
-                    "id": 5,
-                    "method": "tools/call",
-                    "params": {
+                json=stream_request(
+                    5,
+                    "tools/call",
+                    {
                         "name": "llmwiki_graph_neighbors",
                         "arguments": {"seed": "hot", "depth": 1, "limit": 20},
                     },
-                },
-                headers=HEADERS,
+                ),
+                headers=stream_headers("tools/call", "llmwiki_graph_neighbors"),
             )
         )
 
@@ -1558,11 +1592,46 @@ def payload_strings(payload: Any) -> list[str]:
     return []
 
 
-def assert_mcp_streamable_http(fixture: Path) -> None:
+def mcp_meta(client_name: str = "llmwiki-serve-release-smoke") -> dict[str, Any]:
+    return {
+        "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
+        "io.modelcontextprotocol/clientInfo": {
+            "name": client_name,
+            "version": "1.0.0",
+        },
+        "io.modelcontextprotocol/clientCapabilities": {},
+    }
+
+
+def mcp_stream_headers(method: str, name: str | None = None) -> dict[str, str]:
     headers = {
         "accept": "application/json, text/event-stream",
         "content-type": "application/json",
+        "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
+        "Mcp-Method": method,
     }
+    if name is not None:
+        headers["Mcp-Name"] = name
+    return headers
+
+
+def mcp_stream_request(
+    request_id: int,
+    method: str,
+    params: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    request_params: dict[str, Any] = {"_meta": mcp_meta()}
+    if params:
+        request_params.update(params)
+    return {
+        "jsonrpc": "2.0",
+        "id": request_id,
+        "method": method,
+        "params": request_params,
+    }
+
+
+def assert_mcp_streamable_http(fixture: Path) -> None:
     expected_projection_graph_counts = projection_graph_counts(fixture)
     with TestClient(
         create_app(fixture),
@@ -1571,47 +1640,44 @@ def assert_mcp_streamable_http(fixture: Path) -> None:
     ) as client:
         tools = client.post(
             "/mcp/stream",
-            json={"jsonrpc": "2.0", "id": 6, "method": "tools/list"},
-            headers=headers,
+            json=mcp_stream_request(6, "tools/list"),
+            headers=mcp_stream_headers("tools/list"),
         ).json()
         context = client.post(
             "/mcp/stream",
-            json={
-                "jsonrpc": "2.0",
-                "id": 7,
-                "method": "tools/call",
-                "params": {
+            json=mcp_stream_request(
+                7,
+                "tools/call",
+                {
                     "name": "llmwiki_context",
                     "arguments": {"query": SMOKE_QUERY, "limit": 4},
                 },
-            },
-            headers=headers,
+            ),
+            headers=mcp_stream_headers("tools/call", "llmwiki_context"),
         ).json()
         source_bundle = client.post(
             "/mcp/stream",
-            json={
-                "jsonrpc": "2.0",
-                "id": 8,
-                "method": "tools/call",
-                "params": {
+            json=mcp_stream_request(
+                8,
+                "tools/call",
+                {
                     "name": "llmwiki_source_bundle",
                     "arguments": {},
                 },
-            },
-            headers=headers,
+            ),
+            headers=mcp_stream_headers("tools/call", "llmwiki_source_bundle"),
         ).json()
         graph_neighbors = client.post(
             "/mcp/stream",
-            json={
-                "jsonrpc": "2.0",
-                "id": 9,
-                "method": "tools/call",
-                "params": {
+            json=mcp_stream_request(
+                9,
+                "tools/call",
+                {
                     "name": "llmwiki_graph_neighbors",
                     "arguments": {"seed": "hot", "depth": 1, "limit": 20},
                 },
-            },
-            headers=headers,
+            ),
+            headers=mcp_stream_headers("tools/call", "llmwiki_graph_neighbors"),
         ).json()
 
     tool_names = {tool["name"] for tool in tools["result"]["tools"]}

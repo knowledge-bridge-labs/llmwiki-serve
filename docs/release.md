@@ -248,7 +248,9 @@ versioned release or public release candidate.
    curl -s http://127.0.0.1:8765/mcp/stream \
      -H 'accept: application/json, text/event-stream' \
      -H 'content-type: application/json' \
-     -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
+     -H 'MCP-Protocol-Version: 2026-07-28' \
+     -H 'Mcp-Method: tools/list' \
+     -d '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"release-smoke","version":"1.0.0"},"io.modelcontextprotocol/clientCapabilities":{}}}}'
    ```
 
    A2A-style compatibility endpoints are disabled by default. To verify them,
@@ -307,7 +309,9 @@ versioned release or public release candidate.
    Confirm `/query`, `/search`, `/read`, `/graph`, `/graph/neighborhood`,
    `/mcp`, and `/mcp/stream` return expected data for that real wiki without
    exposing private content in release notes, issue comments, logs, or
-   generated artifacts. Confirm
+   generated artifacts. For `/mcp/stream`, send MCP `2026-07-28` request
+   metadata and `MCP-Protocol-Version` / `Mcp-Method` / `Mcp-Name` headers
+   where applicable. Confirm
    `/message:send` returns 404 by default and works only when the server is
    started with `--enable-a2a-compat`. Keep draft-serving disabled unless
    explicitly testing `--allow-drafts`, and confirm HTTP `/manifest` does not

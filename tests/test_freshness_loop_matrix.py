@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from llmwiki_serve.api import MCP_STREAM_PATH, create_app
+from llmwiki_serve.api import MCP_PROTOCOL_VERSION, MCP_STREAM_PATH, create_app
 from llmwiki_serve.service import LlmWikiService
 
 FS_STRICT = "FS-STRICT"
@@ -25,10 +25,6 @@ BLOCKED_TOKEN = "zzmatrixblockedneedle"
 RESTORED_TOKEN = "zzmatrixrestoredneedle"
 SURFACE_OLD_TOKEN = "zzproducersurfaceoldneedle"
 SURFACE_NEW_TOKEN = "zzproducersurfacenewneedle"
-STREAM_HEADERS = {
-    "accept": "application/json, text/event-stream",
-    "content-type": "application/json",
-}
 
 
 @dataclass
@@ -759,13 +755,8 @@ def mcp_stream_tool_call(
     payload = response_json(
         client.post(
             MCP_STREAM_PATH,
-            json={
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "tools/call",
-                "params": {"name": name, "arguments": arguments},
-            },
-            headers=STREAM_HEADERS,
+            json=mcp_stream_request(1, "tools/call", {"name": name, "arguments": arguments}),
+            headers=mcp_stream_headers("tools/call", name),
         )
     )
     assert "error" not in payload
@@ -779,3 +770,40 @@ def response_json(response: Any) -> dict[str, Any]:
     payload = response.json()
     assert isinstance(payload, dict)
     return payload
+
+
+def mcp_stream_request(
+    request_id: int,
+    method: str,
+    params: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    request_params: dict[str, Any] = {
+        "_meta": {
+            "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
+            "io.modelcontextprotocol/clientInfo": {
+                "name": "llmwiki-serve-freshness-test",
+                "version": "1.0.0",
+            },
+            "io.modelcontextprotocol/clientCapabilities": {},
+        }
+    }
+    if params:
+        request_params.update(params)
+    return {
+        "jsonrpc": "2.0",
+        "id": request_id,
+        "method": method,
+        "params": request_params,
+    }
+
+
+def mcp_stream_headers(method: str, name: str | None = None) -> dict[str, str]:
+    headers = {
+        "accept": "application/json, text/event-stream",
+        "content-type": "application/json",
+        "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
+        "Mcp-Method": method,
+    }
+    if name is not None:
+        headers["Mcp-Name"] = name
+    return headers

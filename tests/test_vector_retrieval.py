@@ -18,7 +18,12 @@ from fastapi.testclient import TestClient
 from typer.testing import CliRunner
 
 import llmwiki_serve.vector as vector_module
-from llmwiki_serve.api import MCP_STREAM_PATH, create_app, create_mcp_stream_server
+from llmwiki_serve.api import (
+    MCP_PROTOCOL_VERSION,
+    MCP_STREAM_PATH,
+    create_app,
+    create_mcp_stream_server,
+)
 from llmwiki_serve.cli import app as cli_app
 from llmwiki_serve.errors import LlmWikiUserError
 from llmwiki_serve.managed_context import ManagedContextConfig
@@ -730,15 +735,11 @@ def test_vector_and_hybrid_work_through_http_mcp_streamable_and_managed_context(
     )
     assert "llmwiki_search_mode_vector" in mcp_stream.instructions
 
-    headers = {
-        "accept": "application/json, text/event-stream",
-        "content-type": "application/json",
-    }
     with TestClient(app, base_url="http://127.0.0.1:8000", follow_redirects=False) as stream_client:
         stream_response = stream_client.post(
             MCP_STREAM_PATH,
-            headers=headers,
-            json=mcp_call_payload(
+            headers=mcp_stream_headers("llmwiki_search"),
+            json=mcp_stream_call_payload(
                 "llmwiki_search",
                 {"query": "invoice refund", "mode": "vector", "fields": "page_id,route"},
             ),
@@ -2661,6 +2662,36 @@ def mcp_call_payload(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         "id": 1,
         "method": "tools/call",
         "params": {"name": name, "arguments": arguments},
+    }
+
+
+def mcp_stream_call_payload(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {
+            "_meta": {
+                "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
+                "io.modelcontextprotocol/clientInfo": {
+                    "name": "llmwiki-serve-vector-test",
+                    "version": "1.0.0",
+                },
+                "io.modelcontextprotocol/clientCapabilities": {},
+            },
+            "name": name,
+            "arguments": arguments,
+        },
+    }
+
+
+def mcp_stream_headers(name: str) -> dict[str, str]:
+    return {
+        "accept": "application/json, text/event-stream",
+        "content-type": "application/json",
+        "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
+        "Mcp-Method": "tools/call",
+        "Mcp-Name": name,
     }
 
 
