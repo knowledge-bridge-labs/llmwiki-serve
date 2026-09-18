@@ -45,9 +45,9 @@ enterprise auth, model runtime hosting, or certified MCP/A2A platform claims.
 > [Release Status & Compatibility](https://knowledge-bridge-labs.github.io/llmwiki-docs/status)
 > matrix.
 > Source checkout remains supported for local development and release smoke tests.
-> The published PyPI `0.2.10` package README is immutable. This GitHub README
-> documents the `0.2.11` release line and will be included in the `0.2.11`
-> package; it does not change the already-published `0.2.10` distribution.
+> The published PyPI `0.2.11` package README is immutable. This GitHub README
+> documents the `0.2.12` release line and will be included in the `0.2.12`
+> package; it does not change already-published distributions.
 
 ## Start Here
 
@@ -65,6 +65,19 @@ to see `llmwiki-serve` project an already-existing LLMWiki, Markdown, or
 Obsidian-style folder as a read-only Knowledge Source.
 
 [![First-run demo poster](https://knowledge-bridge-labs.github.io/llmwiki-docs/demo/first-run/first-run-poster.png)](https://knowledge-bridge-labs.github.io/llmwiki-docs/demo)
+
+## 0.2.12 Highlights
+
+- OKF v0.2 read-only input profile: bundles with root `okf_version: "0.2"`
+  are detected as `okf-v0.2`; operators can also pass
+  `--source-profile okf-v0.2` for controlled migration tests.
+- Structured OKF provenance: OKF `sources[]`, concept type, resource,
+  lifecycle status, trust tier, and attestation metadata are preserved in read
+  payloads, source bundles, source refs, and graph metadata.
+- Backward-compatible projection/query behavior: unmarked Markdown, Obsidian,
+  LLMWiki, graph store, search, read, and MCP surfaces keep their existing
+  defaults. OKF is a consumer profile only; it does not execute computations,
+  dereference resources, mutate files, or certify attestations.
 
 ## 0.2.11 Highlights
 
@@ -222,7 +235,7 @@ Pin the version listed in the
 matrix when you need a reproducible public-preview package install:
 
 ```bash
-uv tool install llmwiki-serve==0.2.11
+uv tool install llmwiki-serve==0.2.12
 ```
 
 ## Contributor Development Path
@@ -453,6 +466,10 @@ is created with A2A compatibility enabled.
   other `.md` pages.
 - YAML front matter fields such as `id`, `title`, `status`, `review_state`,
   `source_refs`, `tags`, and `updated_at`.
+- OKF v0.2 Markdown bundles with a root `okf_version: "0.2"` marker, including
+  structured `sources[]`, concept type, lifecycle, trust, and attestation
+  metadata. OKF is consumed read-only; computations are not executed and
+  resources are not dereferenced.
 - Folder-level graph structure from pages, headings, links, tags, and source
   references.
 - Optional sidecar graph facts from `graph/graph.json`.

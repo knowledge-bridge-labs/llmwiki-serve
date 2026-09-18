@@ -10,6 +10,7 @@ from llmwiki_serve.service import LlmWikiService
 
 FIXTURES = Path(__file__).parent / "fixtures"
 REPRESENTATIVE_ADAPTER_FIXTURES = {
+    "okf-v0.2-bundle": "okf-v0.2",
     "llmwiki-compiler-output": "llmwiki-markdown",
     "native-wiki-root": "llmwiki-markdown",
     "obsidian-vault": "obsidian",
@@ -24,6 +25,7 @@ REPRESENTATIVE_ADAPTER_FIXTURES = {
 def test_supported_implementation_catalog_covers_supported_targets() -> None:
     names = {profile.implementation for profile in SUPPORTED_IMPLEMENTATIONS}
     assert names == {
+        "GoogleCloudPlatform/knowledge-catalog OKF v0.2",
         "atomicstrata/llm-wiki-compiler",
         "nashsu/llm_wiki",
         "SamurAIGPT/llm-wiki-agent",
@@ -44,6 +46,149 @@ def test_adapter_detection_for_representative_wiki_formats() -> None:
         loaded = load_wiki(FIXTURES / fixture)
         assert loaded.adapter == adapter_name
         assert loaded.pages
+
+
+def test_okf_v02_autodetects_and_preserves_structured_metadata() -> None:
+    root = FIXTURES / "okf-v0.2-bundle"
+
+    loaded = load_wiki(root)
+    explicit = load_wiki(root, source_profile="okf-v0.2")
+    pages_by_path = {page.path: page for page in loaded.pages}
+
+    assert loaded.adapter == "okf-v0.2"
+    assert explicit.adapter == "okf-v0.2"
+    assert loaded.implementation == "Open Knowledge Format v0.2"
+    assert loaded.metadata["source_profile"] == "okf-v0.2"
+    assert loaded.metadata["format_version"] == "0.2"
+    assert "log.md" not in pages_by_path
+    assert pages_by_path["metrics/index.md"].role == "index"
+    assert pages_by_path["metrics/index.md"].okf is not None
+    assert pages_by_path["metrics/index.md"].okf.role == "index"
+    assert pages_by_path["metrics/index.md"].okf.concept_type == ""
+
+    revenue = pages_by_path["metrics/revenue.md"]
+    assert revenue.id == "revenue-metric"
+    assert revenue.status == "stable"
+    assert revenue.approved_for_serving is True
+    assert revenue.source_refs == ["rev-policy"]
+    assert revenue.okf is not None
+    assert revenue.okf.version == "0.2"
+    assert revenue.okf.concept_type == "Metric"
+    assert revenue.okf.resource == "metrics/revenue"
+    assert revenue.okf.generated is not None
+    assert revenue.okf.generated.by == "agent:metric-bot"
+    assert revenue.okf.verified[0].by == "human:finance-lead"
+    assert revenue.okf.trust_tier == "human-reviewed"
+    assert revenue.okf.stale_after == "2026-12-31T00:00:00Z"
+    assert revenue.okf.sources[0].id == "rev-policy"
+    assert revenue.okf.sources[0].resource == "policies/revenue-recognition.md"
+    assert revenue.okf.sources[0].usage_count == 42
+    assert revenue.okf.sources[0].extra["excerpt_hash"] == "sha256:revpolicyfixture"
+    assert revenue.okf.extra["x-llmwiki"]["relation"] == "metric-contract"
+
+    computation = pages_by_path["computations/revenue-ytd.md"]
+    assert computation.okf is not None
+    assert computation.okf.concept_type == "Attested Computation"
+    assert computation.okf.runtime == "python"
+    assert computation.okf.parameters == [{"name": "fiscal_year", "type": "integer"}]
+    assert computation.okf.executor["image"] == "ghcr.io/example/revenue-ytd:fixture"
+    assert computation.okf.attester["kind"] == "fixture"
+    assert computation.okf.trust_tier == "machine-confirmed"
+    assert computation.source_refs == ["metrics/revenue"]
+
+    deprecated = pages_by_path["dependencies/payments-auth.md"]
+    assert deprecated.status == "deprecated"
+    assert deprecated.approved_for_serving is True
+    assert deprecated.okf is not None
+    assert deprecated.okf.concept_type == "Dependency Declaration"
+
+    draft = pages_by_path["drafts/proposed-contract.md"]
+    assert draft.status == "draft"
+    assert draft.approved_for_serving is False
+
+
+def test_okf_v02_autodetect_requires_root_version_marker(tmp_path: Path) -> None:
+    root = tmp_path / "not-okf"
+    (root / "concepts").mkdir(parents=True)
+    write_markdown(
+        root / "index.md",
+        """
+---
+title: Looks Like OKF But Is Not Marked
+sources:
+  - resource: policies/source.md
+---
+# Looks Like OKF But Is Not Marked
+""",
+    )
+    write_markdown(
+        root / "concepts" / "metric.md",
+        """
+---
+type: Metric
+sources:
+  - resource: metrics/revenue
+---
+# Metric
+""",
+    )
+
+    loaded = load_wiki(root)
+
+    assert loaded.adapter != "okf-v0.2"
+    assert all(page.okf is None for page in loaded.pages)
+
+
+def test_explicit_okf_v02_profile_can_load_without_autodetect_marker(tmp_path: Path) -> None:
+    root = tmp_path / "explicit-okf"
+    root.mkdir()
+    write_markdown(
+        root / "metric.md",
+        """
+---
+type: Metric
+title: Explicit Metric
+resource: metrics/explicit
+sources:
+  - resource: policies/explicit.md
+---
+# Explicit Metric
+""",
+    )
+
+    loaded = load_wiki(root, source_profile="okf-v0.2")
+
+    assert loaded.adapter == "okf-v0.2"
+    assert loaded.metadata["source_profile"] == "okf-v0.2"
+    assert loaded.pages[0].okf is not None
+    assert loaded.pages[0].okf.concept_type == "Metric"
+
+
+def test_okf_v02_invalid_marked_bundle_does_not_fall_back_to_generic(tmp_path: Path) -> None:
+    root = tmp_path / "invalid-okf"
+    root.mkdir()
+    write_markdown(
+        root / "index.md",
+        """
+---
+okf_version: "0.2"
+---
+# Invalid OKF Bundle
+""",
+    )
+    write_markdown(
+        root / "missing-type.md",
+        """
+# Missing Type
+
+Marked OKF concept pages must have a type.
+""",
+    )
+
+    with pytest.raises(FileNotFoundError, match="Invalid OKF v0.2 bundle"):
+        load_wiki(root)
+    with pytest.raises(FileNotFoundError, match="Invalid OKF v0.2 bundle"):
+        load_wiki(root, source_profile="okf-v0.2")
 
 
 @pytest.mark.parametrize("adapter_name", ["foam", "dendron", "quartz", "logseq"])

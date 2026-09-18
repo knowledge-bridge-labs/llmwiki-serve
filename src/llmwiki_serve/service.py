@@ -10,7 +10,7 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any, Literal
 
-from .adapters import load_wiki
+from .adapters import SourceProfile, load_wiki
 from .graph_engine import GraphEngineProvider, InMemoryGraphEngineProvider
 from .graph_store import (
     GraphStore,
@@ -53,6 +53,7 @@ from .models import (
     WikiManifest,
     WikiPage,
 )
+from .okf import is_okf_v02_root, okf_source_ref_key, okf_source_ref_label
 from .projection import canonical_relation, normalize_key, project_wiki, slug
 from .projection_store import (
     InMemoryProjectionStore,
@@ -138,6 +139,7 @@ READ_FIELD_ORDER = (
     "links",
     "headings",
     "updated_at",
+    "okf",
 )
 READ_FIELDS = set(READ_FIELD_ORDER)
 
@@ -168,6 +170,7 @@ class LlmWikiService:
         graph_store: GraphStore | None = None,
         graph_store_failure_policy: GraphStoreFailurePolicy = "fallback-local",
         graph_engine: GraphEngineProvider | None = None,
+        source_profile: SourceProfile = "auto",
         clock: Callable[[], float] | None = None,
         _managed_context_clock: Callable[[], float] | None = None,
     ) -> None:
@@ -177,6 +180,7 @@ class LlmWikiService:
             raise ValueError("graph_store_failure_policy must be fallback-local or fail-fast")
         self.root = Path(root)
         self.refresh_interval_seconds = refresh_interval_seconds
+        self._source_profile = source_profile
         self.projection_store = projection_store or InMemoryProjectionStore()
         self.cache_namespace = cache_namespace
         self.explicit_source_id = source_id
@@ -255,7 +259,7 @@ class LlmWikiService:
             )
             record = None if refresh else self.projection_store.get(key, root=self.root)
             if record is None:
-                index = project_wiki(load_wiki(self.root))
+                index = project_wiki(load_wiki(self.root, source_profile=self._source_profile))
                 key = ProjectionKey(
                     namespace=self.cache_namespace,
                     source_id=self._cache_source_id(),
@@ -343,10 +347,24 @@ class LlmWikiService:
             backend_kind = getattr(self._graph_store, "backend_kind", "")
             if backend_kind == "sqlite":
                 capabilities.append("llmwiki_graph_store_sqlite")
+        source_profile = str(index.metadata.get("source_profile") or "")
+        format_version = str(index.metadata.get("format_version") or "")
+        if source_profile == "okf-v0.2":
+            capabilities.extend(
+                [
+                    "okf-v0.2",
+                    "okf_read_only_consumer",
+                    "okf_structured_provenance",
+                    "okf_trust_lifecycle_metadata",
+                ]
+            )
         if enable_a2a_compat:
             capabilities.append("a2a-message")
         source_id = self._source_id_for_index(index)
-        projection_signature = snapshot.projection_signature_digest
+        projection_signature = projection_signature_for_index(
+            snapshot.projection_signature_digest,
+            index,
+        )
         bundle_id = source_bundle_id(source_id, projection_signature)
         return WikiManifest(
             title=index.title,
@@ -357,6 +375,8 @@ class LlmWikiService:
             public_uri=f"llmwiki://{source_id}",
             adapter=index.adapter,
             implementation=index.implementation,
+            source_profile=source_profile,
+            format_version=format_version,
             page_count=len(index.pages),
             approved_page_count=sum(1 for page in index.pages if page.approved_for_serving),
             hot_page=hot,
@@ -377,7 +397,16 @@ class LlmWikiService:
         return self.explicit_source_id or source_id_for_index(index)
 
     def _cache_source_id(self) -> str:
-        return self.explicit_source_id or source_id_for_root(self.root)
+        base = self.explicit_source_id or source_id_for_root(self.root)
+        cache_profile = self._projection_cache_profile()
+        if cache_profile == "auto":
+            return base
+        return f"{base}@{cache_profile}"
+
+    def _projection_cache_profile(self) -> SourceProfile:
+        if self._source_profile != "auto":
+            return self._source_profile
+        return "okf-v0.2" if is_okf_v02_root(self.root) else "auto"
 
     def context(
         self,
@@ -884,7 +913,26 @@ class LlmWikiService:
             else [page for page in index.pages if page.approved_for_serving]
         )
         for page in pages:
+            okf_ref_keys: set[str] = set()
+            if page.okf:
+                for source in page.okf.sources:
+                    ref_key = okf_source_ref_key(source)
+                    okf_ref_keys.add(ref_key)
+                    ref_id = stable_source_ref_id(ref_key, ids_by_label, used_ids)
+                    current = refs.get(ref_id)
+                    if current is None:
+                        current = SourceRef(
+                            id=ref_id,
+                            label=okf_source_ref_label(source),
+                            kind="okf_source",
+                            uri=f"llmwiki://{manifest.source_id}/source-refs/{ref_id}",
+                            locator=okf_source_locator(source.model_dump(mode="json"), page),
+                        )
+                        refs[ref_id] = current
+                    link_source_ref_page(current, page)
             for label in page.source_refs:
+                if label in okf_ref_keys:
+                    continue
                 ref_id = stable_source_ref_id(label, ids_by_label, used_ids)
                 current = refs.get(ref_id)
                 if current is None:
@@ -894,10 +942,7 @@ class LlmWikiService:
                         uri=f"llmwiki://{manifest.source_id}/source-refs/{ref_id}",
                     )
                     refs[ref_id] = current
-                if page.path not in current.linked_pages:
-                    current.linked_pages.append(page.path)
-                if page.id not in current.linked_page_ids:
-                    current.linked_page_ids.append(page.id)
+                link_source_ref_page(current, page)
         return SourceRefsResponse(
             source_id=manifest.source_id,
             bundle_id=manifest.bundle_id,
@@ -917,6 +962,8 @@ class LlmWikiService:
             description=manifest.description,
             adapter=manifest.adapter,
             implementation=manifest.implementation,
+            source_profile=manifest.source_profile,
+            format_version=manifest.format_version,
             projection=manifest.projection,
             raw_origins=manifest.raw_origins,
             capabilities=manifest.capabilities,
@@ -1018,13 +1065,15 @@ class LlmWikiService:
         *,
         include_drafts: bool,
     ) -> GraphStoreKey:
-        source_id = self._source_id_for_index(snapshot.index)
-        projection_signature = snapshot.projection_signature_digest
+        projection_signature = projection_signature_for_index(
+            snapshot.projection_signature_digest,
+            snapshot.index,
+        )
         scope: GraphVisibilityScope = "all" if include_drafts else "approved"
         return GraphStoreKey(
             namespace=self.cache_namespace,
-            source_id=source_id,
-            bundle_id=source_bundle_id(source_id, projection_signature),
+            source_id=self._cache_source_id(),
+            bundle_id=source_bundle_id(self._cache_source_id(), projection_signature),
             projection_signature=projection_signature,
             visibility_scope=scope,
         )
@@ -1456,6 +1505,15 @@ def projection_signature_digest(signature: _ProjectionSignature) -> str:
     return f"sha256:{hashlib.sha256(payload.encode('utf-8')).hexdigest()}"
 
 
+def projection_signature_for_index(base_signature: str, index: WikiIndex) -> str:
+    source_profile = str(index.metadata.get("source_profile") or "")
+    if not base_signature or not source_profile:
+        return base_signature
+    format_version = str(index.metadata.get("format_version") or "")
+    payload = "\t".join([base_signature, source_profile, format_version])
+    return f"sha256:{hashlib.sha256(payload.encode('utf-8')).hexdigest()}"
+
+
 def managed_projection_signature_digest(signature: _ProjectionSignature) -> str:
     if not signature:
         return ""
@@ -1474,6 +1532,28 @@ def source_bundle_id(source_id: str, projection_signature: str) -> str:
     if algorithm and digest:
         return f"{source_id}:{algorithm}:{digest[:12]}"
     return f"{source_id}:{projection_signature[:12]}"
+
+
+def link_source_ref_page(ref: SourceRef, page: WikiPage) -> None:
+    if page.path not in ref.linked_pages:
+        ref.linked_pages.append(page.path)
+    if page.id not in ref.linked_page_ids:
+        ref.linked_page_ids.append(page.id)
+
+
+def okf_source_locator(source_payload: dict[str, Any], page: WikiPage) -> dict[str, Any]:
+    okf_payload = page.okf.model_dump(mode="json") if page.okf else {}
+    return {
+        "source_profile": "okf-v0.2",
+        "source": source_payload,
+        "first_seen_page": {"id": page.id, "path": page.path},
+        "document": {
+            "concept_type": okf_payload.get("concept_type", ""),
+            "status": okf_payload.get("status", ""),
+            "trust_tier": okf_payload.get("trust_tier", ""),
+            "stale_after": okf_payload.get("stale_after", ""),
+        },
+    }
 
 
 def raw_origins_metadata(index: WikiIndex) -> RawOriginsMetadata:

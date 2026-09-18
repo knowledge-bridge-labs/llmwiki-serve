@@ -6,6 +6,7 @@ from typing import Any, cast
 
 from fastapi.testclient import TestClient
 
+from llmwiki_serve import __version__
 from llmwiki_serve.api import MCP_STREAM_PATH, create_app
 
 FIXTURE = Path(__file__).parent / "fixtures" / "sample-wiki"
@@ -112,7 +113,7 @@ def test_mcp_streamable_http_supports_2026_07_28_modern_requests() -> None:
         tool["annotations"] == EXPECTED_READ_ONLY_TOOL_ANNOTATIONS for tool in tools_result["tools"]
     )
     assert all(
-        tool["_meta"]["io.modelcontextprotocol/serverInfo"]["version"] == "0.2.11"
+        tool["_meta"]["io.modelcontextprotocol/serverInfo"]["version"] == __version__
         for tool in [
             context,
             search,
@@ -484,7 +485,7 @@ def test_mcp_streamable_http_legacy_initialize_still_works() -> None:
     assert payload["result"]["protocolVersion"] == "2025-11-25"
     assert payload["result"]["serverInfo"] == {
         "name": "Sample Packaging LLMWiki - LLMWiki Serve",
-        "version": "0.2.11",
+        "version": __version__,
     }
 
 

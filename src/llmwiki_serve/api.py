@@ -23,7 +23,7 @@ from pydantic import BaseModel, Field, field_validator
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from . import __version__
-from .adapters import WikiRootError
+from .adapters import SourceProfile, WikiRootError
 from .errors import LlmWikiUserError
 from .graph_store import GraphStore, GraphStoreFailurePolicy
 from .guided_retrieval import (
@@ -720,6 +720,7 @@ def create_app(
     vector_provider: EmbeddingProvider | None = None,
     graph_store: GraphStore | None = None,
     graph_store_failure_policy: GraphStoreFailurePolicy = "fallback-local",
+    source_profile: SourceProfile = "auto",
 ) -> FastAPI:
     resolved_graph_default_limit = validate_default_limit(
         graph_default_limit,
@@ -757,6 +758,7 @@ def create_app(
         vector_provider=vector_provider,
         graph_store=graph_store,
         graph_store_failure_policy=graph_store_failure_policy,
+        source_profile=source_profile,
     )
     mcp_stream = create_mcp_stream_server(
         service,
@@ -787,7 +789,7 @@ def create_app(
         description=(
             "Read-only HTTP, MCP-style JSON-RPC, MCP Streamable HTTP, and optional "
             "A2A-style message surface "
-            "for LLMWiki Markdown folders."
+            "for LLMWiki Markdown folders and supported read-only input profiles."
         ),
         lifespan=lifespan,
     )

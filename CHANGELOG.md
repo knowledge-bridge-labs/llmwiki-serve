@@ -7,6 +7,21 @@ This project follows a lightweight public-preview changelog format. Dates use
 
 ## Unreleased
 
+## 0.2.12 - 2026-09-18
+
+- Added a read-only OKF v0.2 input profile. Roots with `okf_version: "0.2"`
+  auto-detect as `okf-v0.2`, and CLI/app callers can explicitly select
+  `--source-profile okf-v0.2` for controlled migration tests.
+- Preserved OKF concept type, resource, provenance, lifecycle, trust, and
+  attestation metadata in read payloads, source bundles, source refs, and graph
+  metadata without executing computations, dereferencing resources, mutating
+  files, or claiming attestation verification.
+- Projected OKF `sources[]` mappings as structured `okf_source` handles and
+  graph `source_ref` nodes, plus OKF `typed_as` and `describes` graph edges.
+- Kept unmarked Markdown/Obsidian/LLMWiki folders on their existing adapter
+  paths, and isolated OKF projection/graph cache keys from generic Markdown
+  projections over the same files.
+
 ## 0.2.11 - 2026-09-13
 
 - Added MCP `2026-07-28` Streamable HTTP discovery metadata, including

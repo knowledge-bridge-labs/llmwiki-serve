@@ -31,6 +31,7 @@ from llmwiki_serve.api import (
     create_mcp_stream_server,
 )
 from llmwiki_serve.cli import app as cli_app
+from llmwiki_serve.models import GraphQueryRequest
 from llmwiki_serve.projection_store import (
     REDIS_EXTRA_MESSAGE,
     InMemoryProjectionStore,
@@ -49,6 +50,7 @@ from llmwiki_serve.search import tokenize
 from llmwiki_serve.service import LlmWikiService, source_signature
 
 FIXTURE = Path(__file__).parent / "fixtures" / "sample-wiki"
+OKF_FIXTURE = Path(__file__).parent / "fixtures" / "okf-v0.2-bundle"
 
 
 def test_manifest_and_graph() -> None:
@@ -124,6 +126,105 @@ Collision source refs.
     assert ids_by_label["A B"] == "a-b"
     assert ids_by_label[second_label] == f"a-b-{second_suffix}"
     assert ids_by_label[third_label].startswith(f"a-b-{second_suffix}-")
+
+
+def test_okf_v02_manifest_and_source_bundle_contract() -> None:
+    service = LlmWikiService(OKF_FIXTURE)
+
+    manifest = service.manifest()
+    bundle = service.source_bundle()
+    client = TestClient(create_app(OKF_FIXTURE))
+    http_manifest = client.get("/manifest").json()
+    http_bundle = client.get("/source-bundle").json()
+    mcp_bundle = mcp_tool_call(client, "llmwiki_source_bundle", {})
+
+    expected_capabilities = {
+        "okf-v0.2",
+        "okf_read_only_consumer",
+        "okf_structured_provenance",
+        "okf_trust_lifecycle_metadata",
+    }
+    assert manifest.adapter == "okf-v0.2"
+    assert manifest.implementation == "Open Knowledge Format v0.2"
+    assert manifest.source_profile == "okf-v0.2"
+    assert manifest.format_version == "0.2"
+    assert expected_capabilities <= set(manifest.capabilities)
+    assert bundle.source_profile == "okf-v0.2"
+    assert bundle.format_version == "0.2"
+    assert expected_capabilities <= set(bundle.capabilities)
+    assert http_manifest["source_profile"] == "okf-v0.2"
+    assert http_manifest["format_version"] == "0.2"
+    assert http_bundle["source_profile"] == "okf-v0.2"
+    assert http_bundle["format_version"] == "0.2"
+    assert mcp_bundle["source_profile"] == "okf-v0.2"
+    assert mcp_bundle["format_version"] == "0.2"
+
+
+def test_okf_v02_source_refs_are_structured_and_draft_filtered() -> None:
+    service = LlmWikiService(OKF_FIXTURE)
+
+    refs_by_id = {item.id: item for item in service.source_refs().source_refs}
+    all_refs_by_id = {
+        item.id: item for item in service.source_refs(include_drafts=True).source_refs
+    }
+
+    assert "draft-contract-source" not in refs_by_id
+    assert "draft-contract-source" in all_refs_by_id
+    assert "rev-policy" in refs_by_id
+    assert "metrics-revenue" in refs_by_id
+    assert refs_by_id["rev-policy"].label == "Revenue Recognition Policy"
+    assert refs_by_id["rev-policy"].kind == "okf_source"
+    assert refs_by_id["rev-policy"].linked_pages == ["metrics/revenue.md"]
+    assert refs_by_id["rev-policy"].linked_page_ids == ["revenue-metric"]
+    assert refs_by_id["rev-policy"].locator["source_profile"] == "okf-v0.2"
+    assert refs_by_id["rev-policy"].locator["source"]["resource"] == (
+        "policies/revenue-recognition.md"
+    )
+    assert refs_by_id["rev-policy"].locator["first_seen_page"] == {
+        "id": "revenue-metric",
+        "path": "metrics/revenue.md",
+    }
+    assert refs_by_id["rev-policy"].locator["document"]["concept_type"] == "Metric"
+    assert refs_by_id["rev-policy"].locator["document"]["trust_tier"] == "human-reviewed"
+    assert refs_by_id["metrics-revenue"].label == "Revenue Metric"
+    assert refs_by_id["metrics-revenue"].kind == "okf_source"
+
+
+def test_okf_v02_read_search_and_graph_surface_contract() -> None:
+    service = LlmWikiService(OKF_FIXTURE)
+
+    revenue = service.read("revenue-metric")
+    graph = service.graph(include_drafts=True)
+    source_query = service.graph_query(
+        GraphQueryRequest(operation="by_source_ref", source_ref="rev-policy"),
+        include_drafts=True,
+    )
+    node_by_id = {node["id"]: node for node in graph["nodes"]}
+    edge_keys = {(edge["source"], edge["target"], edge["relation"]) for edge in graph["edges"]}
+
+    assert revenue["okf"]["concept_type"] == "Metric"
+    assert revenue["okf"]["sources"][0]["id"] == "rev-policy"
+    assert revenue["okf"]["sources"][0]["extra"]["excerpt_hash"] == "sha256:revpolicyfixture"
+    assert service.search("zzokfdraftblocked") == []
+    assert service.read("proposed-contract") == {
+        "found": False,
+        "reason": "not approved for serving",
+    }
+    assert service.search("zzokfdraftblocked", include_drafts=True)[0]["page_id"] == (
+        "proposed-contract"
+    )
+    assert service.search("zzokfdeprecatedvisible")[0]["page_id"] == "payments-auth-dependency"
+    assert service.search("zzokflognever", include_drafts=True) == []
+    assert node_by_id["page:revenue-metric"]["metadata"]["okf"]["concept_type"] == "Metric"
+    assert node_by_id["source:rev-policy"]["label"] == "Revenue Recognition Policy"
+    assert node_by_id["source:rev-policy"]["metadata"]["okf"]["resource"] == (
+        "policies/revenue-recognition.md"
+    )
+    assert node_by_id["okf_type:metric"]["label"] == "Metric"
+    assert ("page:revenue-metric", "okf_type:metric", "typed_as") in edge_keys
+    assert ("page:revenue-metric", "source:rev-policy", "cites") in edge_keys
+    assert {node.id for node in source_query.nodes} >= {"source:rev-policy", "page:revenue-metric"}
+    assert any(edge.relation == "cites" for edge in source_query.edges)
 
 
 def test_bundle_id_uses_portable_projection_digest(tmp_path: Path) -> None:

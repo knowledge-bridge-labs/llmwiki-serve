@@ -3,11 +3,19 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
 import yaml
 
 from .models import WikiPage
+from .okf import (
+    OKF_V02_ADAPTER_NAME,
+    OKF_V02_IMPLEMENTATION,
+    OKF_V02_VERSION,
+    OkfV02ValidationError,
+    is_okf_v02_root,
+    parse_okf_v02_pages,
+)
 from .parser import WikilinkAliasMode, parse_page
 
 LLMWIKI_TYPED_DIRS = {
@@ -39,6 +47,9 @@ WIKI_ROOT_MISSING_CODE = "wiki_root_missing"
 WIKI_ROOT_MISSING_SAFE_MESSAGE = "Configured wiki root does not exist or is not a directory."
 WIKI_ROOT_UNSUPPORTED_CODE = "wiki_root_unsupported"
 WIKI_ROOT_UNSUPPORTED_SAFE_MESSAGE = "No supported wiki files were found under the configured root."
+OKF_V02_INVALID_CODE = "okf_v0_2_invalid"
+OKF_V02_INVALID_SAFE_MESSAGE = "Configured root is not a valid OKF v0.2 bundle."
+SourceProfile = Literal["auto", "okf-v0.2"]
 
 
 class WikiRootError(FileNotFoundError):
@@ -76,7 +87,7 @@ class LoadedWiki:
     description: str = ""
     adapter: str = "generic-markdown"
     implementation: str = "generic-markdown"
-    metadata: dict[str, str] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     sidecar_graph_edges: list[SidecarGraphEdgeFact] = field(default_factory=list)
 
 
@@ -98,6 +109,15 @@ class WikiAdapter(Protocol):
 
 
 SUPPORTED_IMPLEMENTATIONS: tuple[AdapterProfile, ...] = (
+    AdapterProfile(
+        "GoogleCloudPlatform/knowledge-catalog OKF v0.2",
+        OKF_V02_ADAPTER_NAME,
+        "tested-input-profile",
+        (
+            "Reads Open Knowledge Format v0.2 Markdown bundles as a read-only "
+            "consumer profile while preserving provenance, lifecycle, and trust metadata."
+        ),
+    ),
     AdapterProfile(
         "atomicstrata/llm-wiki-compiler",
         "llmwiki-markdown",
@@ -174,6 +194,36 @@ SUPPORTED_IMPLEMENTATIONS: tuple[AdapterProfile, ...] = (
         "Reads Quartz content/ Markdown folders and generated-site source vaults.",
     ),
 )
+
+
+class OkfV02Adapter:
+    name = OKF_V02_ADAPTER_NAME
+    implementation = OKF_V02_IMPLEMENTATION
+
+    def detect(self, root: Path) -> bool:
+        return is_okf_v02_root(root)
+
+    def load(self, root: Path) -> LoadedWiki:
+        try:
+            pages = parse_okf_v02_pages(
+                root,
+                (path for path in root.rglob("*.md") if include_adapter_file(path, root=root)),
+            )
+        except OkfV02ValidationError as exc:
+            raise invalid_okf_v02_root_error(root, str(exc)) from exc
+        title, description = markdown_metadata(root, pages)
+        metadata = source_root_metadata(root, root)
+        metadata.update({"source_profile": self.name, "format_version": OKF_V02_VERSION})
+        return LoadedWiki(
+            root=root,
+            pages=pages,
+            title=title,
+            description=description,
+            adapter=self.name,
+            implementation=self.implementation,
+            metadata=metadata,
+            sidecar_graph_edges=load_sidecar_graph_edges(root, root),
+        )
 
 
 class MarkdownWikiAdapter:
@@ -348,6 +398,7 @@ class LogseqAdapter(MarkdownWikiAdapter):
 
 
 ADAPTERS: tuple[WikiAdapter, ...] = (
+    OkfV02Adapter(),
     ObsidianAdapter(),
     LogseqAdapter(),
     DendronAdapter(),
@@ -358,10 +409,23 @@ ADAPTERS: tuple[WikiAdapter, ...] = (
 )
 
 
-def load_wiki(root: Path | str) -> LoadedWiki:
+PROFILE_ADAPTERS: dict[SourceProfile, WikiAdapter] = {
+    "okf-v0.2": OkfV02Adapter(),
+}
+
+
+def load_wiki(root: Path | str, *, source_profile: SourceProfile = "auto") -> LoadedWiki:
     resolved = Path(root).expanduser().resolve()
     if not resolved.exists() or not resolved.is_dir():
         raise missing_wiki_root_error(resolved)
+    if source_profile != "auto":
+        adapter = PROFILE_ADAPTERS.get(source_profile)
+        if adapter is None:
+            raise ValueError("source_profile must be auto or okf-v0.2")
+        loaded = adapter.load(resolved)
+        if not loaded.pages:
+            raise unsupported_wiki_root_error(resolved)
+        return loaded
     for adapter in ADAPTERS:
         if adapter.detect(resolved):
             loaded = adapter.load(resolved)
@@ -385,6 +449,16 @@ def unsupported_wiki_root_error(root: Path) -> WikiRootError:
         f"No supported wiki files were found under: {root}",
         code=WIKI_ROOT_UNSUPPORTED_CODE,
         safe_message=WIKI_ROOT_UNSUPPORTED_SAFE_MESSAGE,
+        status_code=422,
+    )
+
+
+def invalid_okf_v02_root_error(root: Path, reason: str) -> WikiRootError:
+    suffix = f": {reason}" if reason else ""
+    return WikiRootError(
+        f"Invalid OKF v0.2 bundle under: {root}{suffix}",
+        code=OKF_V02_INVALID_CODE,
+        safe_message=OKF_V02_INVALID_SAFE_MESSAGE,
         status_code=422,
     )
 
@@ -596,7 +670,7 @@ def dendron_vault_path(root: Path, vault: Any) -> Path | None:
 
 def dendron_source_metadata(
     root: Path, source_roots: list[Path], source_root: Path, *, use_workspace_paths: bool
-) -> dict[str, str]:
+) -> dict[str, Any]:
     metadata = source_root_metadata(root, source_root)
     if use_workspace_paths:
         metadata["vault_roots"] = ",".join(
@@ -605,7 +679,7 @@ def dendron_source_metadata(
     return metadata
 
 
-def source_root_metadata(root: Path, source_root: Path) -> dict[str, str]:
+def source_root_metadata(root: Path, source_root: Path) -> dict[str, Any]:
     source_value = source_root.relative_to(root).as_posix() if source_root != root else "."
     return {"source_root": source_value}
 

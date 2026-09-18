@@ -425,6 +425,7 @@ instead of duplicated here.
 | `lucasastorian/llmwiki` | `llmwiki-markdown` | Compatible Markdown output target | Generated LLMWiki-style Markdown folders without changing the producer project. |
 | `Pratiyush/llm-wiki` | `llmwiki-markdown` | Compatible Markdown output target | Agent-session-derived Markdown knowledge bases when exported as local Markdown files. |
 | `langchain-ai/deepagents` `examples/llm-wiki` | `llmwiki-markdown` | Compatible workspace-layout variant | DeepAgents LLM Wiki workspaces where the repository root contains `raw/`, runner-managed `log.md`, and a nested served `wiki/` folder with `wiki/index.md`, canonical pages, and optional `wiki/query/*.md` routing hints. |
+| `GoogleCloudPlatform/knowledge-catalog` OKF v0.2 | `okf-v0.2` | Tested input profile | Markdown bundles with root `okf_version: "0.2"` marker. The adapter preserves OKF concept type, resource, provenance, lifecycle, trust, and attestation metadata as read-only source facts. |
 | Obsidian vault | `obsidian` | Format adapter | Markdown files, YAML front matter, wikilinks, tags, and `.obsidian` workspace detection. |
 | `logseq/logseq` | `logseq` | Format adapter | `pages/` and `journals/` Markdown or Org files plus page references. |
 | `foambubble/foam` | `foam` | Format adapter | VS Code Markdown workspaces with wikilinks and optional `.foam` markers. |
@@ -444,6 +445,14 @@ The DeepAgents LLM Wiki example is treated as a variant of this native Markdown
 path, not as a projection layer or managed runtime dependency. `llmwiki-serve`
 does not run LangSmith Sandbox, Context Hub sync, `ingest`, `query`, or `lint`;
 it reads the resulting local `wiki/` files when they are present.
+
+**OKF v0.2 input profile:** OKF bundles are consumed as local Markdown with a
+strong root version marker. The parser validates the bounded fields needed for
+read-only serving, then projects concept type, resource, and structured sources
+into the canonical source-ref and graph contracts. It does not execute attested
+computations, dereference OKF resources, validate remote signatures, or write
+back producer state. Unmarked OKF-like folders remain generic Markdown unless
+an operator explicitly selects `--source-profile okf-v0.2`.
 
 **Format adapters:** Obsidian, Logseq, Foam, Dendron, and Quartz adapters support
 common on-disk Markdown layouts and project markers. They project those workspaces

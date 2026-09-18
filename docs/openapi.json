@@ -607,6 +607,199 @@
         "title": "JsonRpcResponse",
         "type": "object"
       },
+      "OkfActorEvent": {
+        "properties": {
+          "at": {
+            "default": "",
+            "title": "At",
+            "type": "string"
+          },
+          "by": {
+            "title": "By",
+            "type": "string"
+          }
+        },
+        "required": [
+          "by"
+        ],
+        "title": "OkfActorEvent",
+        "type": "object"
+      },
+      "OkfMetadata": {
+        "properties": {
+          "attester": {
+            "additionalProperties": true,
+            "title": "Attester",
+            "type": "object"
+          },
+          "computation": {
+            "default": "",
+            "title": "Computation",
+            "type": "string"
+          },
+          "concept_type": {
+            "default": "",
+            "title": "Concept Type",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "executor": {
+            "additionalProperties": true,
+            "title": "Executor",
+            "type": "object"
+          },
+          "extra": {
+            "additionalProperties": true,
+            "title": "Extra",
+            "type": "object"
+          },
+          "generated": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OkfActorEvent"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "parameters": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Parameters",
+            "type": "array"
+          },
+          "resource": {
+            "default": "",
+            "title": "Resource",
+            "type": "string"
+          },
+          "role": {
+            "default": "concept",
+            "enum": [
+              "concept",
+              "index",
+              "log"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "runtime": {
+            "default": "",
+            "title": "Runtime",
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/OkfSource"
+            },
+            "title": "Sources",
+            "type": "array"
+          },
+          "stale_after": {
+            "default": "",
+            "title": "Stale After",
+            "type": "string"
+          },
+          "status": {
+            "default": "stable",
+            "title": "Status",
+            "type": "string"
+          },
+          "trust_tier": {
+            "default": "unverified",
+            "enum": [
+              "unverified",
+              "machine-confirmed",
+              "human-reviewed"
+            ],
+            "title": "Trust Tier",
+            "type": "string"
+          },
+          "usage_window": {
+            "additionalProperties": true,
+            "title": "Usage Window",
+            "type": "object"
+          },
+          "verified": {
+            "items": {
+              "$ref": "#/components/schemas/OkfActorEvent"
+            },
+            "title": "Verified",
+            "type": "array"
+          },
+          "version": {
+            "default": "0.2",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "title": "OkfMetadata",
+        "type": "object"
+      },
+      "OkfSource": {
+        "properties": {
+          "author": {
+            "default": "",
+            "title": "Author",
+            "type": "string"
+          },
+          "extra": {
+            "additionalProperties": true,
+            "title": "Extra",
+            "type": "object"
+          },
+          "id": {
+            "default": "",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_modified": {
+            "default": "",
+            "title": "Last Modified",
+            "type": "string"
+          },
+          "resource": {
+            "title": "Resource",
+            "type": "string"
+          },
+          "title": {
+            "default": "",
+            "title": "Title",
+            "type": "string"
+          },
+          "usage_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usage Count"
+          },
+          "usage_window": {
+            "additionalProperties": true,
+            "title": "Usage Window",
+            "type": "object"
+          }
+        },
+        "required": [
+          "resource"
+        ],
+        "title": "OkfSource",
+        "type": "object"
+      },
       "PageCard": {
         "additionalProperties": false,
         "properties": {
@@ -1126,6 +1319,11 @@
             "title": "Description",
             "type": "string"
           },
+          "format_version": {
+            "default": "",
+            "title": "Format Version",
+            "type": "string"
+          },
           "implementation": {
             "default": "",
             "title": "Implementation",
@@ -1144,6 +1342,11 @@
           },
           "source_id": {
             "title": "Source Id",
+            "type": "string"
+          },
+          "source_profile": {
+            "default": "",
+            "title": "Source Profile",
             "type": "string"
           },
           "source_refs": {
@@ -1305,6 +1508,11 @@
             "title": "Description",
             "type": "string"
           },
+          "format_version": {
+            "default": "",
+            "title": "Format Version",
+            "type": "string"
+          },
           "hot_page": {
             "default": "",
             "title": "Hot Page",
@@ -1349,6 +1557,11 @@
             "title": "Source Id",
             "type": "string"
           },
+          "source_profile": {
+            "default": "",
+            "title": "Source Profile",
+            "type": "string"
+          },
           "title": {
             "title": "Title",
             "type": "string"
@@ -1388,6 +1601,16 @@
             },
             "title": "Links",
             "type": "array"
+          },
+          "okf": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OkfMetadata"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "path": {
             "title": "Path",
@@ -1491,6 +1714,16 @@
             "title": "Links",
             "type": "array"
           },
+          "okf": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OkfMetadata"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "path": {
             "default": "",
             "title": "Path",
@@ -1552,9 +1785,9 @@
     }
   },
   "info": {
-    "description": "Read-only HTTP, MCP-style JSON-RPC, MCP Streamable HTTP, and optional A2A-style message surface for LLMWiki Markdown folders.",
+    "description": "Read-only HTTP, MCP-style JSON-RPC, MCP Streamable HTTP, and optional A2A-style message surface for LLMWiki Markdown folders and supported read-only input profiles.",
     "title": "LLMWiki Serve",
-    "version": "0.2.11"
+    "version": "0.2.12"
   },
   "openapi": "3.1.0",
   "paths": {

@@ -9,6 +9,7 @@ from typing import Annotated, NoReturn, TypeAlias, cast
 
 import typer
 
+from .adapters import SourceProfile
 from .api import (
     GRAPH_LIMIT_MAX,
     GRAPH_LIMIT_MIN,
@@ -140,6 +141,13 @@ ExcludePageIdOption: TypeAlias = Annotated[
     typer.Option(
         "--exclude-page-id",
         help="Page id or path to exclude from search evidence. Repeat for multiple pages.",
+    ),
+]
+SourceProfileOption: TypeAlias = Annotated[
+    str,
+    typer.Option(
+        "--source-profile",
+        help="Source input profile: auto or okf-v0.2.",
     ),
 ]
 VectorProviderOption: TypeAlias = Annotated[
@@ -357,10 +365,14 @@ ProbeTimeoutOption: TypeAlias = Annotated[
 
 
 @app.command()
-def manifest(root: WikiRootArgument) -> None:
+def manifest(root: WikiRootArgument, source_profile: SourceProfileOption = "auto") -> None:
     """Print wiki manifest JSON."""
     try:
-        typer.echo(cli_service(root).manifest().model_dump_json(indent=2))
+        typer.echo(
+            cli_service(root, source_profile=parse_source_profile(source_profile))
+            .manifest()
+            .model_dump_json(indent=2)
+        )
     except (FileNotFoundError, ValueError) as exc:
         exit_with_error(str(exc))
 
@@ -381,6 +393,7 @@ def query(
     snippet_chars: SnippetCharsOption = None,
     min_score: MinScoreOption = None,
     exclude_page_id: ExcludePageIdOption = None,
+    source_profile: SourceProfileOption = "auto",
 ) -> None:
     """Build a context pack for a query."""
     try:
@@ -388,6 +401,7 @@ def query(
         typer.echo(
             cli_service(
                 root,
+                source_profile=parse_source_profile(source_profile),
                 analyzer_profile=analyzer_profile_value(analyzer_profile),
                 vector_config=resolve_vector_cli_config(
                     provider=vector_provider,
@@ -428,6 +442,7 @@ def search_pages(
     snippet_chars: SnippetCharsOption = None,
     min_score: MinScoreOption = None,
     exclude_page_id: ExcludePageIdOption = None,
+    source_profile: SourceProfileOption = "auto",
 ) -> None:
     """Search pages and print result JSON."""
     try:
@@ -436,6 +451,7 @@ def search_pages(
                 {
                     "results": cli_service(
                         root,
+                        source_profile=parse_source_profile(source_profile),
                         analyzer_profile=analyzer_profile_value(analyzer_profile),
                         vector_config=resolve_vector_cli_config(
                             provider=vector_provider,
@@ -463,19 +479,27 @@ def search_pages(
 
 
 @app.command("source-refs")
-def source_refs(root: WikiRootArgument) -> None:
+def source_refs(root: WikiRootArgument, source_profile: SourceProfileOption = "auto") -> None:
     """Print typed source-reference handles JSON."""
     try:
-        typer.echo(cli_service(root).source_refs().model_dump_json(indent=2))
+        typer.echo(
+            cli_service(root, source_profile=parse_source_profile(source_profile))
+            .source_refs()
+            .model_dump_json(indent=2)
+        )
     except (FileNotFoundError, ValueError) as exc:
         exit_with_error(str(exc))
 
 
 @app.command("source-bundle")
-def source_bundle(root: WikiRootArgument) -> None:
+def source_bundle(root: WikiRootArgument, source_profile: SourceProfileOption = "auto") -> None:
     """Print source bundle manifest JSON."""
     try:
-        typer.echo(cli_service(root).source_bundle().model_dump_json(indent=2))
+        typer.echo(
+            cli_service(root, source_profile=parse_source_profile(source_profile))
+            .source_bundle()
+            .model_dump_json(indent=2)
+        )
     except (FileNotFoundError, ValueError) as exc:
         exit_with_error(str(exc))
 
@@ -634,6 +658,7 @@ def serve(
     ] = None,
     graph_default_limit: GraphDefaultLimitOption = None,
     context_default_limit: ContextDefaultLimitOption = None,
+    source_profile: SourceProfileOption = "auto",
     analyzer_profile: AnalyzerProfileOption = AnalyzerProfileChoice.legacy,
     vector_provider: VectorProviderOption = None,
     vector_model: VectorModelOption = None,
@@ -693,6 +718,7 @@ def serve(
             context_default_limit,
             "LLMWIKI_CONTEXT_DEFAULT_LIMIT",
         )
+        resolved_source_profile = parse_source_profile(source_profile)
         resolved_mcp_server_name = (
             mcp_server_name
             or os.getenv("LLMWIKI_MCP_SERVER_NAME")
@@ -733,6 +759,7 @@ def serve(
             vector_config=resolved_vector_config,
             graph_store=graph_store,
             graph_store_failure_policy=graph_store_failure_policy,
+            source_profile=resolved_source_profile,
         )
         preflight_service.index()
         fastapi_app = create_app(
@@ -756,6 +783,7 @@ def serve(
             vector_config=resolved_vector_config,
             graph_store=graph_store,
             graph_store_failure_policy=graph_store_failure_policy,
+            source_profile=resolved_source_profile,
         )
     except FileNotFoundError as exc:
         exit_with_error(str(exc))
@@ -835,6 +863,7 @@ def resolve_graph_store_path(
 def cli_service(
     root: Path,
     *,
+    source_profile: SourceProfile = "auto",
     analyzer_profile: PublicAnalyzerProfile = DEFAULT_PUBLIC_ANALYZER_PROFILE,
     vector_config: VectorConfig | None = None,
 ) -> LlmWikiService:
@@ -843,6 +872,7 @@ def cli_service(
         managed_context=managed_context_config_from_env(),
         analyzer_profile=analyzer_profile,
         vector_config=vector_config if vector_config is not None else vector_config_from_env(),
+        source_profile=source_profile,
     )
 
 
@@ -898,6 +928,13 @@ def validate_probe_ports(values: list[int], *, source: str) -> list[int]:
 
 def search_mode_value(mode: SearchModeChoice) -> SearchMode:
     return mode.value
+
+
+def parse_source_profile(value: str) -> SourceProfile:
+    normalized = value.strip()
+    if normalized in {"auto", "okf-v0.2"}:
+        return cast(SourceProfile, normalized)
+    raise ValueError("source_profile must be auto or okf-v0.2")
 
 
 def resolve_vector_cli_config(

@@ -9,6 +9,8 @@ PageRole = Literal["hot", "index", "overview", "topic"]
 ReviewState = Literal[
     "approved", "reviewed", "verified", "draft", "proposed", "needs_review", "unknown"
 ]
+OkfDocumentRole = Literal["concept", "index", "log"]
+OkfTrustTier = Literal["unverified", "machine-confirmed", "human-reviewed"]
 GraphNeighborhoodDirection = Literal["out", "in", "both"]
 GraphQueryDirection: TypeAlias = GraphNeighborhoodDirection
 GraphQueryOperation = Literal["neighbors", "backlinks", "paths", "by_source_ref", "by_tag"]
@@ -32,6 +34,49 @@ NON_SERVING_STATUSES = {
 }
 
 
+class OkfActorEvent(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    by: str
+    at: str = ""
+
+
+class OkfSource(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    id: str = ""
+    resource: str
+    title: str = ""
+    author: str = ""
+    usage_count: int | float | None = None
+    last_modified: str = ""
+    usage_window: dict[str, Any] = Field(default_factory=dict)
+    extra: dict[str, Any] = Field(default_factory=dict)
+
+
+class OkfMetadata(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    version: str = "0.2"
+    role: OkfDocumentRole = "concept"
+    concept_type: str = ""
+    description: str = ""
+    resource: str = ""
+    generated: OkfActorEvent | None = None
+    verified: list[OkfActorEvent] = Field(default_factory=list)
+    trust_tier: OkfTrustTier = "unverified"
+    status: str = "stable"
+    stale_after: str = ""
+    usage_window: dict[str, Any] = Field(default_factory=dict)
+    runtime: str = ""
+    parameters: list[dict[str, Any]] = Field(default_factory=list)
+    computation: str = ""
+    executor: dict[str, Any] = Field(default_factory=dict)
+    attester: dict[str, Any] = Field(default_factory=dict)
+    sources: list[OkfSource] = Field(default_factory=list)
+    extra: dict[str, Any] = Field(default_factory=dict)
+
+
 class WikiPage(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -49,6 +94,7 @@ class WikiPage(BaseModel):
     links: list[str] = Field(default_factory=list)
     headings: list[str] = Field(default_factory=list)
     updated_at: str = ""
+    okf: OkfMetadata | None = None
 
     @property
     def approved_for_serving(self) -> bool:
@@ -155,6 +201,7 @@ class WikiPageProjection(BaseModel):
     links: list[str] = Field(default_factory=list)
     headings: list[str] = Field(default_factory=list)
     updated_at: str = ""
+    okf: OkfMetadata | None = None
 
 
 ContextSearchResult: TypeAlias = SearchResult | SearchResultProjection
@@ -358,6 +405,8 @@ class WikiManifest(BaseModel):
     public_uri: str = ""
     adapter: str = ""
     implementation: str = ""
+    source_profile: str = ""
+    format_version: str = ""
     page_count: int
     approved_page_count: int
     hot_page: str = ""
@@ -392,6 +441,8 @@ class SourceBundleManifest(BaseModel):
     description: str = ""
     adapter: str = ""
     implementation: str = ""
+    source_profile: str = ""
+    format_version: str = ""
     projection: ProjectionMetadata = Field(default_factory=ProjectionMetadata)
     raw_origins: RawOriginsMetadata = Field(default_factory=RawOriginsMetadata)
     capabilities: list[str] = Field(default_factory=list)

@@ -4,7 +4,8 @@ import re
 from typing import Any
 
 from .adapters import LoadedWiki
-from .models import GraphEdge, GraphNode, WikiIndex, WikiPage
+from .models import GraphEdge, GraphNode, OkfSource, WikiIndex, WikiPage
+from .okf import okf_source_ref_key, okf_source_ref_label
 
 
 def project_wiki(loaded: LoadedWiki) -> WikiIndex:
@@ -22,6 +23,7 @@ def project_wiki(loaded: LoadedWiki) -> WikiIndex:
                 **adapter_metadata,
                 "source_refs": page.source_refs,
                 "review_state": page.review_state,
+                "okf": page.okf.model_dump(mode="json") if page.okf else {},
             },
         )
         for page in loaded.pages
@@ -38,7 +40,15 @@ def project_wiki(loaded: LoadedWiki) -> WikiIndex:
                     source=f"page:{page.id}", target=f"heading:{heading_id}", relation="contains"
                 )
             )
+        projected_okf_source_refs: set[str] = set()
+        if page.okf:
+            project_okf_metadata(page, nodes, edges)
+            for source in page.okf.sources:
+                projected_okf_source_refs.add(okf_source_ref_key(source))
+                project_okf_source(page, source, nodes, edges)
         for ref in page.source_refs:
+            if ref in projected_okf_source_refs:
+                continue
             source_id = f"source:{slug(ref)}"
             nodes.append(GraphNode(id=source_id, label=ref, kind="source_ref", path=page.path))
             edges.append(GraphEdge(source=f"page:{page.id}", target=source_id, relation="cites"))
@@ -86,6 +96,80 @@ def project_wiki(loaded: LoadedWiki) -> WikiIndex:
         adapter=loaded.adapter,
         implementation=loaded.implementation,
         metadata=adapter_metadata,
+    )
+
+
+def project_okf_metadata(page: WikiPage, nodes: list[GraphNode], edges: list[GraphEdge]) -> None:
+    if page.okf is None:
+        return
+    page_node_id = f"page:{page.id}"
+    if page.okf.concept_type:
+        type_id = f"okf_type:{slug(page.okf.concept_type).lower()}"
+        nodes.append(
+            GraphNode(
+                id=type_id,
+                label=page.okf.concept_type,
+                kind="okf_type",
+                path=page.path,
+                metadata={"source_profile": "okf-v0.2"},
+            )
+        )
+        edges.append(
+            GraphEdge(
+                source=page_node_id,
+                target=type_id,
+                relation="typed_as",
+                metadata={"source": "okf.type", "source_profile": "okf-v0.2"},
+            )
+        )
+    if page.okf.resource:
+        resource_id = f"okf_resource:{slug(page.okf.resource)}"
+        nodes.append(
+            GraphNode(
+                id=resource_id,
+                label=page.okf.resource,
+                kind="okf_resource",
+                path=page.path,
+                metadata={"source_profile": "okf-v0.2"},
+            )
+        )
+        edges.append(
+            GraphEdge(
+                source=page_node_id,
+                target=resource_id,
+                relation="describes",
+                metadata={"source": "okf.resource", "source_profile": "okf-v0.2"},
+            )
+        )
+
+
+def project_okf_source(
+    page: WikiPage,
+    source: OkfSource,
+    nodes: list[GraphNode],
+    edges: list[GraphEdge],
+) -> None:
+    source_key = okf_source_ref_key(source)
+    source_id = f"source:{slug(source_key)}"
+    nodes.append(
+        GraphNode(
+            id=source_id,
+            label=okf_source_ref_label(source),
+            kind="source_ref",
+            path=page.path,
+            metadata={
+                "source_profile": "okf-v0.2",
+                "okf": source.model_dump(mode="json"),
+            },
+        )
+    )
+    edges.append(
+        GraphEdge(
+            source=f"page:{page.id}",
+            target=source_id,
+            relation="cites",
+            metadata={"source": "okf.sources", "source_profile": "okf-v0.2"},
+        )
     )
 
 
