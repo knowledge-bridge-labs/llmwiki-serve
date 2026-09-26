@@ -50,6 +50,11 @@ from .models import (
     WikiPageProjection,
 )
 from .projection_store import ProjectionStore
+from .query_action_judgment import (
+    QueryActionJudgeConfig,
+    query_action_judge_config_from_env,
+    validate_query_action_judge_config,
+)
 from .search import (
     DEFAULT_PUBLIC_ANALYZER_PROFILE,
     PublicAnalyzerProfile,
@@ -721,6 +726,7 @@ def create_app(
     graph_store: GraphStore | None = None,
     graph_store_failure_policy: GraphStoreFailurePolicy = "fallback-local",
     source_profile: SourceProfile = "auto",
+    query_action_judge: QueryActionJudgeConfig | str | None = None,
 ) -> FastAPI:
     resolved_graph_default_limit = validate_default_limit(
         graph_default_limit,
@@ -745,6 +751,11 @@ def create_app(
         if vector_config is not None or vector_provider is not None
         else vector_config_from_env()
     )
+    resolved_query_action_judge = (
+        query_action_judge_config_from_env()
+        if query_action_judge is None
+        else validate_query_action_judge_config(query_action_judge)
+    )
     service = LlmWikiService(
         root,
         refresh_interval_seconds=refresh_interval_seconds,
@@ -759,6 +770,7 @@ def create_app(
         graph_store=graph_store,
         graph_store_failure_policy=graph_store_failure_policy,
         source_profile=source_profile,
+        query_action_judge=resolved_query_action_judge,
     )
     mcp_stream = create_mcp_stream_server(
         service,

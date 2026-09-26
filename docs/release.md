@@ -199,6 +199,24 @@ versioned release or public release candidate.
    reports with no private paths, private endpoints, credentials, raw source
    content, or generated local artifacts.
 
+   For releases that change optional query-action judgment, run the focused
+   contract and masking gates:
+
+   ```bash
+   uv run pytest -q tests/test_query_action_judgment.py tests/test_public_api.py -p no:cacheprovider
+   uv run python scripts/export_openapi.py --check
+   ```
+
+   Release notes should describe query-action judgment as an operator-enabled
+   post-query recommendation for the caller's next retrieval action, not as
+   ranking, answer synthesis, GraphRAG, or a broad quality/performance claim.
+   Default serving must omit `retrieval_action_guidance` and must not call a
+   provider. Enabled tests should prove missing keys and provider failures fail
+   open, and that provider payloads omit raw page text, raw snippets, page ids,
+   source-ref labels, raw paths, local roots, private URLs, and obvious
+   credentials. Do not publish provider keys, private endpoint URLs, live
+   provider traces, private wiki snippets, or absolute local paths.
+
    On Windows, stop any `llmwiki-serve` process that is running from this
    checkout before invoking `uv run` release gates. A running console script can
    hold `.venv\Scripts\llmwiki-serve.exe` open, which prevents uv from

@@ -82,6 +82,16 @@
             "title": "Query",
             "type": "string"
           },
+          "retrieval_action_guidance": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RetrievalActionGuidance"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "retrieval_guidance": {
             "anyOf": [
               {
@@ -1085,6 +1095,117 @@
         "title": "ReadNotFoundResponse",
         "type": "object"
       },
+      "RetrievalActionGuidance": {
+        "additionalProperties": false,
+        "properties": {
+          "confidence": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "diagnostics": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Diagnostics",
+            "type": "array"
+          },
+          "evidence_sufficiency_score": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Sufficiency Score"
+          },
+          "graph_seeds": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Graph Seeds",
+            "type": "array"
+          },
+          "mode": {
+            "const": "system_one",
+            "default": "system_one",
+            "title": "Mode",
+            "type": "string"
+          },
+          "read_page_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Read Page Ids",
+            "type": "array"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "recommended_action": {
+            "anyOf": [
+              {
+                "enum": [
+                  "stop",
+                  "read",
+                  "search",
+                  "graph",
+                  "ask_clarification"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recommended Action"
+          },
+          "schema_version": {
+            "const": "llmwiki.retrieval_action_guidance.v1",
+            "default": "llmwiki.retrieval_action_guidance.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "search_queries": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Search Queries",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "skipped",
+              "failed",
+              "unconfigured"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "RetrievalActionGuidance",
+        "type": "object"
+      },
       "RetrievalGuidance": {
         "additionalProperties": false,
         "properties": {
@@ -1787,7 +1908,7 @@
   "info": {
     "description": "Read-only HTTP, MCP-style JSON-RPC, MCP Streamable HTTP, and optional A2A-style message surface for LLMWiki Markdown folders and supported read-only input profiles.",
     "title": "LLMWiki Serve",
-    "version": "0.2.12"
+    "version": "0.2.13"
   },
   "openapi": "3.1.0",
   "paths": {

@@ -38,6 +38,11 @@ from .projection_store import (
     RedisFailurePolicy,
     create_projection_store,
 )
+from .query_action_judgment import (
+    QueryActionJudgeConfig,
+    query_action_judge_config_from_env,
+    validate_query_action_judge_config,
+)
 from .search import DEFAULT_PUBLIC_ANALYZER_PROFILE, PublicAnalyzerProfile
 from .service import LlmWikiService
 from .vector import (
@@ -69,6 +74,11 @@ class VectorProviderChoice(StrEnum):
 class VectorModelDownloadChoice(StrEnum):
     never = "never"
     allow = "allow"
+
+
+class QueryActionJudgeChoice(StrEnum):
+    off = "off"
+    system_one = "system-one"
 
 
 WikiRootArgument: TypeAlias = Annotated[
@@ -333,6 +343,27 @@ McpToolDescriptionPrefixOption: TypeAlias = Annotated[
         ),
     ),
 ]
+QueryActionJudgeOption: TypeAlias = Annotated[
+    QueryActionJudgeChoice | None,
+    typer.Option(
+        "--query-action-judge",
+        help=(
+            "Optional query-action judgment mode. Use system-one only when provider "
+            "export is approved. Env: LLMWIKI_QUERY_ACTION_JUDGE."
+        ),
+    ),
+]
+QueryActionJudgeTimeoutMsOption: TypeAlias = Annotated[
+    int | None,
+    typer.Option(
+        "--query-action-judge-timeout-ms",
+        min=1,
+        help=(
+            "System-One query-action judgment timeout in milliseconds. "
+            "Env: LLMWIKI_QUERY_ACTION_JUDGE_TIMEOUT_MS."
+        ),
+    ),
+]
 InstanceStateDirOption: TypeAlias = Annotated[
     Path | None,
     typer.Option(
@@ -394,10 +425,16 @@ def query(
     min_score: MinScoreOption = None,
     exclude_page_id: ExcludePageIdOption = None,
     source_profile: SourceProfileOption = "auto",
+    query_action_judge: QueryActionJudgeOption = None,
+    query_action_judge_timeout_ms: QueryActionJudgeTimeoutMsOption = None,
 ) -> None:
     """Build a context pack for a query."""
     try:
         result_fields = split_cli_values(fields)
+        resolved_query_action_judge = resolve_query_action_judge_cli_config(
+            mode=query_action_judge,
+            timeout_ms=query_action_judge_timeout_ms,
+        )
         typer.echo(
             cli_service(
                 root,
@@ -410,6 +447,7 @@ def query(
                     model_cache_dir=vector_model_cache_dir,
                     model_download=vector_model_download,
                 ),
+                query_action_judge=resolved_query_action_judge,
             )
             .context(
                 text,
@@ -665,6 +703,8 @@ def serve(
     vector_cache_dir: VectorCacheDirOption = None,
     vector_model_cache_dir: VectorModelCacheDirOption = None,
     vector_model_download: VectorModelDownloadOption = None,
+    query_action_judge: QueryActionJudgeOption = None,
+    query_action_judge_timeout_ms: QueryActionJudgeTimeoutMsOption = None,
     mcp_server_name: McpServerNameOption = None,
     mcp_instructions: McpInstructionsOption = None,
     mcp_tool_description_prefix: McpToolDescriptionPrefixOption = None,
@@ -741,6 +781,10 @@ def serve(
             model_cache_dir=vector_model_cache_dir,
             model_download=vector_model_download,
         )
+        resolved_query_action_judge = resolve_query_action_judge_cli_config(
+            mode=query_action_judge,
+            timeout_ms=query_action_judge_timeout_ms,
+        )
         projection_store = create_projection_store(
             projection_backend,
             redis_url=resolved_redis_url,
@@ -760,6 +804,7 @@ def serve(
             graph_store=graph_store,
             graph_store_failure_policy=graph_store_failure_policy,
             source_profile=resolved_source_profile,
+            query_action_judge=resolved_query_action_judge,
         )
         preflight_service.index()
         fastapi_app = create_app(
@@ -784,6 +829,7 @@ def serve(
             graph_store=graph_store,
             graph_store_failure_policy=graph_store_failure_policy,
             source_profile=resolved_source_profile,
+            query_action_judge=resolved_query_action_judge,
         )
     except FileNotFoundError as exc:
         exit_with_error(str(exc))
@@ -866,13 +912,20 @@ def cli_service(
     source_profile: SourceProfile = "auto",
     analyzer_profile: PublicAnalyzerProfile = DEFAULT_PUBLIC_ANALYZER_PROFILE,
     vector_config: VectorConfig | None = None,
+    query_action_judge: QueryActionJudgeConfig | str | None = None,
 ) -> LlmWikiService:
+    resolved_query_action_judge = (
+        query_action_judge_config_from_env()
+        if query_action_judge is None
+        else validate_query_action_judge_config(query_action_judge)
+    )
     return LlmWikiService(
         root,
         managed_context=managed_context_config_from_env(),
         analyzer_profile=analyzer_profile,
         vector_config=vector_config if vector_config is not None else vector_config_from_env(),
         source_profile=source_profile,
+        query_action_judge=resolved_query_action_judge,
     )
 
 
@@ -902,6 +955,19 @@ def resolve_managed_context_cli_config(
     if namespace is not None:
         config = replace(config, namespace=namespace)
     return validate_managed_context_config(config)
+
+
+def resolve_query_action_judge_cli_config(
+    *,
+    mode: QueryActionJudgeChoice | None,
+    timeout_ms: int | None,
+) -> QueryActionJudgeConfig:
+    config = query_action_judge_config_from_env()
+    if mode is not None:
+        config = replace(config, mode=mode.value)
+    if timeout_ms is not None:
+        config = replace(config, timeout_ms=timeout_ms)
+    return validate_query_action_judge_config(config)
 
 
 def split_cli_values(values: list[str] | None) -> list[str] | None:

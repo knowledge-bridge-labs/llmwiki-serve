@@ -7,6 +7,25 @@ This project follows a lightweight public-preview changelog format. Dates use
 
 ## Unreleased
 
+## 0.2.13 - 2026-09-27
+
+- Added opt-in System-One/Jev query-action judgment after normal `/query`
+  context assembly. Operators can enable it with `--query-action-judge
+  system-one` or `LLMWIKI_QUERY_ACTION_JUDGE=system-one`; the default remains
+  off and existing query, search, read, graph, HTTP, MCP, and CLI behavior is
+  preserved.
+- Added an optional `retrieval_action_guidance` context-pack field that can
+  recommend `stop`, `read`, `search`, `graph`, or `ask_clarification` for a
+  client agent's next retrieval step. The field is omitted when the feature is
+  off, and the service advertises `llmwiki_retrieval_action_guidance` only when
+  enabled.
+- Restricted provider export to a masked, structural payload: raw page text,
+  raw snippets, page ids, source-ref labels, raw paths, local roots, private
+  URLs, and obvious credentials are not sent. Provider failures and missing
+  keys fail open without changing retrieved evidence.
+- Documented the query-action judgment boundary, security posture, and public
+  release-gate evidence in `docs/releases/0.2.13-query-action-release-evidence.json`.
+
 ## 0.2.12 - 2026-09-18
 
 - Added a read-only OKF v0.2 input profile. Roots with `okf_version: "0.2"`

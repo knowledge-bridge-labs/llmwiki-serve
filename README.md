@@ -45,9 +45,9 @@ enterprise auth, model runtime hosting, or certified MCP/A2A platform claims.
 > [Release Status & Compatibility](https://knowledge-bridge-labs.github.io/llmwiki-docs/status)
 > matrix.
 > Source checkout remains supported for local development and release smoke tests.
-> The published PyPI `0.2.11` package README is immutable. This GitHub README
-> documents the `0.2.12` release line and will be included in the `0.2.12`
-> package; it does not change already-published distributions.
+> Already-published package READMEs are immutable. This GitHub README documents
+> the `0.2.13` release line and will be included in the `0.2.13` package; it
+> does not change already-published distributions.
 
 ## Start Here
 
@@ -65,6 +65,24 @@ to see `llmwiki-serve` project an already-existing LLMWiki, Markdown, or
 Obsidian-style folder as a read-only Knowledge Source.
 
 [![First-run demo poster](https://knowledge-bridge-labs.github.io/llmwiki-docs/demo/first-run/first-run-poster.png)](https://knowledge-bridge-labs.github.io/llmwiki-docs/demo)
+
+## 0.2.13 Highlights
+
+- Optional System-One/Jev query-action judgment: when an operator explicitly
+  enables `--query-action-judge system-one`, `/query`, MCP `llmwiki_context`,
+  and CLI `query` can include `retrieval_action_guidance` recommending whether
+  a client agent should stop, read pages, search again, inspect graph context,
+  or ask for clarification.
+- Default-off compatibility: normal lexical query/search/read/graph behavior,
+  GraphStore, OKF, MCP `2026-07-28`, and CLI output stay unchanged unless the
+  operator opts in. The feature adds guidance after context assembly; it does
+  not rerank results or synthesize final answers.
+- Data-minimized provider boundary: provider calls receive masked query text
+  plus structural state, not raw page text, snippets, page ids, source refs,
+  local roots, or obvious secrets. Missing keys and provider failures fail
+  open.
+- Release evidence: the public-safe 0.2.13 gate summary is tracked in
+  [docs/releases/0.2.13-query-action-release-evidence.json](docs/releases/0.2.13-query-action-release-evidence.json).
 
 ## 0.2.12 Highlights
 
@@ -235,7 +253,7 @@ Pin the version listed in the
 matrix when you need a reproducible public-preview package install:
 
 ```bash
-uv tool install llmwiki-serve==0.2.12
+uv tool install llmwiki-serve==0.2.13
 ```
 
 ## Contributor Development Path

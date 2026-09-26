@@ -39,6 +39,7 @@ def test_openapi_contract_covers_core_http_response_models() -> None:
     assert {
         "ContextPack",
         "RetrievalGuidance",
+        "RetrievalActionGuidance",
         "FolderCard",
         "PageCard",
         "WikiManifest",
@@ -69,6 +70,7 @@ def test_openapi_contract_covers_core_http_response_models() -> None:
     health_endpoints_schema = schema["components"]["schemas"]["HealthEndpointsResponse"]
     projection_store_schema = schema["components"]["schemas"]["ProjectionStoreDiagnosticsResponse"]
     query_request_schema = schema["components"]["schemas"]["QueryRequest"]
+    context_pack_schema = schema["components"]["schemas"]["ContextPack"]
 
     assert query_response["$ref"] == "#/components/schemas/ContextPack"
     assert graph_response["$ref"] == "#/components/schemas/GraphResponse"
@@ -120,9 +122,13 @@ def test_openapi_contract_covers_core_http_response_models() -> None:
     ]
     assert query_request_schema["properties"]["query_variants"]["maxItems"] == 2
     assert query_request_schema["properties"]["query_variants"]["type"] == "array"
-    assert "retrieval_guidance" in schema["components"]["schemas"]["ContextPack"]["properties"]
+    assert "retrieval_guidance" in context_pack_schema["properties"]
+    assert "retrieval_action_guidance" in context_pack_schema["properties"]
+    assert "retrieval_action_guidance" not in context_pack_schema["required"]
     guidance_schema = schema["components"]["schemas"]["RetrievalGuidance"]
+    action_guidance_schema = schema["components"]["schemas"]["RetrievalActionGuidance"]
     assert guidance_schema["additionalProperties"] is False
+    assert action_guidance_schema["additionalProperties"] is False
     assert guidance_schema["required"] == [
         "schema_version",
         "orientation_source",

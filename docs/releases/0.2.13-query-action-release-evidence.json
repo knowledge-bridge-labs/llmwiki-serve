@@ -1,0 +1,134 @@
+{
+  "schema": "llmwiki-serve-release-evidence-v1",
+  "package": "llmwiki-serve",
+  "version": "0.2.13",
+  "date": "2026-09-27",
+  "release_track": "public-preview",
+  "feature_scope": [
+    "default-off System-One/Jev query-action judgment",
+    "optional retrieval_action_guidance context-pack field",
+    "operator-controlled provider boundary",
+    "masked structural provider payload"
+  ],
+  "revision_policy": {
+    "release_tag": "v0.2.13",
+    "note": "This report is committed with the release candidate; use the v0.2.13 tag for the immutable source revision."
+  },
+  "environment": {
+    "os": "Windows",
+    "python": "3.13.5",
+    "dependency_lock": "uv.lock",
+    "provider_calls": "mocked-or-disabled"
+  },
+  "commands": [
+    {
+      "command": "uv sync --locked",
+      "result": "pass"
+    },
+    {
+      "command": "uv run python -c \"import importlib.util; assert importlib.util.find_spec('fastembed') is None; assert importlib.util.find_spec('numpy') is None\"",
+      "result": "pass",
+      "evidence": "base install does not import optional vector dependencies"
+    },
+    {
+      "command": "uv run llmwiki-serve query ./examples/sample-wiki \"release readiness\"",
+      "result": "pass",
+      "evidence": "default query succeeded and omitted retrieval_action_guidance"
+    },
+    {
+      "command": "uv sync --extra dev --extra vector --locked",
+      "result": "pass"
+    },
+    {
+      "command": "uv run ruff format --check .",
+      "result": "pass",
+      "evidence": "77 files already formatted"
+    },
+    {
+      "command": "uv run ruff check .",
+      "result": "pass"
+    },
+    {
+      "command": "uv run mypy src",
+      "result": "pass",
+      "evidence": "no issues found in 20 source files"
+    },
+    {
+      "command": "uv run mypy scripts/benchmark_adapters/scifact_runner.py scripts/benchmark_adapters/nomiracl_ko_runner.py scripts/benchmark_adapters/orientation_mechanism_runner.py",
+      "result": "pass",
+      "evidence": "no issues found in 3 source files"
+    },
+    {
+      "command": "uv run python scripts/export_openapi.py --check",
+      "result": "pass",
+      "evidence": "OpenAPI contract is up to date"
+    },
+    {
+      "command": "uv run pytest",
+      "result": "pass",
+      "evidence": "733 passed, 10 skipped"
+    },
+    {
+      "command": "uv build",
+      "result": "pass",
+      "artifacts": [
+        "dist/llmwiki_serve-0.2.13.tar.gz",
+        "dist/llmwiki_serve-0.2.13-py3-none-any.whl"
+      ]
+    },
+    {
+      "command": "uv run python scripts/release_smoke.py --dist-dir dist --allow-network-install",
+      "result": "pass",
+      "evidence": "source boundary, sdist contents, wheel HTTP/MCP, wheel CLI/API"
+    },
+    {
+      "command": "uvx twine check dist/llmwiki_serve-0.2.13-py3-none-any.whl dist/llmwiki_serve-0.2.13.tar.gz",
+      "result": "pass"
+    },
+    {
+      "command": "uv run python scripts/release_dist_manifest.py write --dist-dir dist --manifest dist-sha256.json && uv run python scripts/release_dist_manifest.py verify --dist-dir dist --manifest dist-sha256.json",
+      "result": "pass"
+    }
+  ],
+  "query_action_contract_evidence": {
+    "focused_tests": "8 passed",
+    "default_off": "serialized context packs omit retrieval_action_guidance and do not call the provider",
+    "operator_control": "provider judgment is enabled through environment or CLI service configuration, not request-body input",
+    "missing_key_behavior": "enabled mode without a provider key returns status unconfigured without changing evidence",
+    "provider_failure_behavior": "provider errors return status failed with sanitized diagnostics and preserve normal context output",
+    "surfaces": [
+      "Python service",
+      "HTTP /query",
+      "MCP llmwiki_context",
+      "CLI query"
+    ],
+    "openapi": "RetrievalActionGuidance is an optional additive response schema"
+  },
+  "public_safety": {
+    "status": "pass",
+    "provider_payload_policy": "masked query text plus structural state only",
+    "omitted_from_provider_payload": [
+      "raw page text",
+      "raw snippet text",
+      "page ids",
+      "source-ref labels",
+      "raw paths",
+      "local roots",
+      "private URLs",
+      "obvious credentials"
+    ],
+    "not_recorded": [
+      "provider keys",
+      "private endpoint URLs",
+      "live provider traces",
+      "raw private wiki content",
+      "absolute local paths"
+    ],
+    "non_claims": [
+      "no broad retrieval quality claim",
+      "no universal latency improvement claim",
+      "no calibrated answerability or abstention claim",
+      "no GraphRAG claim"
+    ]
+  }
+}

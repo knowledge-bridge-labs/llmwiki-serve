@@ -15,6 +15,9 @@ GraphNeighborhoodDirection = Literal["out", "in", "both"]
 GraphQueryDirection: TypeAlias = GraphNeighborhoodDirection
 GraphQueryOperation = Literal["neighbors", "backlinks", "paths", "by_source_ref", "by_tag"]
 SearchMode = Literal["lexical", "literal", "vector", "hybrid"]
+RetrievalActionDecision = Literal["stop", "read", "search", "graph", "ask_clarification"]
+RetrievalActionGuidanceMode = Literal["system_one"]
+RetrievalActionGuidanceStatus = Literal["ok", "skipped", "failed", "unconfigured"]
 RetrievalGuidanceOrientationSource = Literal["authored", "projection_extractive", "none"]
 RetrievalGuidanceContentTrust = Literal["untrusted_source_evidence"]
 RetrievalGuidanceFallbackMode = Literal["literal", "hybrid", "vector"]
@@ -356,6 +359,24 @@ class RetrievalGuidance(BaseModel):
         return result
 
 
+class RetrievalActionGuidance(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: Literal["llmwiki.retrieval_action_guidance.v1"] = (
+        "llmwiki.retrieval_action_guidance.v1"
+    )
+    mode: RetrievalActionGuidanceMode = "system_one"
+    status: RetrievalActionGuidanceStatus
+    recommended_action: RetrievalActionDecision | None = None
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    evidence_sufficiency_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    read_page_ids: list[str] = Field(default_factory=list)
+    search_queries: list[str] = Field(default_factory=list)
+    graph_seeds: list[str] = Field(default_factory=list)
+    reasons: list[str] = Field(default_factory=list)
+    diagnostics: list[str] = Field(default_factory=list)
+
+
 class ContextPack(BaseModel):
     query: str
     wiki_title: str
@@ -370,6 +391,10 @@ class ContextPack(BaseModel):
     limitations: list[str] = Field(default_factory=list)
     graph: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
     retrieval_guidance: RetrievalGuidance | None = None
+    retrieval_action_guidance: RetrievalActionGuidance | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+    )
 
 
 class GraphNeighborhoodResponse(BaseModel):

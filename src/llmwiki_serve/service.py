@@ -61,6 +61,11 @@ from .projection_store import (
     ProjectionRecord,
     ProjectionStore,
 )
+from .query_action_judgment import (
+    QueryActionJudgeConfig,
+    apply_query_action_judgment,
+    validate_query_action_judge_config,
+)
 from .search import (
     DEFAULT_ANALYZER_PROFILE,
     AnalyzerProfile,
@@ -171,6 +176,7 @@ class LlmWikiService:
         graph_store_failure_policy: GraphStoreFailurePolicy = "fallback-local",
         graph_engine: GraphEngineProvider | None = None,
         source_profile: SourceProfile = "auto",
+        query_action_judge: QueryActionJudgeConfig | str | None = None,
         clock: Callable[[], float] | None = None,
         _managed_context_clock: Callable[[], float] | None = None,
     ) -> None:
@@ -185,6 +191,7 @@ class LlmWikiService:
         self.cache_namespace = cache_namespace
         self.explicit_source_id = source_id
         self.managed_context = ManagedContextRuntime(self.root, managed_context)
+        self.query_action_judge = validate_query_action_judge_config(query_action_judge)
         self.analyzer_profile = normalize_analyzer_profile(analyzer_profile)
         self.vector_config = normalize_vector_config(
             vector_config,
@@ -342,6 +349,8 @@ class LlmWikiService:
             "llmwiki_search_mode_literal",
         ]
         capabilities.extend(self._vector_capabilities())
+        if self.query_action_judge.enabled:
+            capabilities.append("llmwiki_retrieval_action_guidance")
         if self._graph_store is not None:
             capabilities.append("llmwiki_graph_store")
             backend_kind = getattr(self._graph_store, "backend_kind", "")
@@ -500,7 +509,7 @@ class LlmWikiService:
             withheld = sum(1 for page in index.pages if not page.approved_for_serving)
             if withheld:
                 limitations.append(f"{withheld} draft or unapproved page(s) were withheld.")
-        return ContextPack(
+        context = ContextPack(
             query=query,
             wiki_title=index.title,
             description=index.description,
@@ -519,6 +528,11 @@ class LlmWikiService:
                 include_drafts=include_drafts,
                 fallback_modes=self._retrieval_fallback_modes(),
             ),
+        )
+        return apply_query_action_judgment(
+            context,
+            config=self.query_action_judge,
+            root=self.root,
         )
 
     def search(

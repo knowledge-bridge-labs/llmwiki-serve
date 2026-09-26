@@ -15,6 +15,7 @@ generators to change their output format.
 | Projection | Builds the canonical in-memory graph/index from loaded page facts and adapter-loaded sidecar graph facts. This layer produces page, heading, source-reference, tag, and unresolved placeholder nodes plus `contains`, `links_to`, `cites`, `tagged`, hierarchy, and sidecar graph edges. |
 | Source bundle | Describes one served knowledge source with a stable source id, portable projection signature, visible source refs, and metadata-only raw-origin hints for host RAG or bridge orchestration. |
 | Search/context | Ranks approved pages, adds hot/index/overview orientation, withholds drafts by default, returns context packs for agents, and supports additive agent-guided lexical guidance/query variants. |
+| Optional query-action judgment | Adds operator-enabled, provider-backed guidance after context assembly so clients can choose a next retrieval action without changing ranking or source evidence. |
 | Optional semantic retrieval preview | Adds operator-enabled local FastEmbed vector search and lexical+dense hybrid RRF over deterministic page chunks, backed by an external sidecar cache. |
 | Graph output | Returns projected nodes and edges through `/graph`, bounded neighborhoods through `/graph/neighborhood`, MCP graph tools, source-bundle source refs, and context pack graph fields. |
 | Local instance registry | Writes best-effort per-user `serve` process records for local CLI discovery without changing HTTP or MCP contracts. |
@@ -67,6 +68,34 @@ substring mode, operator-enabled vector/hybrid modes, snippet character limits,
 result field projection, and already-seen page exclusions. Minimum-score
 filtering remains lexical/literal-only; vector and hybrid reject public
 `min_score` because cosine and RRF scores are mode-specific.
+
+## Optional Query-Action Judgment
+
+`llmwiki-serve` can optionally call a System-One/Jev-compatible judgment
+provider after a normal context pack has already been assembled. This is an
+operator-level setting, not a per-request client override:
+
+```bash
+llmwiki-serve serve ./wiki --query-action-judge system-one
+```
+
+The judgment result is returned as additive `retrieval_action_guidance` with a
+recommended next action such as `stop`, `read`, `search`, `graph`, or
+`ask_clarification`. It does not change page ranking, evidence selection,
+graph projection, source parsing, vector setup, or final answer synthesis.
+
+Provider export is deliberately data-minimized. The payload contains masked
+query text and structural summaries such as evidence count, route, score
+bucket, snippet length, source-ref count, path depth, graph counts, and query
+overlap ratio. It omits raw page text, raw snippet text, page ids, source-ref
+labels, raw paths, local roots, and obvious credentials or private URLs. If
+the feature is disabled, the field is omitted. If it is enabled but the API key
+is missing or the provider call fails, the original context pack is preserved
+and the guidance status is `unconfigured` or `failed`.
+
+This boundary keeps default retrieval local-first and deterministic while
+allowing an approved deployment to use a fast external judge for the agent's
+next tool choice.
 
 The HTTP API installs CORS middleware for local browser development only by
 default: `localhost`, `127.0.0.1`, and IPv6 localhost `[::1]` origins on any
