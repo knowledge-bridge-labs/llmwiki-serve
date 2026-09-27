@@ -25,6 +25,11 @@ Expose it only through operator configuration:
 - `llmwiki-serve query --query-action-judge system-one`
 - `llmwiki-serve serve --query-action-judge system-one`
 
+Use `LLMWIKI_QUERY_ACTION_JUDGE_API_KEY` for the provider key. `TYPESAFE_API_KEY`
+and `JEV_API_KEY` are accepted as compatibility aliases. Provider keys remain
+environment-only and must not be exposed through request bodies or CLI
+arguments.
+
 Do not add a request-body flag that lets arbitrary clients trigger provider
 export. Advertise `llmwiki_retrieval_action_guidance` only when the feature is
 enabled.

@@ -76,8 +76,17 @@ provider after a normal context pack has already been assembled. This is an
 operator-level setting, not a per-request client override:
 
 ```bash
+export LLMWIKI_QUERY_ACTION_JUDGE_API_KEY="<your-provider-key>"
 llmwiki-serve serve ./wiki --query-action-judge system-one
 ```
+
+`LLMWIKI_QUERY_ACTION_JUDGE_API_KEY` is the preferred key environment variable.
+`TYPESAFE_API_KEY` and `JEV_API_KEY` are accepted as compatibility aliases.
+For service deployments, the mode can also be set with
+`LLMWIKI_QUERY_ACTION_JUDGE=system-one`. Optional settings are
+`LLMWIKI_QUERY_ACTION_JUDGE_MODEL`, `LLMWIKI_QUERY_ACTION_JUDGE_ENDPOINT`,
+`LLMWIKI_QUERY_ACTION_JUDGE_BASE_URL`, and
+`LLMWIKI_QUERY_ACTION_JUDGE_TIMEOUT_MS`.
 
 The judgment result is returned as additive `retrieval_action_guidance` with a
 recommended next action such as `stop`, `read`, `search`, `graph`, or

@@ -13,7 +13,9 @@ This project follows a lightweight public-preview changelog format. Dates use
   context assembly. Operators can enable it with `--query-action-judge
   system-one` or `LLMWIKI_QUERY_ACTION_JUDGE=system-one`; the default remains
   off and existing query, search, read, graph, HTTP, MCP, and CLI behavior is
-  preserved.
+  preserved. Provider keys are environment-only through
+  `LLMWIKI_QUERY_ACTION_JUDGE_API_KEY`, with `TYPESAFE_API_KEY` and
+  `JEV_API_KEY` accepted as compatibility aliases.
 - Added an optional `retrieval_action_guidance` context-pack field that can
   recommend `stop`, `read`, `search`, `graph`, or `ask_clarification` for a
   client agent's next retrieval step. The field is omitted when the feature is

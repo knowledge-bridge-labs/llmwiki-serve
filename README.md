@@ -105,6 +105,37 @@ The provider call is still optional and can make a single query slower. The
 expected win is fewer unnecessary follow-up tool calls and less sensitive data
 crossing the external judgment boundary.
 
+### System-One/Jev Setup
+
+Jev stays off unless both the provider key and the judgment mode are configured.
+Use `LLMWIKI_QUERY_ACTION_JUDGE_API_KEY` for the key; `TYPESAFE_API_KEY` and
+`JEV_API_KEY` are accepted only as compatibility aliases. Do not pass provider
+keys as CLI arguments or commit them to shell scripts.
+
+PowerShell:
+
+```powershell
+$env:LLMWIKI_QUERY_ACTION_JUDGE_API_KEY = "<your-provider-key>"
+
+llmwiki-serve query .\examples\sample-wiki "release readiness required copy" `
+  --query-action-judge system-one
+```
+
+POSIX shells:
+
+```sh
+export LLMWIKI_QUERY_ACTION_JUDGE_API_KEY="<your-provider-key>"
+
+llmwiki-serve query ./examples/sample-wiki "release readiness required copy" \
+  --query-action-judge system-one
+```
+
+For long-running servers, the mode can also be set through
+`LLMWIKI_QUERY_ACTION_JUDGE=system-one`. Optional settings are
+`LLMWIKI_QUERY_ACTION_JUDGE_MODEL`, `LLMWIKI_QUERY_ACTION_JUDGE_ENDPOINT`,
+`LLMWIKI_QUERY_ACTION_JUDGE_BASE_URL`, and
+`LLMWIKI_QUERY_ACTION_JUDGE_TIMEOUT_MS`.
+
 ## 0.2.12 Highlights
 
 - OKF v0.2 read-only input profile: bundles with root `okf_version: "0.2"`
