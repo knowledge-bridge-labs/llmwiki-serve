@@ -92,16 +92,17 @@ the client agent benefits from a fast next-action hint.
 
 The safe public claim is not "faster answers." It is a bounded tradeoff: `0`
 provider calls by default, `1` optional post-query judgment call when
-configured, and a masked `2,948` byte decision payload instead of sending the
-`7,095` byte full context pack for the public sample query
+configured, and a masked structural provider request instead of exporting the
+full context pack. The public sample query is
 `"release readiness required copy"` against `examples/sample-wiki`.
 
 | Metric | Jev off | Jev on | Public-safe claim |
 | --- | ---: | ---: | --- |
 | Provider calls | `0` | `1` when configured | Default path stays local; Jev crosses the provider boundary only after operator opt-in |
-| External decision payload | `0` bytes | `2,948` bytes | `58.4%` fewer bytes than the `7,095` byte full context pack |
-| Full context exported | `0` bytes | `0` bytes | Jev sends masked query text plus structural state, not the full context pack |
-| Next-action hint | `0` | `1` | Chooses from `5` bounded actions: `stop`, `read`, `search`, `graph`, `ask_clarification` |
+| Provider request body | `0` bytes | `3,124` bytes | Actual runtime JSON body is `56.0%` smaller than the `7,095` byte compact context pack |
+| Compact structural payload | `0` bytes | `2,948` bytes | Compact-to-compact comparison is `58.4%` smaller than the full context pack |
+| Full context exported to provider | No | No | Jev sends masked query text plus structural state, not raw evidence pages |
+| Successful next-action hint | `0` | Up to `1` | Successful provider responses choose from `5` bounded actions: `stop`, `read`, `search`, `graph`, `ask_clarification` |
 | Supported surfaces | Existing output | `4` surfaces | Service, HTTP `/query`, MCP `llmwiki_context`, and CLI `query` cover the additive field |
 | Fail-open statuses | Baseline output | `2` statuses | `unconfigured` and `failed` preserve normal evidence and orientation output |
 | Focused query-action tests | Existing tests | `8 passed` | Covers default-off, provider failure, missing-key, payload masking, and contract surfaces |
