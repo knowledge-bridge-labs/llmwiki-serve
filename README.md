@@ -84,24 +84,33 @@ Obsidian-style folder as a read-only Knowledge Source.
 - Release evidence: the public-safe 0.2.13 gate summary is tracked in
   [docs/releases/0.2.13-query-action-release-evidence.json](docs/releases/0.2.13-query-action-release-evidence.json).
 
-### System-One/Jev On/Off Comparison
+### System-One/Jev Performance / Efficiency Comparison
 
 Use the default off path when a single query result is enough. Turn
 System-One/Jev on only when the operator has approved the provider boundary and
 the client agent benefits from a fast next-action hint.
 
-| Area | Default off | System-One/Jev on | Verified 0.2.13 signal |
-| --- | --- | --- | --- |
-| Provider calls | `0`; all retrieval stays local. | `1` post-query judgment call when configured. | Default-off tests assert the provider is not called. |
-| Next tool choice | The client decides from the full context pack. | `retrieval_action_guidance` recommends `stop`, `read`, `search`, `graph`, or `ask_clarification`. | Service, HTTP `/query`, MCP `llmwiki_context`, and CLI `query` tests cover the field. |
-| Provider payload size | No provider payload. | Sends masked query text plus structural state instead of the full context pack. | Public sample wiki check: `2,948` byte provider payload vs `7,095` byte context pack for `"release readiness required copy"` (`58.4%` smaller). |
-| Source-content exposure | No external export. | Raw page text, raw snippets, page ids, source-ref labels, raw paths, local roots, private URLs, and obvious credentials are omitted. | Masking tests use synthetic canaries and assert they are absent from provider payloads. |
-| Failure behavior | Baseline retrieval output. | Missing key returns `unconfigured`; provider failure returns `failed`; evidence and orientation are preserved. | Focused query-action tests cover missing-key and provider-failure paths. |
-| Regression coverage | Existing behavior. | Additive field only; no ranking, graph, OKF, or MCP contract rewrite. | Release gate: `733 passed, 10 skipped`, artifact smoke, and `twine check` passed. |
+The safe public claim is not "faster answers." It is a bounded tradeoff: `0`
+provider calls by default, `1` optional post-query judgment call when
+configured, and a masked `2,948` byte decision payload instead of sending the
+`7,095` byte full context pack for the public sample query
+`"release readiness required copy"` against `examples/sample-wiki`.
 
-This is not a live-provider latency claim. A provider round trip can make the
-current query slower; the intended benefit is fewer unnecessary follow-up tool
-calls and a smaller, masked external decision payload.
+| Metric | Jev off | Jev on | Public-safe claim |
+| --- | ---: | ---: | --- |
+| Provider calls | `0` | `1` when configured | Default path stays local; Jev crosses the provider boundary only after operator opt-in |
+| External decision payload | `0` bytes | `2,948` bytes | `58.4%` fewer bytes than the `7,095` byte full context pack |
+| Full context exported | `0` bytes | `0` bytes | Jev sends masked query text plus structural state, not the full context pack |
+| Next-action hint | `0` | `1` | Chooses from `5` bounded actions: `stop`, `read`, `search`, `graph`, `ask_clarification` |
+| Supported surfaces | Existing output | `4` surfaces | Service, HTTP `/query`, MCP `llmwiki_context`, and CLI `query` cover the additive field |
+| Fail-open statuses | Baseline output | `2` statuses | `unconfigured` and `failed` preserve normal evidence and orientation output |
+| Focused query-action tests | Existing tests | `8 passed` | Covers default-off, provider failure, missing-key, payload masking, and contract surfaces |
+| Release regression gate | Existing behavior | Additive field only | `733 passed, 10 skipped`, artifact smoke, OpenAPI check, and `twine check` passed |
+
+Read this as a payload-efficiency and agent-decision benchmark, not as a live
+latency claim. A provider round trip can make a single query slower; the
+expected win is fewer unnecessary follow-up tool calls and a smaller, masked
+external decision payload.
 
 ## 0.2.12 Highlights
 
