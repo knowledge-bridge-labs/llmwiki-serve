@@ -84,6 +84,25 @@ Obsidian-style folder as a read-only Knowledge Source.
 - Release evidence: the public-safe 0.2.13 gate summary is tracked in
   [docs/releases/0.2.13-query-action-release-evidence.json](docs/releases/0.2.13-query-action-release-evidence.json).
 
+### System-One/Jev On/Off Comparison
+
+Use the default off path when a single query result is enough. Turn
+System-One/Jev on only when the operator has approved the provider boundary and
+the client agent benefits from a fast next-action hint.
+
+| Area | Default off | System-One/Jev on | Verified 0.2.13 signal |
+| --- | --- | --- | --- |
+| Provider calls | `0`; all retrieval stays local. | `1` post-query judgment call when configured. | Default-off tests assert the provider is not called. |
+| Next tool choice | The client decides from the full context pack. | `retrieval_action_guidance` recommends `stop`, `read`, `search`, `graph`, or `ask_clarification`. | Service, HTTP `/query`, MCP `llmwiki_context`, and CLI `query` tests cover the field. |
+| Provider payload size | No provider payload. | Sends masked query text plus structural state instead of the full context pack. | Public sample wiki check: `2,948` byte provider payload vs `7,095` byte context pack for `"release readiness required copy"` (`58.4%` smaller). |
+| Source-content exposure | No external export. | Raw page text, raw snippets, page ids, source-ref labels, raw paths, local roots, private URLs, and obvious credentials are omitted. | Masking tests use synthetic canaries and assert they are absent from provider payloads. |
+| Failure behavior | Baseline retrieval output. | Missing key returns `unconfigured`; provider failure returns `failed`; evidence and orientation are preserved. | Focused query-action tests cover missing-key and provider-failure paths. |
+| Regression coverage | Existing behavior. | Additive field only; no ranking, graph, OKF, or MCP contract rewrite. | Release gate: `733 passed, 10 skipped`, artifact smoke, and `twine check` passed. |
+
+This is not a live-provider latency claim. A provider round trip can make the
+current query slower; the intended benefit is fewer unnecessary follow-up tool
+calls and a smaller, masked external decision payload.
+
 ## 0.2.12 Highlights
 
 - OKF v0.2 read-only input profile: bundles with root `okf_version: "0.2"`
