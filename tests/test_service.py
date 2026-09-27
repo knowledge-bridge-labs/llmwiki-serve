@@ -47,10 +47,18 @@ from llmwiki_serve.projection_store import (
 )
 from llmwiki_serve.search import search as raw_search
 from llmwiki_serve.search import tokenize
-from llmwiki_serve.service import LlmWikiService, source_signature
+from llmwiki_serve.service import LlmWikiService, package_version, source_signature
 
 FIXTURE = Path(__file__).parent / "fixtures" / "sample-wiki"
 OKF_FIXTURE = Path(__file__).parent / "fixtures" / "okf-v0.2-bundle"
+
+
+def test_cli_version_flags_print_installed_package_version() -> None:
+    for flag in ("--version", "-v"):
+        result = CliRunner().invoke(cli_app, [flag])
+
+        assert result.exit_code == 0, result.output
+        assert result.output == f"{package_version()}\n"
 
 
 def test_manifest_and_graph() -> None:

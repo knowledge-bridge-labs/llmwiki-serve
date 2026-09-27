@@ -46,7 +46,7 @@ enterprise auth, model runtime hosting, or certified MCP/A2A platform claims.
 > matrix.
 > Source checkout remains supported for local development and release smoke tests.
 > Already-published package READMEs are immutable. This GitHub README documents
-> the `0.2.13` release line and will be included in the `0.2.13` package; it
+> the `0.2.14` release line and will be included in the `0.2.14` package; it
 > does not change already-published distributions.
 
 ## Start Here
@@ -65,6 +65,12 @@ to see `llmwiki-serve` project an already-existing LLMWiki, Markdown, or
 Obsidian-style folder as a read-only Knowledge Source.
 
 [![First-run demo poster](https://knowledge-bridge-labs.github.io/llmwiki-docs/demo/first-run/first-run-poster.png)](https://knowledge-bridge-labs.github.io/llmwiki-docs/demo)
+
+## 0.2.14 Highlights
+
+- CLI diagnostics: `llmwiki-serve --version` and `llmwiki-serve -v` print the
+  installed package version and exit successfully without requiring a subcommand
+  or wiki path.
 
 ## 0.2.13 Highlights
 
@@ -219,6 +225,7 @@ Install the current public-preview CLI from PyPI:
 
 ```bash
 uv tool install llmwiki-serve
+llmwiki-serve --version
 llmwiki-serve --help
 ```
 
@@ -305,7 +312,7 @@ Pin the version listed in the
 matrix when you need a reproducible public-preview package install:
 
 ```bash
-uv tool install llmwiki-serve==0.2.13
+uv tool install llmwiki-serve==0.2.14
 ```
 
 ## Contributor Development Path

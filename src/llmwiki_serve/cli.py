@@ -44,7 +44,7 @@ from .query_action_judgment import (
     validate_query_action_judge_config,
 )
 from .search import DEFAULT_PUBLIC_ANALYZER_PROFILE, PublicAnalyzerProfile
-from .service import LlmWikiService
+from .service import LlmWikiService, package_version
 from .vector import (
     VectorConfig,
     VectorModelDownloadPolicy,
@@ -52,7 +52,30 @@ from .vector import (
     vector_config_from_env,
 )
 
+
+def _version_callback(value: bool | None) -> None:
+    if value:
+        typer.echo(package_version())
+        raise typer.Exit()
+
+
 app = typer.Typer(help="Serve or inspect an LLMWiki Markdown folder.")
+
+
+@app.callback()
+def main(
+    version: Annotated[
+        bool | None,
+        typer.Option(
+            "--version",
+            "-v",
+            callback=_version_callback,
+            is_eager=True,
+            help="Print the installed package version and exit.",
+        ),
+    ] = None,
+) -> None:
+    return None
 
 
 class SearchModeChoice(StrEnum):

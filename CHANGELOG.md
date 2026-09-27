@@ -7,6 +7,12 @@ This project follows a lightweight public-preview changelog format. Dates use
 
 ## Unreleased
 
+## 0.2.14 - 2026-09-27
+
+- Added root CLI `--version` and `-v` options that print the installed
+  `llmwiki-serve` package version and exit successfully without requiring a
+  subcommand or wiki path.
+
 ## 0.2.13 - 2026-09-27
 
 - Added opt-in System-One/Jev query-action judgment after normal `/query`
