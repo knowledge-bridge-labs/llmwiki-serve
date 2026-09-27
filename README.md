@@ -84,34 +84,26 @@ Obsidian-style folder as a read-only Knowledge Source.
 - Release evidence: the public-safe 0.2.13 gate summary is tracked in
   [docs/releases/0.2.13-query-action-release-evidence.json](docs/releases/0.2.13-query-action-release-evidence.json).
 
-### System-One/Jev Performance / Efficiency Comparison
+### System-One/Jev Decision Input Reduction
 
 Use the default off path when a single query result is enough. Turn
 System-One/Jev on only when the operator has approved the provider boundary and
 the client agent benefits from a fast next-action hint.
 
-The safe public claim is not "faster answers." It is a bounded tradeoff: `0`
-provider calls by default, `1` optional post-query judgment call when
-configured, and a masked structural provider request instead of exporting the
-full context pack. The public sample query is
-`"release readiness required copy"` against `examples/sample-wiki`.
+Jev does not make the local `/query` response smaller. The gain is narrower:
+for the next-action decision, an agent can use a small masked structural
+judgment instead of inspecting the full context pack itself. Public sample
+query: `"release readiness required copy"` against `examples/sample-wiki`.
 
-| Metric | Jev off | Jev on | Public-safe claim |
-| --- | ---: | ---: | --- |
-| Provider calls | `0` | `1` when configured | Default path stays local; Jev crosses the provider boundary only after operator opt-in |
-| Provider request body | `0` bytes | `3,124` bytes | Actual runtime JSON body is `56.0%` smaller than the `7,095` byte compact context pack |
-| Compact structural payload | `0` bytes | `2,948` bytes | Compact-to-compact comparison is `58.4%` smaller than the full context pack |
-| Full context exported to provider | No | No | Jev sends masked query text plus structural state, not raw evidence pages |
-| Successful next-action hint | `0` | Up to `1` | Successful provider responses choose from `5` bounded actions: `stop`, `read`, `search`, `graph`, `ask_clarification` |
-| Supported surfaces | Existing output | `4` surfaces | Service, HTTP `/query`, MCP `llmwiki_context`, and CLI `query` cover the additive field |
-| Fail-open statuses | Baseline output | `2` statuses | `unconfigured` and `failed` preserve normal evidence and orientation output |
-| Focused query-action tests | Existing tests | `8 passed` | Covers default-off, provider failure, missing-key, payload masking, and contract surfaces |
-| Release regression gate | Existing behavior | Additive field only | `733 passed, 10 skipped`, artifact smoke, OpenAPI check, and `twine check` passed |
+| Next-action decision input | Bytes read for the decision | What is read |
+| --- | ---: | --- |
+| Jev off | `7,095` bytes | Full local `ContextPack` returned by `/query` |
+| Jev on | `3,124` bytes | Masked structural provider request body |
+| Reduction | `56.0%` smaller | Raw page text, snippets, page ids, source-ref labels, paths, local roots, private URLs, and obvious credentials are not exported |
 
-Read this as a payload-efficiency and agent-decision benchmark, not as a live
-latency claim. A provider round trip can make a single query slower; the
-expected win is fewer unnecessary follow-up tool calls and a smaller, masked
-external decision payload.
+The provider call is still optional and can make a single query slower. The
+expected win is fewer unnecessary follow-up tool calls and less sensitive data
+crossing the external judgment boundary.
 
 ## 0.2.12 Highlights
 
