@@ -730,6 +730,52 @@ Review [SECURITY.md](SECURITY.md) before exposing a wiki beyond a trusted local
 environment. Use [SUPPORT.md](SUPPORT.md) for issue routing and compatibility
 report expectations.
 
+## Optional Query-Time Git Sync
+
+When the served folder lives in a git checkout that other people push to, the
+server can pull remote commits at query time instead of relying on an external
+cron job. Use a dedicated serving clone, not a working copy you edit by hand.
+
+```bash
+git clone https://git.example.com/team/wiki.git ~/srv/wiki-mirror
+llmwiki-serve serve ~/srv/wiki-mirror/wiki --git-sync
+```
+
+| Option | Env | Default | Meaning |
+| --- | --- | --- | --- |
+| `--git-sync/--no-git-sync` | `LLMWIKI_GIT_SYNC` | off | Enable query-time fetch + fast-forward. |
+| `--git-sync-cooldown-seconds` | `LLMWIKI_GIT_SYNC_COOLDOWN_SECONDS` | `60` | Minimum seconds between sync attempts (successful or not). |
+| `--git-sync-wait-seconds` | `LLMWIKI_GIT_SYNC_WAIT_SECONDS` | `5` | Maximum time a request waits for an in-flight sync. |
+| `--git-sync-remote` | `LLMWIKI_GIT_SYNC_REMOTE` | `origin` | Remote to fetch. |
+| `--git-sync-branch` | `LLMWIKI_GIT_SYNC_BRANCH` | current branch | Expected checked-out branch; a different branch blocks the sync. |
+| (env only) | `LLMWIKI_GIT_SYNC_TIMEOUT_SECONDS` | `60` | Per-git-command timeout. |
+
+Behavior:
+
+- The served root may be a subfolder; the enclosing git work tree is detected
+  with `git rev-parse --show-toplevel`. Startup fails if the root is not inside
+  a git work tree.
+- Before a request reads the projection, a sync starts if the cooldown has
+  elapsed: `git fetch <remote> +refs/heads/<upstream>:refs/remotes/<remote>/<upstream>`,
+  then `git merge --ff-only` only. Local tracked changes, local commits ahead of
+  the remote, diverged history, or a branch mismatch stop the sync with state
+  `blocked`; files are never reset or overwritten.
+- Concurrent requests share one in-flight sync. A request waits at most
+  `--git-sync-wait-seconds`; past that it is answered from the current files,
+  reported as stale, and the sync finishes in the background.
+- When HEAD moves, the next request rebuilds the projection (including vector
+  indexes) regardless of `--refresh-interval-seconds`. Edits that do not move
+  HEAD still follow the normal refresh policy. With `--producer-manifest`, a
+  fast-forward still forces a rebuild.
+- Git runs as an argument list without a shell, with `GIT_TERMINAL_PROMPT=0`.
+  Authentication is left to the system git credential helper; no token is
+  stored. Error text exposed in status redacts URL credentials.
+- Status (`state`, `head_sha`, `remote_sha`, `stale`, `in_progress`,
+  `last_success_at`, `last_error`, `fetch_count`) is available at
+  `GET /diagnostics/git-sync`, under `git_sync` in `GET /health` (only when
+  enabled), and in MCP `tools/call` results as `_meta["io.llmwiki/gitSync"]`
+  for both `/mcp` JSON-RPC and Streamable HTTP.
+
 ## Optional Semantic Retrieval Preview
 
 Semantic retrieval is a preview and is off by default. Installing the vector

@@ -144,6 +144,162 @@
         "title": "FolderCard",
         "type": "object"
       },
+      "GitSyncStatusResponse": {
+        "properties": {
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch"
+          },
+          "cooldown_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cooldown Seconds"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "fetch_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fetch Count"
+          },
+          "head_sha": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Head Sha"
+          },
+          "in_progress": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "In Progress"
+          },
+          "last_attempt_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Attempt At"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "last_success_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Success At"
+          },
+          "remote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remote"
+          },
+          "remote_sha": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remote Sha"
+          },
+          "stale": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stale"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
+          },
+          "wait_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wait Seconds"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "GitSyncStatusResponse",
+        "type": "object"
+      },
       "GraphEdge": {
         "properties": {
           "metadata": {
@@ -418,6 +574,16 @@
           },
           "endpoints": {
             "$ref": "#/components/schemas/HealthEndpointsResponse"
+          },
+          "git_sync": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GitSyncStatusResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "service": {
             "const": "llmwiki-serve",
@@ -1912,6 +2078,24 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/diagnostics/git-sync": {
+      "get": {
+        "operationId": "git_sync_diagnostics_diagnostics_git_sync_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitSyncStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Git Sync Diagnostics"
+      }
+    },
     "/diagnostics/projection-store": {
       "get": {
         "operationId": "projection_store_diagnostics_diagnostics_projection_store_get",

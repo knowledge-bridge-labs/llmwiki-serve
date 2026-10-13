@@ -17,6 +17,12 @@ from .api import (
     QUERY_LIMIT_MIN,
     create_app,
 )
+from .git_sync import (
+    GitSyncConfig,
+    git_sync_config_from_env,
+    resolve_git_repo_root,
+    validate_git_sync_config,
+)
 from .graph_store import GraphStoreBackend, GraphStoreFailurePolicy, create_graph_store
 from .instances import (
     HEALTH_PROBE_TIMEOUT_SECONDS,
@@ -245,6 +251,57 @@ RefreshIntervalOption: TypeAlias = Annotated[
         help=(
             "Seconds to reuse the in-memory projection before checking files again. "
             "Default 0 keeps strict per-request freshness."
+        ),
+    ),
+]
+GitSyncOption: TypeAlias = Annotated[
+    bool | None,
+    typer.Option(
+        "--git-sync/--no-git-sync",
+        help=(
+            "Fetch and fast-forward the git checkout containing the served root before "
+            "answering requests (at most once per cooldown). Local changes or diverged "
+            "history stop the sync without touching files. Disabled by default. "
+            "Env: LLMWIKI_GIT_SYNC."
+        ),
+    ),
+]
+GitSyncCooldownOption: TypeAlias = Annotated[
+    float | None,
+    typer.Option(
+        "--git-sync-cooldown-seconds",
+        min=0.0,
+        help=(
+            "Minimum seconds between git sync attempts. Default 60. "
+            "Env: LLMWIKI_GIT_SYNC_COOLDOWN_SECONDS."
+        ),
+    ),
+]
+GitSyncWaitOption: TypeAlias = Annotated[
+    float | None,
+    typer.Option(
+        "--git-sync-wait-seconds",
+        min=0.0,
+        help=(
+            "Maximum seconds a request waits for an in-flight sync before answering from "
+            "current files (marked stale). Default 5. Env: LLMWIKI_GIT_SYNC_WAIT_SECONDS."
+        ),
+    ),
+]
+GitSyncRemoteOption: TypeAlias = Annotated[
+    str | None,
+    typer.Option(
+        "--git-sync-remote",
+        help="Git remote to fetch. Default origin. Env: LLMWIKI_GIT_SYNC_REMOTE.",
+    ),
+]
+GitSyncBranchOption: TypeAlias = Annotated[
+    str | None,
+    typer.Option(
+        "--git-sync-branch",
+        help=(
+            "Expected checked-out branch; sync is refused if a different branch is checked "
+            "out. Default: the current branch and its upstream. Env: LLMWIKI_GIT_SYNC_BRANCH."
         ),
     ),
 ]
@@ -863,6 +920,11 @@ def serve(
             help="Managed-context sidecar namespace. Env: LLMWIKI_MANAGED_CONTEXT_NAMESPACE.",
         ),
     ] = None,
+    git_sync: GitSyncOption = None,
+    git_sync_cooldown_seconds: GitSyncCooldownOption = None,
+    git_sync_wait_seconds: GitSyncWaitOption = None,
+    git_sync_remote: GitSyncRemoteOption = None,
+    git_sync_branch: GitSyncBranchOption = None,
 ) -> None:
     """Run the HTTP, MCP-style JSON-RPC, and MCP Streamable HTTP server."""
     import uvicorn
@@ -927,6 +989,14 @@ def serve(
             mode=query_action_judge,
             timeout_ms=query_action_judge_timeout_ms,
         )
+        resolved_git_sync = resolve_git_sync_cli_config(
+            root,
+            enabled=git_sync,
+            cooldown_seconds=git_sync_cooldown_seconds,
+            wait_seconds=git_sync_wait_seconds,
+            remote=git_sync_remote,
+            branch=git_sync_branch,
+        )
         projection_store = create_projection_store(
             projection_backend,
             redis_url=resolved_redis_url,
@@ -977,6 +1047,7 @@ def serve(
             mcp_allowed_hosts=resolved_mcp_allowed_hosts,
             mcp_allowed_origins=resolved_mcp_allowed_origins,
             read_default_max_chars=resolved_read_default_max_chars,
+            git_sync=resolved_git_sync,
         )
     except FileNotFoundError as exc:
         exit_with_error(str(exc))
@@ -1102,6 +1173,32 @@ def resolve_managed_context_cli_config(
     if namespace is not None:
         config = replace(config, namespace=namespace)
     return validate_managed_context_config(config)
+
+
+def resolve_git_sync_cli_config(
+    root: Path,
+    *,
+    enabled: bool | None,
+    cooldown_seconds: float | None,
+    wait_seconds: float | None,
+    remote: str | None,
+    branch: str | None,
+) -> GitSyncConfig:
+    config = git_sync_config_from_env()
+    if enabled is not None:
+        config = replace(config, enabled=enabled)
+    if cooldown_seconds is not None:
+        config = replace(config, cooldown_seconds=cooldown_seconds)
+    if wait_seconds is not None:
+        config = replace(config, wait_seconds=wait_seconds)
+    if remote is not None:
+        config = replace(config, remote=remote)
+    if branch is not None:
+        config = replace(config, branch=branch)
+    config = validate_git_sync_config(config)
+    if config.enabled:
+        resolve_git_repo_root(root, timeout=config.command_timeout_seconds)
+    return config
 
 
 def resolve_query_action_judge_cli_config(

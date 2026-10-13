@@ -18,7 +18,7 @@ from fastapi.responses import JSONResponse
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ResourceNotFoundError, ToolError
 from mcp.server.transport_security import TransportSecuritySettings
-from mcp.types import Annotations, ToolAnnotations
+from mcp.types import Annotations, CallToolResult, ToolAnnotations
 from mcp.types import Resource as MCPResource
 from pydantic import BaseModel, Field, field_validator
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
@@ -26,6 +26,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from . import __version__
 from .adapters import SourceProfile, WikiRootError
 from .errors import LlmWikiUserError
+from .git_sync import GIT_SYNC_META_KEY, GitSyncConfig, disabled_git_sync_status
 from .graph_store import GraphStore, GraphStoreFailurePolicy
 from .guided_retrieval import (
     AGENT_GUIDED_LEXICAL_CAPABILITY,
@@ -234,7 +235,12 @@ class LlmWikiMCPServer(MCPServer):
     ) -> Any:
         if name in self._llmwiki_disabled_tools:
             raise ToolError(mcp_disabled_tool_message(name))
-        return await super().call_tool(name, arguments, *args, **kwargs)
+        result = await super().call_tool(name, arguments, *args, **kwargs)
+        git_status = self._llmwiki_service.git_sync_status()
+        if git_status is None or not isinstance(result, CallToolResult):
+            return result
+        meta = {**(result.meta or {}), GIT_SYNC_META_KEY: git_status}
+        return result.model_copy(update={"meta": meta})
 
     async def list_resources(self) -> list[MCPResource]:
         try:
@@ -681,6 +687,23 @@ class HealthCorsResponse(BaseModel):
     explicit_origin_count: int = 0
 
 
+class GitSyncStatusResponse(BaseModel):
+    enabled: bool
+    state: str | None = None
+    in_progress: bool | None = None
+    stale: bool | None = None
+    remote: str | None = None
+    branch: str | None = None
+    head_sha: str | None = None
+    remote_sha: str | None = None
+    last_attempt_at: str | None = None
+    last_success_at: str | None = None
+    last_error: str | None = None
+    fetch_count: int | None = None
+    cooldown_seconds: float | None = None
+    wait_seconds: float | None = None
+
+
 class HealthResponse(BaseModel):
     status: Literal["ok"]
     service: Literal["llmwiki-serve"]
@@ -689,6 +712,7 @@ class HealthResponse(BaseModel):
     capabilities: list[str]
     endpoints: HealthEndpointsResponse
     cors: HealthCorsResponse
+    git_sync: GitSyncStatusResponse | None = None
 
 
 class ProjectionStoreDiagnosticsResponse(BaseModel):
@@ -796,6 +820,7 @@ def create_app(
     mcp_allowed_hosts: Sequence[str] | None = None,
     mcp_allowed_origins: Sequence[str] | None = None,
     read_default_max_chars: int | None = None,
+    git_sync: GitSyncConfig | None = None,
 ) -> FastAPI:
     resolved_graph_default_limit = validate_default_limit(
         graph_default_limit,
@@ -843,6 +868,7 @@ def create_app(
         graph_store_failure_policy=graph_store_failure_policy,
         source_profile=source_profile,
         query_action_judge=resolved_query_action_judge,
+        git_sync=git_sync,
     )
     mcp_stream = create_mcp_stream_server(
         service,
@@ -920,10 +946,11 @@ def create_app(
             content={"detail": exc.safe_message},
         )
 
-    @app.get("/health", response_model=HealthResponse)
+    @app.get("/health", response_model=HealthResponse, response_model_exclude_unset=True)
     def health() -> dict[str, Any]:
         manifest_data = service.manifest(enable_a2a_compat=enable_a2a_compat)
-        return {
+        git_status = service.git_sync_status()
+        health_payload: dict[str, Any] = {
             "status": "ok",
             "service": "llmwiki-serve",
             "version": API_VERSION,
@@ -942,6 +969,13 @@ def create_app(
             "endpoints": health_endpoints(enable_a2a_compat).model_dump(),
             "cors": health_cors(explicit_origins).model_dump(),
         }
+        if git_status is not None:
+            health_payload["git_sync"] = git_status
+        return health_payload
+
+    @app.get("/diagnostics/git-sync", response_model=GitSyncStatusResponse)
+    def git_sync_diagnostics() -> dict[str, Any]:
+        return service.git_sync_status() or disabled_git_sync_status()
 
     @app.get(
         "/diagnostics/projection-store",
@@ -1122,6 +1156,16 @@ def create_app(
                 enabled_tools=enabled_mcp_tools,
                 read_default_max_chars=resolved_read_default_max_chars,
             )
+            git_status = service.git_sync_status()
+            if (
+                git_status is not None
+                and request.method == "tools/call"
+                and isinstance(result, dict)
+            ):
+                result = {
+                    **result,
+                    "_meta": {**result.get("_meta", {}), GIT_SYNC_META_KEY: git_status},
+                }
             return {"jsonrpc": "2.0", "id": request.id, "result": result}
         except UnsupportedMcpMethodError:
             return {
