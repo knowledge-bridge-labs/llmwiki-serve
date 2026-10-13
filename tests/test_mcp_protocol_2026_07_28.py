@@ -7,7 +7,7 @@ from typing import Any, cast
 from fastapi.testclient import TestClient
 
 from llmwiki_serve import __version__
-from llmwiki_serve.api import MCP_STREAM_PATH, create_app
+from llmwiki_serve.api import MCP_STREAM_PATH, MCP_SUPPORTED_PROTOCOL_VERSIONS, create_app
 
 FIXTURE = Path(__file__).parent / "fixtures" / "sample-wiki"
 NATIVE_FIXTURE = Path(__file__).parent / "fixtures" / "native-wiki-root"
@@ -402,10 +402,12 @@ def test_mcp_streamable_http_enforces_2026_07_28_request_metadata_and_header_con
         MCP_HEADER_MISMATCH_CODE,
         "MCP-Protocol-Version header is required",
     )
+    # 2025-11-25 is a supported handshake version, so a modern body envelope that
+    # declares 2026-07-28 under that header is a header/body mismatch.
     assert_mcp_error(
         mismatched_protocol_header,
-        MCP_UNSUPPORTED_PROTOCOL_VERSION_CODE,
-        "Unsupported protocol version",
+        MCP_HEADER_MISMATCH_CODE,
+        "does not match request params._meta protocolVersion",
     )
     unsupported_error = assert_mcp_error(
         unsupported_protocol_version,
@@ -413,7 +415,7 @@ def test_mcp_streamable_http_enforces_2026_07_28_request_metadata_and_header_con
         "Unsupported protocol version",
     )
     assert unsupported_error["data"] == {
-        "supported": [MCP_PROTOCOL_VERSION, MCP_COMPAT_PROTOCOL_VERSION],
+        "supported": list(MCP_SUPPORTED_PROTOCOL_VERSIONS),
         "requested": "1900-01-01",
     }
     current_client_result = cast(

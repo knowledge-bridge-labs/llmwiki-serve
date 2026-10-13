@@ -43,6 +43,7 @@ from .query_action_judgment import (
     query_action_judge_config_from_env,
     validate_query_action_judge_config,
 )
+from .read_focus import FOCUSED_READ_DEFAULT_MAX_CHARS, READ_MAX_CHARS_MAX, READ_MAX_CHARS_MIN
 from .search import DEFAULT_PUBLIC_ANALYZER_PROFILE, PublicAnalyzerProfile
 from .service import LlmWikiService, package_version
 from .vector import (
@@ -338,6 +339,62 @@ ContextDefaultLimitOption: TypeAlias = Annotated[
         ),
     ),
 ]
+McpToolsOption: TypeAlias = Annotated[
+    list[str] | None,
+    typer.Option(
+        "--mcp-tools",
+        help=(
+            "Comma-separated or repeated allowlist of exposed MCP tools (applies to "
+            "/mcp/stream and /mcp tools/list and tools/call). Default: all tools. "
+            "Env: LLMWIKI_MCP_TOOLS."
+        ),
+    ),
+]
+McpExcludeToolsOption: TypeAlias = Annotated[
+    list[str] | None,
+    typer.Option(
+        "--mcp-exclude-tools",
+        help=(
+            "MCP tools to hide and block, applied after --mcp-tools. "
+            "Env: LLMWIKI_MCP_EXCLUDE_TOOLS."
+        ),
+    ),
+]
+McpAllowedHostsOption: TypeAlias = Annotated[
+    list[str] | None,
+    typer.Option(
+        "--mcp-allowed-hosts",
+        help=(
+            "Extra Host header values accepted by /mcp/stream DNS-rebinding protection, "
+            "e.g. host.docker.internal:* (port wildcard). Loopback hosts stay allowed; "
+            "'*' disables the check. Default: loopback only. Env: LLMWIKI_MCP_ALLOWED_HOSTS."
+        ),
+    ),
+]
+McpAllowedOriginsOption: TypeAlias = Annotated[
+    list[str] | None,
+    typer.Option(
+        "--mcp-allowed-origins",
+        help=(
+            "Extra Origin header values accepted by /mcp/stream (http(s)://<allowed host> "
+            "is added automatically). Env: LLMWIKI_MCP_ALLOWED_ORIGINS."
+        ),
+    ),
+]
+ReadDefaultMaxCharsOption: TypeAlias = Annotated[
+    int | None,
+    typer.Option(
+        "--read-default-max-chars",
+        min=READ_MAX_CHARS_MIN,
+        max=READ_MAX_CHARS_MAX,
+        help=(
+            "Default body character budget for /read and llmwiki_read when clients omit "
+            "max_chars. Default: unlimited for plain reads, "
+            f"{FOCUSED_READ_DEFAULT_MAX_CHARS} for focused reads. "
+            "Env: LLMWIKI_READ_DEFAULT_MAX_CHARS."
+        ),
+    ),
+]
 McpServerNameOption: TypeAlias = Annotated[
     str | None,
     typer.Option(
@@ -539,6 +596,49 @@ def search_pages(
         exit_with_error(str(exc))
 
 
+@app.command("read")
+def read_page(
+    root: WikiRootArgument,
+    page_id: str,
+    query: Annotated[
+        str | None,
+        typer.Option("--query", help="Focused read: return only sections relevant to this query."),
+    ] = None,
+    section: Annotated[
+        list[str] | None,
+        typer.Option("--section", help="Focused read: heading name or outline number. Repeatable."),
+    ] = None,
+    max_chars: Annotated[
+        int | None,
+        typer.Option("--max-chars", min=READ_MAX_CHARS_MIN, max=READ_MAX_CHARS_MAX),
+    ] = None,
+    include_links: Annotated[
+        bool | None,
+        typer.Option("--include-links/--no-include-links", help="Include or omit page links."),
+    ] = None,
+    fields: Annotated[
+        list[str] | None,
+        typer.Option("--fields", help="Comma-separated WikiPage fields for plain reads."),
+    ] = None,
+    source_profile: SourceProfileOption = "auto",
+) -> None:
+    """Read a page by id or path and print JSON (optionally focused/budgeted)."""
+    try:
+        result = cli_service(root, source_profile=parse_source_profile(source_profile)).read(
+            page_id,
+            fields=split_cli_values(fields),
+            query=query,
+            sections=split_cli_values(section),
+            max_chars=max_chars,
+            include_links=include_links,
+        )
+    except (FileNotFoundError, ValueError) as exc:
+        exit_with_error(str(exc))
+    if not result.get("found", True):
+        exit_with_error(f"page not found: {page_id}")
+    typer.echo(json.dumps(result, ensure_ascii=False, indent=2))
+
+
 @app.command("source-refs")
 def source_refs(root: WikiRootArgument, source_profile: SourceProfileOption = "auto") -> None:
     """Print typed source-reference handles JSON."""
@@ -731,6 +831,11 @@ def serve(
     mcp_server_name: McpServerNameOption = None,
     mcp_instructions: McpInstructionsOption = None,
     mcp_tool_description_prefix: McpToolDescriptionPrefixOption = None,
+    mcp_tools: McpToolsOption = None,
+    mcp_exclude_tools: McpExcludeToolsOption = None,
+    mcp_allowed_hosts: McpAllowedHostsOption = None,
+    mcp_allowed_origins: McpAllowedOriginsOption = None,
+    read_default_max_chars: ReadDefaultMaxCharsOption = None,
     managed_context: Annotated[
         bool | None,
         typer.Option(
@@ -790,6 +895,20 @@ def serve(
         resolved_mcp_instructions = mcp_instructions or os.getenv("LLMWIKI_MCP_INSTRUCTIONS")
         resolved_mcp_tool_description_prefix = mcp_tool_description_prefix or os.getenv(
             "LLMWIKI_MCP_TOOL_DESCRIPTION_PREFIX"
+        )
+        resolved_mcp_tools = split_cli_values(mcp_tools) or split_env_values("LLMWIKI_MCP_TOOLS")
+        resolved_mcp_exclude_tools = split_cli_values(mcp_exclude_tools) or split_env_values(
+            "LLMWIKI_MCP_EXCLUDE_TOOLS"
+        )
+        resolved_mcp_allowed_hosts = split_cli_values(mcp_allowed_hosts) or split_env_values(
+            "LLMWIKI_MCP_ALLOWED_HOSTS"
+        )
+        resolved_mcp_allowed_origins = split_cli_values(mcp_allowed_origins) or split_env_values(
+            "LLMWIKI_MCP_ALLOWED_ORIGINS"
+        )
+        resolved_read_default_max_chars = resolve_int_option_env(
+            read_default_max_chars,
+            "LLMWIKI_READ_DEFAULT_MAX_CHARS",
         )
         resolved_managed_context = resolve_managed_context_cli_config(
             enabled=managed_context,
@@ -853,6 +972,11 @@ def serve(
             graph_store_failure_policy=graph_store_failure_policy,
             source_profile=resolved_source_profile,
             query_action_judge=resolved_query_action_judge,
+            mcp_tools=resolved_mcp_tools,
+            mcp_exclude_tools=resolved_mcp_exclude_tools,
+            mcp_allowed_hosts=resolved_mcp_allowed_hosts,
+            mcp_allowed_origins=resolved_mcp_allowed_origins,
+            read_default_max_chars=resolved_read_default_max_chars,
         )
     except FileNotFoundError as exc:
         exit_with_error(str(exc))
@@ -991,6 +1115,11 @@ def resolve_query_action_judge_cli_config(
     if timeout_ms is not None:
         config = replace(config, timeout_ms=timeout_ms)
     return validate_query_action_judge_config(config)
+
+
+def split_env_values(env_name: str) -> list[str] | None:
+    env_value = os.getenv(env_name)
+    return split_cli_values([env_value]) if env_value else None
 
 
 def split_cli_values(values: list[str] | None) -> list[str] | None:

@@ -7,6 +7,24 @@ This project follows a lightweight public-preview changelog format. Dates use
 
 ## Unreleased
 
+- Fixed `/mcp/stream` rejecting `MCP-Protocol-Version: 2025-11-25` (`-32022`)
+  after the MCP SDK negotiated it; header validation now derives accepted
+  versions from the installed SDK, so TypeScript SDK 1.32 (LibreChat,
+  agentgateway) and Python SDK 2.3 clients connect without header rewriting.
+- Added context-efficient reads: `llmwiki_read`, `GET /read/{page_id}`, and the
+  new `llmwiki-serve read` command accept `query`, `sections`, `max_chars`, and
+  `include_links`. Focused reads return title, summary, outline, and only the
+  relevant sections within a budget; `--read-default-max-chars` /
+  `LLMWIKI_READ_DEFAULT_MAX_CHARS` sets an optional plain-read budget. Defaults
+  are unchanged.
+- Added `--mcp-tools` / `--mcp-exclude-tools` (`LLMWIKI_MCP_TOOLS`,
+  `LLMWIKI_MCP_EXCLUDE_TOOLS`) to limit listed and callable MCP tools on
+  `/mcp/stream` and `/mcp`.
+- Added `--mcp-allowed-hosts` / `--mcp-allowed-origins`
+  (`LLMWIKI_MCP_ALLOWED_HOSTS`, `LLMWIKI_MCP_ALLOWED_ORIGINS`) to extend the MCP
+  SDK DNS-rebinding allowlist (for example `host.docker.internal:*`) without a
+  Host-rewriting proxy. The loopback-only default is unchanged.
+
 ## 0.2.14 - 2026-09-27
 
 - Added root CLI `--version` and `-v` options that print the installed

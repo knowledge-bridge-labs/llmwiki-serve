@@ -2253,6 +2253,81 @@
               "description": "Optional comma-separated WikiPage fields to return.",
               "title": "Fields"
             }
+          },
+          {
+            "description": "Focused read: return title, summary, outline, and only the sections most relevant to this query.",
+            "in": "query",
+            "name": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Focused read: return title, summary, outline, and only the sections most relevant to this query.",
+              "title": "Query"
+            }
+          },
+          {
+            "description": "Focused read: heading names or outline numbers (repeat or comma-separate).",
+            "in": "query",
+            "name": "sections",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Focused read: heading names or outline numbers (repeat or comma-separate).",
+              "title": "Sections"
+            }
+          },
+          {
+            "description": "Maximum returned body characters. Focused reads default to 8000; plain reads use the server default (unlimited unless --read-default-max-chars is set).",
+            "in": "query",
+            "name": "max_chars",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Maximum returned body characters. Focused reads default to 8000; plain reads use the server default (unlimited unless --read-default-max-chars is set).",
+              "title": "Max Chars"
+            }
+          },
+          {
+            "description": "Set false to omit links; focused reads omit links unless true.",
+            "in": "query",
+            "name": "include_links",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Set false to omit links; focused reads omit links unless true.",
+              "title": "Include Links"
+            }
           }
         ],
         "responses": {
