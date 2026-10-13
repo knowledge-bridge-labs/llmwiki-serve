@@ -5,7 +5,7 @@ All notable changes to LLMWiki Serve will be documented here.
 This project follows a lightweight public-preview changelog format. Dates use
 `YYYY-MM-DD`.
 
-## Unreleased
+## 0.2.15 - 2026-10-13
 
 - Fixed `/mcp/stream` rejecting `MCP-Protocol-Version: 2025-11-25` (`-32022`)
   after the MCP SDK negotiated it; header validation now derives accepted

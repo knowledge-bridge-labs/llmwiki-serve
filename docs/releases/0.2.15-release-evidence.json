@@ -1,0 +1,116 @@
+{
+  "schema": "llmwiki-serve-release-evidence-v1",
+  "package": "llmwiki-serve",
+  "version": "0.2.15",
+  "date": "2026-10-13",
+  "release_track": "public-preview",
+  "feature_scope": [
+    "MCP Streamable HTTP protocol-version header accepts all SDK-negotiable versions",
+    "context-efficient focused reads (query, sections, max_chars, include_links) on HTTP, MCP, and CLI",
+    "operator MCP tool allow/exclude lists",
+    "operator MCP DNS-rebinding host/origin allowlist extension",
+    "opt-in query-time git sync (fast-forward only) with sanitized status"
+  ],
+  "revision_policy": {
+    "release_tag": "v0.2.15",
+    "note": "This report is committed with the release candidate; use the v0.2.15 tag for the immutable source revision."
+  },
+  "environment": {
+    "os": "macOS",
+    "arch": "arm64",
+    "python": "3.14.0",
+    "dependency_lock": "uv.lock",
+    "ci": "Linux and Windows, Python 3.11 and 3.12"
+  },
+  "commands": [
+    {
+      "command": "uv sync --locked",
+      "result": "pass"
+    },
+    {
+      "command": "uv run python -c \"import importlib.util; assert importlib.util.find_spec('fastembed') is None; assert importlib.util.find_spec('numpy') is None\"",
+      "result": "pass",
+      "evidence": "base install does not import optional vector dependencies"
+    },
+    {
+      "command": "uv run llmwiki-serve query ./examples/sample-wiki \"release readiness\"",
+      "result": "pass",
+      "evidence": "default query succeeded"
+    },
+    {
+      "command": "uv sync --extra dev --extra vector --locked",
+      "result": "pass"
+    },
+    {
+      "command": "uv run ruff format --check .",
+      "result": "pass"
+    },
+    {
+      "command": "uv run ruff check .",
+      "result": "pass"
+    },
+    {
+      "command": "uv run mypy src",
+      "result": "pass",
+      "evidence": "no issues found in 22 source files"
+    },
+    {
+      "command": "uv run mypy scripts/benchmark_adapters/scifact_runner.py",
+      "result": "pass"
+    },
+    {
+      "command": "PYTHONDONTWRITEBYTECODE=1 uv run pytest -p no:cacheprovider",
+      "result": "pass-with-known-platform-exceptions",
+      "evidence": "768 passed, 2 skipped, 4 failed on local macOS only; the same 4 fail identically on the pre-change main revision and pass in Linux and Windows CI",
+      "known_platform_exceptions": [
+        "tests/test_instance_registry.py::test_posix_command_line_parsing_extracts_serve_args (macOS /tmp symlink resolution)",
+        "tests/test_instance_registry.py::test_real_server_process_discovery_empty_registry_arbitrary_port_listener_pid (process inspection permission)",
+        "tests/test_service.py::test_service_signature_cache_refreshes_when_new_source_file_directory_stat_is_preserved (APFS directory size precondition)",
+        "tests/test_service.py::test_service_signature_cache_refreshes_when_new_sidecar_directory_stat_is_preserved (APFS directory size precondition)"
+      ]
+    },
+    {
+      "command": "uv run pytest -q tests/test_git_sync.py tests/test_context_efficient_read.py tests/test_mcp_protocol_2026_07_28.py",
+      "result": "pass",
+      "evidence": "34 passed"
+    },
+    {
+      "command": "uv run python scripts/export_openapi.py --check",
+      "result": "pass",
+      "evidence": "OpenAPI contract is up to date"
+    },
+    {
+      "command": "uv build",
+      "result": "pass",
+      "evidence": "llmwiki_serve-0.2.15-py3-none-any.whl, llmwiki_serve-0.2.15.tar.gz"
+    },
+    {
+      "command": "uv run python scripts/release_smoke.py --wheel dist/*.whl --sdist dist/*.tar.gz",
+      "result": "pass",
+      "evidence": "offline wheel install; source boundary, sdist contents, wheel HTTP/MCP, wheel CLI/API"
+    },
+    {
+      "command": "uvx twine check dist/*",
+      "result": "pass"
+    },
+    {
+      "command": "uv run python scripts/release_dist_manifest.py write --dist-dir dist --manifest dist-sha256.json && uv run python scripts/release_dist_manifest.py verify --dist-dir dist --manifest dist-sha256.json",
+      "result": "pass"
+    }
+  ],
+  "contract_evidence": {
+    "defaults_unchanged": "plain reads, MCP tool list, loopback-only host allowlist, and no git commands unless --git-sync is set",
+    "integration": "MCP call_tool applies the tool filter before attaching git-sync _meta; focused reads use the same index snapshot path that runs git sync",
+    "git_sync_safety": "fast-forward only; dirty, diverged, detached, or branch-mismatched checkouts are reported and served from current files"
+  },
+  "public_safety": {
+    "status": "pass",
+    "not_recorded": [
+      "credentials",
+      "private endpoint URLs",
+      "raw private wiki content",
+      "absolute local paths",
+      "git remote URLs with userinfo"
+    ]
+  }
+}

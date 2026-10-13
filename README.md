@@ -46,7 +46,7 @@ enterprise auth, model runtime hosting, or certified MCP/A2A platform claims.
 > matrix.
 > Source checkout remains supported for local development and release smoke tests.
 > Already-published package READMEs are immutable. This GitHub README documents
-> the `0.2.14` release line and will be included in the `0.2.14` package; it
+> the `0.2.15` release line and will be included in the `0.2.15` package; it
 > does not change already-published distributions.
 
 ## Start Here
@@ -65,6 +65,25 @@ to see `llmwiki-serve` project an already-existing LLMWiki, Markdown, or
 Obsidian-style folder as a read-only Knowledge Source.
 
 [![First-run demo poster](https://knowledge-bridge-labs.github.io/llmwiki-docs/demo/first-run/first-run-poster.png)](https://knowledge-bridge-labs.github.io/llmwiki-docs/demo)
+
+## 0.2.15 Highlights
+
+- MCP client compatibility: `/mcp/stream` accepts every protocol version the
+  installed MCP SDK can negotiate (including `2025-11-25`), so current
+  TypeScript and Python SDK clients connect without header rewriting.
+- Context-efficient reads: `llmwiki_read`, `GET /read/{page_id}`, and the new
+  `llmwiki-serve read` command accept `query`, `sections`, `max_chars`, and
+  `include_links` to return only the relevant sections within a budget.
+  Default reads are unchanged.
+- Operator controls: `--mcp-tools` / `--mcp-exclude-tools` limit exposed MCP
+  tools, and `--mcp-allowed-hosts` / `--mcp-allowed-origins` extend the
+  DNS-rebinding allowlist without a Host-rewriting proxy.
+- Opt-in query-time git sync (`--git-sync`): serving clones fetch and
+  fast-forward at most once per cooldown, never discard local changes, and
+  report sanitized status in `/health`, `/diagnostics/git-sync`, and MCP
+  `tools/call` `_meta`. Default serving runs no git commands.
+- Release evidence: the public-safe 0.2.15 gate summary is tracked in
+  [docs/releases/0.2.15-release-evidence.json](docs/releases/0.2.15-release-evidence.json).
 
 ## 0.2.14 Highlights
 
@@ -312,7 +331,7 @@ Pin the version listed in the
 matrix when you need a reproducible public-preview package install:
 
 ```bash
-uv tool install llmwiki-serve==0.2.14
+uv tool install llmwiki-serve==0.2.15
 ```
 
 ## Contributor Development Path
