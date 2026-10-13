@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from .adapters import SourceProfile, load_wiki
+from .git_sync import GitSyncConfig, GitSyncer
 from .graph_engine import GraphEngineProvider, InMemoryGraphEngineProvider
 from .graph_store import (
     GraphStore,
@@ -183,6 +184,7 @@ class LlmWikiService:
         graph_engine: GraphEngineProvider | None = None,
         source_profile: SourceProfile = "auto",
         query_action_judge: QueryActionJudgeConfig | str | None = None,
+        git_sync: GitSyncConfig | None = None,
         clock: Callable[[], float] | None = None,
         _managed_context_clock: Callable[[], float] | None = None,
     ) -> None:
@@ -243,13 +245,34 @@ class LlmWikiService:
                 self.root,
                 Path(producer_manifest_path),
             )
+        self._git_syncer: GitSyncer | None = (
+            GitSyncer(self.root, git_sync, clock=self._clock)
+            if git_sync is not None and git_sync.enabled
+            else None
+        )
+        self._git_generation_seen = 0
 
     def index(self, *, refresh: bool = False) -> WikiIndex:
         return self._index_snapshot(refresh=refresh).index
 
     def _index_snapshot(self, *, refresh: bool = False) -> _RetrievalSnapshot:
+        syncer = self._git_syncer
+        if syncer is not None:
+            # Fetch/fast-forward outside the index lock so a slow remote never blocks
+            # readers longer than the configured wait bound.
+            syncer.ensure_fresh()
         with self._index_lock:
-            return self._index_snapshot_unlocked(refresh=refresh)
+            generation = syncer.generation if syncer is not None else 0
+            # A fast-forward moved HEAD: rebuild regardless of --refresh-interval-seconds
+            # and bypass any cached projection lookup.
+            git_moved = generation != self._git_generation_seen
+            snapshot = self._index_snapshot_unlocked(refresh=refresh or git_moved)
+            self._git_generation_seen = generation
+            return snapshot
+
+    def git_sync_status(self) -> dict[str, Any] | None:
+        """Return git sync status, or None when git sync is disabled."""
+        return self._git_syncer.status() if self._git_syncer is not None else None
 
     def _index_snapshot_unlocked(self, *, refresh: bool = False) -> _RetrievalSnapshot:
         if self._can_reuse_cached_index(refresh=refresh):

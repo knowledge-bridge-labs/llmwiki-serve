@@ -24,6 +24,14 @@ This project follows a lightweight public-preview changelog format. Dates use
   (`LLMWIKI_MCP_ALLOWED_HOSTS`, `LLMWIKI_MCP_ALLOWED_ORIGINS`) to extend the MCP
   SDK DNS-rebinding allowlist (for example `host.docker.internal:*`) without a
   Host-rewriting proxy. The loopback-only default is unchanged.
+- Added opt-in query-time git sync for serving clones (`--git-sync`,
+  `LLMWIKI_GIT_SYNC=1`). Requests fetch the configured remote at most once per
+  cooldown (default 60s), fast-forward only, share one in-flight sync, wait at
+  most a bounded time (default 5s) before answering stale, and rebuild the
+  projection when HEAD moves. Local changes or diverged history block the sync
+  without touching files. Status is exposed at `/diagnostics/git-sync`, in
+  `/health` when enabled, and as MCP `tools/call` result `_meta`. Default
+  behavior is unchanged.
 
 ## 0.2.14 - 2026-09-27
 
