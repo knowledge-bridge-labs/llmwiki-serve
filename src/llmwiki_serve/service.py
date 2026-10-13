@@ -66,6 +66,12 @@ from .query_action_judgment import (
     apply_query_action_judgment,
     validate_query_action_judge_config,
 )
+from .read_focus import (
+    TRUNCATION_FIELDS,
+    focused_read_payload,
+    is_focused_read,
+    plain_read_payload,
+)
 from .search import (
     DEFAULT_ANALYZER_PROFILE,
     AnalyzerProfile,
@@ -873,6 +879,10 @@ class LlmWikiService:
         *,
         include_drafts: bool = False,
         fields: Sequence[str] | None = None,
+        query: str | None = None,
+        sections: Sequence[str] | None = None,
+        max_chars: int | None = None,
+        include_links: bool | None = None,
     ) -> dict[str, Any]:
         snapshot = self._index_snapshot()
         index = snapshot.index
@@ -892,7 +902,19 @@ class LlmWikiService:
                     include_drafts=include_drafts,
                     now=self._managed_context_clock(),
                 )
-                return project_read_payload(page.model_dump(mode="json"), fields)
+                payload = page.model_dump(mode="json")
+                if is_focused_read(query, sections):
+                    return focused_read_payload(
+                        payload,
+                        query=query,
+                        sections=sections,
+                        max_chars=max_chars,
+                        include_links=include_links,
+                    )
+                payload = plain_read_payload(
+                    payload, max_chars=max_chars, include_links=include_links
+                )
+                return project_read_payload(payload, fields)
         return {"found": False}
 
     def _managed_context_scope(
@@ -1101,7 +1123,9 @@ def project_read_payload(payload: dict[str, Any], fields: Sequence[str] | None) 
         normalized = field.strip().lower()
         if normalized in READ_FIELDS and normalized not in requested:
             requested.append(normalized)
-    return {field: payload[field] for field in READ_FIELD_ORDER if field in requested}
+    projected = {field: payload[field] for field in READ_FIELD_ORDER if field in requested}
+    projected.update({key: payload[key] for key in TRUNCATION_FIELDS if key in payload})
+    return projected
 
 
 def package_version() -> str:

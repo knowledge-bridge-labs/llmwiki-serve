@@ -522,6 +522,54 @@ context_default_limit=...)`, `llmwiki-serve serve --graph-default-limit`,
 `LLMWIKI_CONTEXT_DEFAULT_LIMIT`. Use graph-neighborhood tools for focused graph
 inspection before requesting a large full graph.
 
+### Context-Efficient Reads
+
+Plain `GET /read/{page_id}`, MCP `llmwiki_read`, and `llmwiki-serve read` keep
+returning the full page by default. Large pages can be read in a focused,
+budgeted form instead:
+
+| Argument | HTTP | MCP `llmwiki_read` | CLI `read` | Behavior |
+| --- | --- | --- | --- | --- |
+| `query` | `?query=` | `query` | `--query` | Focused mode: rank heading-delimited sections by deterministic lexical relevance (Unicode tokens, Korean particle stripping, Hangul bigrams, in-page IDF, heading weight). |
+| `sections` | `?sections=` (repeat or comma) | `sections` (list or comma string) | `--section` (repeat) | Focused mode: select sections by heading name or outline number (`1.2`), including sub-sections. |
+| `max_chars` | `?max_chars=` | `max_chars` | `--max-chars` | Body character budget (200..1,000,000). Focused reads default to 8,000; plain reads are unlimited unless the server sets a default. |
+| `include_links` | `?include_links=` | `include_links` | `--include-links/--no-include-links` | `false` drops the link list. Focused reads omit links unless `true`. |
+
+Focused responses (`read_mode: "focused"`) contain `title`, `summary`, a compact
+`outline` (`"<number> <heading> (<chars>)"` for every section),
+`selected_sections`, the selected section Markdown in `text`, and
+`total_chars`, `returned_chars`, `truncated`, `remaining_sections` (selected
+sections that did not fit), plus `matched: false` when nothing matched the query.
+Budgeted plain reads add `truncated`, `total_chars`, `returned_chars`, and
+`remaining_sections`. `fields` applies to plain reads only.
+
+Operators can set a default plain-read budget with
+`llmwiki-serve serve --read-default-max-chars N` or
+`LLMWIKI_READ_DEFAULT_MAX_CHARS`.
+
+### MCP Tool Selection And Host Allowlist
+
+`--mcp-tools llmwiki_search,llmwiki_read` (allowlist) and/or
+`--mcp-exclude-tools llmwiki_graph,llmwiki_context` (env `LLMWIKI_MCP_TOOLS`,
+`LLMWIKI_MCP_EXCLUDE_TOOLS`; `create_app(..., mcp_tools=..., mcp_exclude_tools=...)`)
+limit the tools listed and callable on both `/mcp/stream` and `/mcp`. Calling a
+disabled tool returns a clear error (`isError` tool result on `/mcp/stream`,
+JSON-RPC `-32602` on `/mcp`). Unknown tool names fail at startup.
+
+`/mcp/stream` keeps the MCP SDK DNS-rebinding protection, which accepts only
+loopback `Host` headers by default and answers others with `421`. To serve
+through Docker or a gateway, add hosts with
+`--mcp-allowed-hosts "host.docker.internal:*"` (port wildcard supported;
+loopback stays allowed; `*` disables the check) and, for browsers,
+`--mcp-allowed-origins` (env `LLMWIKI_MCP_ALLOWED_HOSTS`,
+`LLMWIKI_MCP_ALLOWED_ORIGINS`). `http(s)://<allowed host>` origins are added
+automatically.
+
+`/mcp/stream` accepts every `MCP-Protocol-Version` the installed MCP SDK can
+negotiate (initialize-handshake versions such as `2025-11-25` and `2025-06-18`,
+plus the modern `2026-07-28` envelope), so current TypeScript and Python SDK
+clients connect without header rewriting.
+
 For CKG-like graph-guided retrieval, agents can call `GET /graph/neighborhood`
 or MCP `llmwiki_graph_neighbors` after `/query` or `llmwiki_context` points to a
 relevant page, source reference, tag, or sidecar graph node. Neighborhood lookup

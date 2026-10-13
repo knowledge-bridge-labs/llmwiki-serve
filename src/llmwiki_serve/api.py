@@ -17,6 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ResourceNotFoundError, ToolError
+from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import Annotations, ToolAnnotations
 from mcp.types import Resource as MCPResource
 from pydantic import BaseModel, Field, field_validator
@@ -55,6 +56,7 @@ from .query_action_judgment import (
     query_action_judge_config_from_env,
     validate_query_action_judge_config,
 )
+from .read_focus import FOCUSED_READ_DEFAULT_MAX_CHARS, READ_MAX_CHARS_MAX, READ_MAX_CHARS_MIN
 from .search import (
     DEFAULT_PUBLIC_ANALYZER_PROFILE,
     PublicAnalyzerProfile,
@@ -74,6 +76,10 @@ GRAPH_NEIGHBOR_LIMIT_DEFAULT = 50
 GRAPH_NEIGHBOR_LIMIT_MAX = 500
 GRAPH_NEIGHBOR_SEED_QUERY = Query(default=None)
 GRAPH_NEIGHBOR_RELATION_QUERY = Query(default=None)
+READ_SECTIONS_QUERY = Query(
+    default=None,
+    description="Focused read: heading names or outline numbers (repeat or comma-separate).",
+)
 LOCAL_CORS_ORIGIN_REGEX = r"^https?://(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$"
 NETWORK_MANIFEST_ROOT = ""
 API_VERSION = __version__
@@ -82,9 +88,41 @@ MCP_UNKNOWN_TOOL_MESSAGE = "Unknown MCP-style tool."
 MCP_INTERNAL_FAILURE_MESSAGE = "Internal MCP-style error."
 MCP_STREAM_PATH = "/mcp/stream"
 MCP_STREAM_MOUNT_PATH = "/mcp"
+MCP_FALLBACK_HANDSHAKE_PROTOCOL_VERSIONS = ("2025-06-18", "2025-11-25")
+MCP_FALLBACK_MODERN_PROTOCOL_VERSIONS = ("2026-07-28",)
+
+
+def sdk_protocol_versions() -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Return the (initialize-handshake, modern) protocol versions the MCP SDK serves."""
+    try:
+        from mcp_types import version as sdk_version
+    except ImportError:  # pragma: no cover - older mcp 2.x package layouts
+        return MCP_FALLBACK_HANDSHAKE_PROTOCOL_VERSIONS, MCP_FALLBACK_MODERN_PROTOCOL_VERSIONS
+    return (
+        tuple(sdk_version.HANDSHAKE_PROTOCOL_VERSIONS),
+        tuple(sdk_version.MODERN_PROTOCOL_VERSIONS),
+    )
+
+
+MCP_SDK_HANDSHAKE_PROTOCOL_VERSIONS, MCP_SDK_MODERN_PROTOCOL_VERSIONS = sdk_protocol_versions()
 MCP_PROTOCOL_VERSION = "2026-07-28"
-MCP_COMPAT_PROTOCOL_VERSIONS = ("2025-06-18",)
-MCP_SUPPORTED_PROTOCOL_VERSIONS = (MCP_PROTOCOL_VERSION, *MCP_COMPAT_PROTOCOL_VERSIONS)
+# Header validation must accept every version the SDK can negotiate; TypeScript and
+# Python clients negotiate 2025-11-25 via initialize and then send it on every request.
+MCP_COMPAT_PROTOCOL_VERSIONS = tuple(
+    dict.fromkeys(("2025-06-18", *reversed(MCP_SDK_HANDSHAKE_PROTOCOL_VERSIONS)))
+)
+MCP_SUPPORTED_PROTOCOL_VERSIONS = tuple(
+    dict.fromkeys(
+        (
+            MCP_PROTOCOL_VERSION,
+            *reversed(MCP_SDK_MODERN_PROTOCOL_VERSIONS),
+            *MCP_COMPAT_PROTOCOL_VERSIONS,
+        )
+    )
+)
+MCP_DEFAULT_ALLOWED_HOSTS = ("127.0.0.1:*", "localhost:*", "[::1]:*")
+MCP_DEFAULT_ALLOWED_ORIGINS = ("http://127.0.0.1:*", "http://localhost:*", "http://[::1]:*")
+MCP_ALLOW_ANY_HOST = "*"
 MCP_META_PROTOCOL_VERSION = "io.modelcontextprotocol/protocolVersion"
 MCP_META_CLIENT_INFO = "io.modelcontextprotocol/clientInfo"
 MCP_META_CLIENT_CAPABILITIES = "io.modelcontextprotocol/clientCapabilities"
@@ -107,7 +145,11 @@ MCP_TOOL_BASE_DESCRIPTIONS = {
         "Search approved LLMWiki pages. For agent-guided lexical retrieval, call "
         "llmwiki_context first, then pass at most two query_variants with mode=lexical."
     ),
-    "llmwiki_read": "Read a page by id or path.",
+    "llmwiki_read": (
+        "Read a page by id or path. For large pages pass query and/or sections "
+        "(heading names or outline numbers) with optional max_chars to get title, "
+        "summary, outline, and only the relevant sections; include_links=false drops links."
+    ),
     "llmwiki_graph": "Return page/link/source graph.",
     "llmwiki_graph_neighbors": (
         "Return a bounded graph neighborhood around page, source, tag, or sidecar "
@@ -160,17 +202,39 @@ class UnknownMcpToolError(Exception):
     pass
 
 
+class DisabledMcpToolError(UnknownMcpToolError):
+    def __init__(self, tool_name: str) -> None:
+        super().__init__(tool_name)
+        self.tool_name = tool_name
+
+
+def mcp_disabled_tool_message(tool_name: str) -> str:
+    return (
+        f"MCP tool '{tool_name}' is disabled on this server "
+        "(see --mcp-tools / --mcp-exclude-tools)."
+    )
+
+
 class LlmWikiMCPServer(MCPServer):
     def __init__(
         self,
         *args: Any,
         service: LlmWikiService,
         enable_a2a_compat: bool = False,
+        disabled_tools: tuple[str, ...] = (),
         **kwargs: Any,
     ) -> None:
         super().__init__(*args, **kwargs)
         self._llmwiki_service = service
         self._llmwiki_enable_a2a_compat = enable_a2a_compat
+        self._llmwiki_disabled_tools = frozenset(disabled_tools)
+
+    async def call_tool(
+        self, name: str, arguments: dict[str, Any], *args: Any, **kwargs: Any
+    ) -> Any:
+        if name in self._llmwiki_disabled_tools:
+            raise ToolError(mcp_disabled_tool_message(name))
+        return await super().call_tool(name, arguments, *args, **kwargs)
 
     async def list_resources(self) -> list[MCPResource]:
         try:
@@ -727,6 +791,11 @@ def create_app(
     graph_store_failure_policy: GraphStoreFailurePolicy = "fallback-local",
     source_profile: SourceProfile = "auto",
     query_action_judge: QueryActionJudgeConfig | str | None = None,
+    mcp_tools: Sequence[str] | None = None,
+    mcp_exclude_tools: Sequence[str] | None = None,
+    mcp_allowed_hosts: Sequence[str] | None = None,
+    mcp_allowed_origins: Sequence[str] | None = None,
+    read_default_max_chars: int | None = None,
 ) -> FastAPI:
     resolved_graph_default_limit = validate_default_limit(
         graph_default_limit,
@@ -756,6 +825,9 @@ def create_app(
         if query_action_judge is None
         else validate_query_action_judge_config(query_action_judge)
     )
+    enabled_mcp_tools = resolve_mcp_tool_selection(mcp_tools, mcp_exclude_tools)
+    resolved_read_default_max_chars = validate_read_default_max_chars(read_default_max_chars)
+    transport_security = mcp_transport_security_settings(mcp_allowed_hosts, mcp_allowed_origins)
     service = LlmWikiService(
         root,
         refresh_interval_seconds=refresh_interval_seconds,
@@ -781,11 +853,14 @@ def create_app(
         mcp_server_name=mcp_server_name,
         mcp_instructions=mcp_instructions,
         mcp_tool_description_prefix=mcp_tool_description_prefix,
+        enabled_tools=enabled_mcp_tools,
+        read_default_max_chars=resolved_read_default_max_chars,
     )
     mcp_stream_app: ASGIApp = mcp_stream.streamable_http_app(
         streamable_http_path="/stream",
         stateless_http=True,
         json_response=True,
+        transport_security=transport_security,
     )
     mcp_stream_app = McpStreamableHttpValidationMiddleware(mcp_stream_app)
     explicit_origins = set(cors_origins or [])
@@ -947,14 +1022,42 @@ def create_app(
             default=None,
             description="Optional comma-separated WikiPage fields to return.",
         ),
-    ) -> dict[str, Any]:
-        result = service.read(
+        query: str | None = Query(
+            default=None,
+            description=(
+                "Focused read: return title, summary, outline, and only the sections "
+                "most relevant to this query."
+            ),
+        ),
+        sections: list[str] | None = READ_SECTIONS_QUERY,
+        max_chars: int | None = Query(
+            default=None,
+            description=(
+                "Maximum returned body characters. Focused reads default to "
+                f"{FOCUSED_READ_DEFAULT_MAX_CHARS}; plain reads use the server default "
+                "(unlimited unless --read-default-max-chars is set)."
+            ),
+        ),
+        include_links: bool | None = Query(
+            default=None,
+            description="Set false to omit links; focused reads omit links unless true.",
+        ),
+    ) -> Any:
+        result = read_with_options(
+            service,
             page_id,
             include_drafts=network_include_drafts(allow_drafts, include_drafts),
             fields=collect_string_args(fields) if fields is not None else None,
+            query=query,
+            sections=sections,
+            max_chars=max_chars,
+            include_links=include_links,
+            default_max_chars=resolved_read_default_max_chars,
         )
         if not result.get("found", True) and result.get("reason") != "not approved for serving":
             raise HTTPException(status_code=404, detail="page not found")
+        if "read_mode" in result or "truncated" in result or include_links is False:
+            return JSONResponse(content=result)
         return result
 
     @app.get("/graph", response_model=GraphResponse)
@@ -1016,6 +1119,8 @@ def create_app(
                 mcp_server_name=mcp_server_name,
                 mcp_instructions=mcp_instructions,
                 mcp_tool_description_prefix=mcp_tool_description_prefix,
+                enabled_tools=enabled_mcp_tools,
+                read_default_max_chars=resolved_read_default_max_chars,
             )
             return {"jsonrpc": "2.0", "id": request.id, "result": result}
         except UnsupportedMcpMethodError:
@@ -1023,6 +1128,12 @@ def create_app(
                 "jsonrpc": "2.0",
                 "id": request.id,
                 "error": {"code": -32601, "message": MCP_UNSUPPORTED_METHOD_MESSAGE},
+            }
+        except DisabledMcpToolError as exc:
+            return {
+                "jsonrpc": "2.0",
+                "id": request.id,
+                "error": {"code": -32602, "message": mcp_disabled_tool_message(exc.tool_name)},
             }
         except UnknownMcpToolError:
             return {
@@ -1346,6 +1457,8 @@ def create_mcp_stream_server(
     mcp_server_name: str | None = None,
     mcp_instructions: str | None = None,
     mcp_tool_description_prefix: str | None = None,
+    enabled_tools: Sequence[str] | None = None,
+    read_default_max_chars: int | None = None,
 ) -> MCPServer:
     resolved_graph_default_limit = validate_default_limit(
         graph_default_limit,
@@ -1370,10 +1483,16 @@ def create_mcp_stream_server(
         mcp_instructions=mcp_instructions,
         mcp_tool_description_prefix=mcp_tool_description_prefix,
     )
+    disabled_tools = tuple(
+        name
+        for name in MCP_TOOL_BASE_DESCRIPTIONS
+        if enabled_tools is not None and name not in enabled_tools
+    )
     mcp_stream = LlmWikiMCPServer(
         metadata.server_name,
         service=service,
         enable_a2a_compat=enable_a2a_compat,
+        disabled_tools=disabled_tools,
         instructions=metadata.instructions,
         version=API_VERSION,
     )
@@ -1525,12 +1644,22 @@ def create_mcp_stream_server(
         page_id: str,
         include_drafts: bool = False,
         fields: list[str] | str | None = None,
+        query: str | None = None,
+        sections: list[str] | str | None = None,
+        max_chars: int | None = None,
+        include_links: bool | None = None,
     ) -> dict[str, Any]:
         try:
-            return service.read(
+            return read_with_options(
+                service,
                 page_id,
                 include_drafts=network_include_drafts(allow_drafts, include_drafts),
                 fields=optional_string_args(fields),
+                query=query,
+                sections=sections,
+                max_chars=max_chars,
+                include_links=include_links,
+                default_max_chars=read_default_max_chars,
             )
         except Exception as exc:
             raise ToolError(MCP_INTERNAL_FAILURE_MESSAGE) from exc
@@ -1616,6 +1745,8 @@ def create_mcp_stream_server(
         except Exception as exc:
             raise ToolError(MCP_INTERNAL_FAILURE_MESSAGE) from exc
 
+    for name in disabled_tools:
+        mcp_stream.remove_tool(name)
     return mcp_stream
 
 
@@ -1637,6 +1768,8 @@ def handle_mcp(
     mcp_server_name: str | None = None,
     mcp_instructions: str | None = None,
     mcp_tool_description_prefix: str | None = None,
+    enabled_tools: Sequence[str] | None = None,
+    read_default_max_chars: int | None = None,
 ) -> Any:
     params = params or {}
     resolved_graph_default_limit = validate_default_limit(
@@ -1667,6 +1800,7 @@ def handle_mcp(
             "tools": [
                 {"name": name, "description": description}
                 for name, description in metadata.tool_descriptions.items()
+                if enabled_tools is None or name in enabled_tools
             ]
         }
     if method != "tools/call":
@@ -1674,6 +1808,12 @@ def handle_mcp(
     name = str(params.get("name") or "")
     raw_args = params.get("arguments")
     args = raw_args if isinstance(raw_args, dict) else {}
+    if (
+        enabled_tools is not None
+        and name in MCP_TOOL_BASE_DESCRIPTIONS
+        and name not in enabled_tools
+    ):
+        raise DisabledMcpToolError(name)
     if name == "llmwiki_context":
         result_fields = optional_string_args(args.get("fields"))
         variants = query_variants_arg(args)
@@ -1728,10 +1868,16 @@ def handle_mcp(
             )
         }
     if name == "llmwiki_read":
-        return service.read(
+        return read_with_options(
+            service,
             str(args.get("page_id") or args.get("id") or ""),
             include_drafts=network_include_drafts(allow_drafts, args.get("include_drafts")),
             fields=optional_string_args(args.get("fields")),
+            query=args.get("query"),
+            sections=args.get("sections", args.get("section")),
+            max_chars=args.get("max_chars"),
+            include_links=args.get("include_links"),
+            default_max_chars=read_default_max_chars,
         )
     if name == "llmwiki_graph":
         return service.graph(
@@ -1916,3 +2062,99 @@ def render_a2a_text(context: dict[str, Any]) -> str:
     for index, item in enumerate(evidence[:5], start=1):
         lines.append(f"[{index}] {item.get('title')} - {item.get('snippet')}")
     return "\n".join(lines)
+
+
+def split_option_values(values: Sequence[str] | str | None) -> list[str]:
+    if values is None:
+        return []
+    items = [values] if isinstance(values, str) else list(values)
+    result: list[str] = []
+    for item in items:
+        for part in str(item).split(","):
+            normalized = part.strip()
+            if normalized and normalized not in result:
+                result.append(normalized)
+    return result
+
+
+def resolve_mcp_tool_selection(
+    include: Sequence[str] | str | None,
+    exclude: Sequence[str] | str | None,
+) -> tuple[str, ...] | None:
+    """Return enabled MCP tool names, or None when every tool stays enabled."""
+    included = split_option_values(include)
+    excluded = split_option_values(exclude)
+    if not included and not excluded:
+        return None
+    known = tuple(MCP_TOOL_BASE_DESCRIPTIONS)
+    unknown = [name for name in (*included, *excluded) if name not in known]
+    if unknown:
+        raise ValueError(
+            f"Unknown MCP tool name(s): {', '.join(unknown)}. Known tools: {', '.join(known)}"
+        )
+    enabled = tuple(
+        name for name in known if (not included or name in included) and name not in excluded
+    )
+    if not enabled:
+        raise ValueError("MCP tool selection leaves no tools enabled")
+    return enabled
+
+
+def mcp_transport_security_settings(
+    allowed_hosts: Sequence[str] | str | None,
+    allowed_origins: Sequence[str] | str | None,
+) -> TransportSecuritySettings | None:
+    """Build SDK DNS-rebinding settings; None keeps the SDK loopback-only default."""
+    hosts = split_option_values(allowed_hosts)
+    origins = split_option_values(allowed_origins)
+    if not hosts and not origins:
+        return None
+    if MCP_ALLOW_ANY_HOST in hosts:
+        return TransportSecuritySettings(enable_dns_rebinding_protection=False)
+    host_origins = [f"{scheme}://{host}" for host in hosts for scheme in ("http", "https")]
+    return TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=list(dict.fromkeys((*MCP_DEFAULT_ALLOWED_HOSTS, *hosts))),
+        allowed_origins=list(
+            dict.fromkeys((*MCP_DEFAULT_ALLOWED_ORIGINS, *host_origins, *origins))
+        ),
+    )
+
+
+def validate_read_default_max_chars(value: int | None) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError("read_default_max_chars must be an integer")
+    if not READ_MAX_CHARS_MIN <= value <= READ_MAX_CHARS_MAX:
+        raise ValueError(
+            f"read_default_max_chars must be between {READ_MAX_CHARS_MIN} and {READ_MAX_CHARS_MAX}"
+        )
+    return value
+
+
+def read_with_options(
+    service: LlmWikiService,
+    page_id: str,
+    *,
+    include_drafts: bool,
+    fields: list[str] | None,
+    query: Any = None,
+    sections: Any = None,
+    max_chars: Any = None,
+    include_links: Any = None,
+    default_max_chars: int | None = None,
+) -> dict[str, Any]:
+    """Shared read entry point for HTTP, MCP Streamable HTTP, and JSON-RPC callers."""
+    requested_max_chars = optional_clamped_int(
+        max_chars, minimum=READ_MAX_CHARS_MIN, maximum=READ_MAX_CHARS_MAX
+    )
+    return service.read(
+        page_id,
+        include_drafts=include_drafts,
+        fields=fields,
+        query=str(query) if isinstance(query, str) and query.strip() else None,
+        sections=split_option_values(sections) or None,
+        max_chars=requested_max_chars if requested_max_chars is not None else default_max_chars,
+        include_links=None if include_links is None else bool_arg(include_links),
+    )
