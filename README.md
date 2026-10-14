@@ -46,7 +46,7 @@ enterprise auth, model runtime hosting, or certified MCP/A2A platform claims.
 > matrix.
 > Source checkout remains supported for local development and release smoke tests.
 > Already-published package READMEs are immutable. This GitHub README documents
-> the `0.2.15` release line and will be included in the `0.2.15` package; it
+> the `0.2.16` release line and will be included in the `0.2.16` package; it
 > does not change already-published distributions.
 
 ## Start Here
@@ -66,6 +66,22 @@ Obsidian-style folder as a read-only Knowledge Source.
 
 [![First-run demo poster](https://knowledge-bridge-labs.github.io/llmwiki-docs/demo/first-run/first-run-poster.png)](https://knowledge-bridge-labs.github.io/llmwiki-docs/demo)
 
+## 0.2.16 Highlights
+
+- Context-first workflow at a small cost: `--context-graph-limit` /
+  `LLMWIKI_CONTEXT_GRAPH_LIMIT` bounds the graph sample embedded in every
+  `/query` and `llmwiki_context` pack (default 120, `0` omits it). On a
+  98-page wiki this took a context pack from about 56K to 7K characters with
+  the same evidence and retrieval guidance.
+- Deprecated: query-time git sync (`--git-sync`) writes to the served checkout,
+  which breaks the read-only guarantee. It still works but warns at startup.
+  Keep the checkout current from outside the server instead; see
+  [Keeping A Git Checkout Current](#keeping-a-git-checkout-current).
+- `llmwiki_search` no longer tells agents to call `llmwiki_context` when
+  `--mcp-tools` hides it.
+- Release evidence: the public-safe 0.2.16 gate summary is tracked in
+  [docs/releases/0.2.16-release-evidence.json](docs/releases/0.2.16-release-evidence.json).
+
 ## 0.2.15 Highlights
 
 - MCP client compatibility: `/mcp/stream` accepts every protocol version the
@@ -78,12 +94,8 @@ Obsidian-style folder as a read-only Knowledge Source.
 - Operator controls: `--mcp-tools` / `--mcp-exclude-tools` limit exposed MCP
   tools, and `--mcp-allowed-hosts` / `--mcp-allowed-origins` extend the
   DNS-rebinding allowlist without a Host-rewriting proxy.
-- Deprecated: opt-in query-time git sync (`--git-sync`) writes to the served
-  checkout, which breaks the read-only guarantee. Keep the checkout current
-  from outside the server instead; see
-  [Keeping A Git Checkout Current](#keeping-a-git-checkout-current).
-- Operators can shrink or omit the graph sample embedded in every context pack
-  with `--context-graph-limit` (default 120, `0` omits it).
+- Opt-in query-time git sync (`--git-sync`), deprecated in 0.2.16 because it
+  writes to the served checkout.
 - Release evidence: the public-safe 0.2.15 gate summary is tracked in
   [docs/releases/0.2.15-release-evidence.json](docs/releases/0.2.15-release-evidence.json).
 
@@ -333,7 +345,7 @@ Pin the version listed in the
 matrix when you need a reproducible public-preview package install:
 
 ```bash
-uv tool install llmwiki-serve==0.2.15
+uv tool install llmwiki-serve==0.2.16
 ```
 
 ## Contributor Development Path

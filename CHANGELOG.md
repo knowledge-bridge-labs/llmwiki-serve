@@ -5,7 +5,7 @@ All notable changes to LLMWiki Serve will be documented here.
 This project follows a lightweight public-preview changelog format. Dates use
 `YYYY-MM-DD`.
 
-## Unreleased
+## 0.2.16 - 2026-10-14
 
 - Added `--context-graph-limit` / `LLMWIKI_CONTEXT_GRAPH_LIMIT` /
   `create_app(..., context_graph_limit=...)` to bound the graph sample embedded
