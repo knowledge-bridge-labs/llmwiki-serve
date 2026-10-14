@@ -22,6 +22,9 @@ from llmwiki_serve.git_sync import (
 )
 from llmwiki_serve.service import LlmWikiService
 
+# git sync is deprecated (it writes to the served root); legacy behavior stays covered.
+pytestmark = pytest.mark.filterwarnings("ignore:git_sync is deprecated:DeprecationWarning")
+
 ADDED_TOKEN = "zephyrgitsynctoken"
 GIT_IDENTITY = ["-c", "user.name=llmwiki-test", "-c", "user.email=llmwiki-test@example.invalid"]
 
@@ -374,3 +377,38 @@ def test_mcp_tool_filter_still_blocks_with_git_sync_meta(repo: GitFixture) -> No
 
     with pytest.raises(Exception, match="disabled"):
         asyncio.run(server.call_tool("llmwiki_graph", {}))
+
+
+def test_enabled_git_sync_emits_deprecation_warning(tmp_path: Path) -> None:
+    fixture = GitFixture(tmp_path)
+    with pytest.warns(DeprecationWarning, match="read-only source guarantee"):
+        LlmWikiService(fixture.served_root, git_sync=GitSyncConfig(enabled=True))
+
+
+def test_disabled_git_sync_emits_no_deprecation_warning(tmp_path: Path) -> None:
+    import warnings
+
+    fixture = GitFixture(tmp_path)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        LlmWikiService(fixture.served_root, git_sync=GitSyncConfig(enabled=False))
+        LlmWikiService(fixture.served_root)
+
+
+def test_cli_git_sync_prints_deprecation_warning(tmp_path: Path, monkeypatch: Any) -> None:
+    import uvicorn
+    from typer.testing import CliRunner
+
+    from llmwiki_serve.cli import app as cli_app
+
+    fixture = GitFixture(tmp_path)
+    monkeypatch.setattr(uvicorn, "run", lambda app, **kwargs: None)
+    enabled = CliRunner().invoke(
+        cli_app, ["serve", str(fixture.served_root), "--io-log", "off", "--git-sync"]
+    )
+    disabled = CliRunner().invoke(cli_app, ["serve", str(fixture.served_root), "--io-log", "off"])
+
+    assert enabled.exit_code == 0, enabled.output
+    assert "--git-sync is deprecated" in enabled.output
+    assert disabled.exit_code == 0, disabled.output
+    assert "deprecated" not in disabled.output

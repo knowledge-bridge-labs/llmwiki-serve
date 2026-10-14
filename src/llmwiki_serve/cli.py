@@ -51,7 +51,13 @@ from .query_action_judgment import (
 )
 from .read_focus import FOCUSED_READ_DEFAULT_MAX_CHARS, READ_MAX_CHARS_MAX, READ_MAX_CHARS_MIN
 from .search import DEFAULT_PUBLIC_ANALYZER_PROFILE, PublicAnalyzerProfile
-from .service import LlmWikiService, package_version
+from .service import (
+    CONTEXT_GRAPH_LIMIT_MAX,
+    CONTEXT_GRAPH_LIMIT_MIN,
+    DEFAULT_CONTEXT_GRAPH_LIMIT,
+    LlmWikiService,
+    package_version,
+)
 from .vector import (
     VectorConfig,
     VectorModelDownloadPolicy,
@@ -254,14 +260,22 @@ RefreshIntervalOption: TypeAlias = Annotated[
         ),
     ),
 ]
+GIT_SYNC_DEPRECATION_WARNING = (
+    "warning: --git-sync is deprecated and will be removed in a future release. "
+    "It updates files inside the served root, which breaks the read-only source "
+    "guarantee. Keep the checkout current from outside the server (for example a "
+    "scheduled `git pull --ff-only`); serve already reloads changed files on the "
+    "next request."
+)
 GitSyncOption: TypeAlias = Annotated[
     bool | None,
     typer.Option(
         "--git-sync/--no-git-sync",
         help=(
-            "Fetch and fast-forward the git checkout containing the served root before "
-            "answering requests (at most once per cooldown). Local changes or diverged "
-            "history stop the sync without touching files. Disabled by default. "
+            "[deprecated] Fetch and fast-forward the git checkout containing the served "
+            "root before answering requests (at most once per cooldown). This writes to "
+            "the served source, which the read-only guarantee forbids; update the "
+            "checkout from outside the server instead. Disabled by default. "
             "Env: LLMWIKI_GIT_SYNC."
         ),
     ),
@@ -393,6 +407,19 @@ ContextDefaultLimitOption: TypeAlias = Annotated[
         help=(
             "Default query/search and llmwiki_context evidence limit when clients omit "
             "limit. Env: LLMWIKI_CONTEXT_DEFAULT_LIMIT."
+        ),
+    ),
+]
+ContextGraphLimitOption: TypeAlias = Annotated[
+    int | None,
+    typer.Option(
+        "--context-graph-limit",
+        min=CONTEXT_GRAPH_LIMIT_MIN,
+        max=CONTEXT_GRAPH_LIMIT_MAX,
+        help=(
+            "Graph nodes embedded in each /query and llmwiki_context pack "
+            f"(default {DEFAULT_CONTEXT_GRAPH_LIMIT}; 0 omits graph nodes and edges). "
+            "Env: LLMWIKI_CONTEXT_GRAPH_LIMIT."
         ),
     ),
 ]
@@ -876,6 +903,7 @@ def serve(
     ] = None,
     graph_default_limit: GraphDefaultLimitOption = None,
     context_default_limit: ContextDefaultLimitOption = None,
+    context_graph_limit: ContextGraphLimitOption = None,
     source_profile: SourceProfileOption = "auto",
     analyzer_profile: AnalyzerProfileOption = AnalyzerProfileChoice.legacy,
     vector_provider: VectorProviderOption = None,
@@ -948,6 +976,10 @@ def serve(
             context_default_limit,
             "LLMWIKI_CONTEXT_DEFAULT_LIMIT",
         )
+        resolved_context_graph_limit = resolve_int_option_env(
+            context_graph_limit,
+            "LLMWIKI_CONTEXT_GRAPH_LIMIT",
+        )
         resolved_source_profile = parse_source_profile(source_profile)
         resolved_mcp_server_name = (
             mcp_server_name
@@ -997,6 +1029,8 @@ def serve(
             remote=git_sync_remote,
             branch=git_sync_branch,
         )
+        if resolved_git_sync is not None and resolved_git_sync.enabled:
+            typer.echo(GIT_SYNC_DEPRECATION_WARNING, err=True)
         projection_store = create_projection_store(
             projection_backend,
             redis_url=resolved_redis_url,
@@ -1033,6 +1067,7 @@ def serve(
             managed_context=resolved_managed_context,
             graph_default_limit=resolved_graph_default_limit,
             context_default_limit=resolved_context_default_limit,
+            context_graph_limit=resolved_context_graph_limit,
             mcp_server_name=resolved_mcp_server_name,
             mcp_instructions=resolved_mcp_instructions,
             mcp_tool_description_prefix=resolved_mcp_tool_description_prefix,
