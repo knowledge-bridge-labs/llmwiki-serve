@@ -78,10 +78,12 @@ Obsidian-style folder as a read-only Knowledge Source.
 - Operator controls: `--mcp-tools` / `--mcp-exclude-tools` limit exposed MCP
   tools, and `--mcp-allowed-hosts` / `--mcp-allowed-origins` extend the
   DNS-rebinding allowlist without a Host-rewriting proxy.
-- Opt-in query-time git sync (`--git-sync`): serving clones fetch and
-  fast-forward at most once per cooldown, never discard local changes, and
-  report sanitized status in `/health`, `/diagnostics/git-sync`, and MCP
-  `tools/call` `_meta`. Default serving runs no git commands.
+- Deprecated: opt-in query-time git sync (`--git-sync`) writes to the served
+  checkout, which breaks the read-only guarantee. Keep the checkout current
+  from outside the server instead; see
+  [Keeping A Git Checkout Current](#keeping-a-git-checkout-current).
+- Operators can shrink or omit the graph sample embedded in every context pack
+  with `--context-graph-limit` (default 120, `0` omits it).
 - Release evidence: the public-safe 0.2.15 gate summary is tracked in
   [docs/releases/0.2.15-release-evidence.json](docs/releases/0.2.15-release-evidence.json).
 
@@ -541,6 +543,14 @@ context_default_limit=...)`, `llmwiki-serve serve --graph-default-limit`,
 `LLMWIKI_CONTEXT_DEFAULT_LIMIT`. Use graph-neighborhood tools for focused graph
 inspection before requesting a large full graph.
 
+Every `/query` and `llmwiki_context` pack also embeds a graph sample (120 nodes
+by default). On link-dense wikis that sample can be most of the pack, which is
+costly for chat agents that resend tool results each turn. Set
+`create_app(..., context_graph_limit=...)`, `llmwiki-serve serve
+--context-graph-limit`, or `LLMWIKI_CONTEXT_GRAPH_LIMIT` to shrink it; `0` keeps
+the `graph` field with empty `nodes` and `edges`. Orientation, evidence, and
+`retrieval_guidance` are unaffected.
+
 ### Context-Efficient Reads
 
 Plain `GET /read/{page_id}`, MCP `llmwiki_read`, and `llmwiki-serve read` keep
@@ -749,14 +759,34 @@ Review [SECURITY.md](SECURITY.md) before exposing a wiki beyond a trusted local
 environment. Use [SUPPORT.md](SUPPORT.md) for issue routing and compatibility
 report expectations.
 
-## Optional Query-Time Git Sync
+## Keeping A Git Checkout Current
 
-When the served folder lives in a git checkout that other people push to, the
-server can pull remote commits at query time instead of relying on an external
-cron job. Use a dedicated serving clone, not a working copy you edit by hand.
+`llmwiki-serve` never writes to the served folder. To serve a wiki that other
+people push to, keep a dedicated serving clone current from outside the server.
+The service already checks source files on each request and rebuilds the
+projection when they change, so new commits are visible on the next request.
 
 ```bash
 git clone https://git.example.com/team/wiki.git ~/srv/wiki-mirror
+llmwiki-serve serve ~/srv/wiki-mirror/wiki &
+while sleep 60; do git -C ~/srv/wiki-mirror pull --ff-only --quiet; done
+```
+
+Use cron, a systemd timer, launchd, or your CI runner instead of the shell loop
+in production.
+
+## Deprecated: Query-Time Git Sync
+
+> `--git-sync` is deprecated as of 0.2.16 and will be removed in a later
+> release. It fast-forwards the checkout that contains the served root, which
+> breaks the read-only guarantee. `serve --git-sync` prints a warning and the
+> Python API emits `DeprecationWarning`. Migrate to
+> [Keeping A Git Checkout Current](#keeping-a-git-checkout-current). See
+> `docs/decisions/2026-10-14-deprecate-query-time-git-sync.md`.
+
+The option still behaves as in 0.2.15:
+
+```bash
 llmwiki-serve serve ~/srv/wiki-mirror/wiki --git-sync
 ```
 

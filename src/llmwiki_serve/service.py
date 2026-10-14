@@ -4,6 +4,7 @@ import hashlib
 import os
 import threading
 import time
+import warnings
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
 from importlib.metadata import PackageNotFoundError, version
@@ -134,6 +135,10 @@ IGNORED_SIGNATURE_PARTS = {
     "build",
 }
 DEFAULT_GRAPH_LIMIT = 100
+# Graph sample embedded in every context pack; operators may lower it (0 = omit nodes/edges).
+DEFAULT_CONTEXT_GRAPH_LIMIT = 120
+CONTEXT_GRAPH_LIMIT_MIN = 0
+CONTEXT_GRAPH_LIMIT_MAX = 2_000
 LEXICAL_VARIANT_RRF_K = 60
 MANAGED_CONTEXT_HIT_ROUTES = {"search", "literal", "vector", "hybrid"}
 READ_FIELD_ORDER = (
@@ -185,15 +190,26 @@ class LlmWikiService:
         source_profile: SourceProfile = "auto",
         query_action_judge: QueryActionJudgeConfig | str | None = None,
         git_sync: GitSyncConfig | None = None,
+        context_graph_limit: int = DEFAULT_CONTEXT_GRAPH_LIMIT,
         clock: Callable[[], float] | None = None,
         _managed_context_clock: Callable[[], float] | None = None,
     ) -> None:
         if refresh_interval_seconds < 0:
             raise ValueError("refresh_interval_seconds must be non-negative")
+        if (
+            isinstance(context_graph_limit, bool)
+            or not isinstance(context_graph_limit, int)
+            or not CONTEXT_GRAPH_LIMIT_MIN <= context_graph_limit <= CONTEXT_GRAPH_LIMIT_MAX
+        ):
+            raise ValueError(
+                f"context_graph_limit must be an integer between {CONTEXT_GRAPH_LIMIT_MIN} "
+                f"and {CONTEXT_GRAPH_LIMIT_MAX}"
+            )
         if graph_store_failure_policy not in {"fallback-local", "fail-fast"}:
             raise ValueError("graph_store_failure_policy must be fallback-local or fail-fast")
         self.root = Path(root)
         self.refresh_interval_seconds = refresh_interval_seconds
+        self.context_graph_limit = context_graph_limit
         self._source_profile = source_profile
         self.projection_store = projection_store or InMemoryProjectionStore()
         self.cache_namespace = cache_namespace
@@ -244,6 +260,13 @@ class LlmWikiService:
             self._signature_cache = _ProducerManifestSignatureCache(
                 self.root,
                 Path(producer_manifest_path),
+            )
+        if git_sync is not None and git_sync.enabled:
+            warnings.warn(
+                "git_sync is deprecated: it writes to the served root, which breaks the "
+                "read-only source guarantee. Update the checkout from outside the service.",
+                DeprecationWarning,
+                stacklevel=2,
             )
         self._git_syncer: GitSyncer | None = (
             GitSyncer(self.root, git_sync, clock=self._clock)
@@ -550,7 +573,7 @@ class LlmWikiService:
             orientation=orientation,
             evidence=evidence,
             limitations=limitations,
-            graph=views.graph_view(include_drafts).payload(120),
+            graph=views.graph_view(include_drafts).payload(self.context_graph_limit),
             retrieval_guidance=build_retrieval_guidance(
                 index,
                 query=query,

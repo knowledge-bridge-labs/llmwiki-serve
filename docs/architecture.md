@@ -42,6 +42,13 @@ resolved at app startup, advertised in MCP tool descriptions, and applied only
 when callers omit `limit`; explicit request limits keep the existing validation
 and clamp boundaries.
 
+Each context pack also embeds a bounded graph sample, 120 nodes by default.
+Operators can lower it, or set `0` to omit nodes and edges, with
+`context_graph_limit` / `--context-graph-limit` / `LLMWIKI_CONTEXT_GRAPH_LIMIT`.
+This is an instance setting, not a request argument, and it does not change
+orientation, evidence, or retrieval guidance
+(`specs/context-graph-limit/`).
+
 ## Agent-Guided Lexical Workflow
 
 For direct agent use, the recommended path is context first and lexical by
@@ -190,6 +197,11 @@ other retrieval systems.
   modification time, and content digests for projection-affecting files, then
   rebuild the in-memory projection on the next request when Markdown, Org,
   adapter marker/config, or `graph/graph.json` files change.
+
+The deprecated `--git-sync` option is the one exception: when enabled it
+fast-forwards the git checkout containing the served root. It is scheduled for
+removal; keep checkouts current from outside the server instead
+(`decisions/2026-10-14-deprecate-query-time-git-sync.md`).
 
 This means existing LLMWiki producer outputs can be served as knowledge graphs when
 they are available as compatible Markdown folders or supported Markdown workspace

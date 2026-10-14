@@ -5,6 +5,22 @@ All notable changes to LLMWiki Serve will be documented here.
 This project follows a lightweight public-preview changelog format. Dates use
 `YYYY-MM-DD`.
 
+## Unreleased
+
+- Added `--context-graph-limit` / `LLMWIKI_CONTEXT_GRAPH_LIMIT` /
+  `create_app(..., context_graph_limit=...)` to bound the graph sample embedded
+  in `/query` and `llmwiki_context` packs. The default stays 120; `0` keeps the
+  `graph` field with empty `nodes` and `edges`. Lets chat clients keep the
+  context-first workflow without paying for a large graph on every call.
+- Deprecated query-time git sync (`--git-sync`, `LLMWIKI_GIT_SYNC`). It writes
+  to the served checkout, which breaks the read-only guarantee. `serve
+  --git-sync` now prints a warning and `LlmWikiService(git_sync=...)` emits
+  `DeprecationWarning`; behavior is otherwise unchanged. Keep checkouts current
+  from outside the server instead. Removal is planned for a later release.
+- Fixed `llmwiki_search` tool descriptions telling agents to call
+  `llmwiki_context` first when `--mcp-tools` / `--mcp-exclude-tools` hide that
+  tool.
+
 ## 0.2.15 - 2026-10-13
 
 - Fixed `/mcp/stream` rejecting `MCP-Protocol-Version: 2025-11-25` (`-32022`)

@@ -330,3 +330,25 @@ def test_read_defaults_unchanged_and_focus_available_on_http_mcp_and_cli() -> No
     )
     assert result.exit_code == 0, result.output
     assert json.loads(result.output)["read_mode"] == "focused"
+
+
+def test_search_description_omits_context_hint_when_context_tool_is_disabled() -> None:
+    def descriptions(**options: Any) -> dict[str, str]:
+        app = create_app(FIXTURE, **options)
+        with TestClient(app, base_url="http://127.0.0.1:8000") as client:
+            listed = client.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
+            jsonrpc = {t["name"]: t["description"] for t in listed.json()["result"]["tools"]}
+            legacy_session(client, "2025-11-25")
+            streamed = stream_post(
+                client, {"jsonrpc": "2.0", "id": 2, "method": "tools/list"}, "2025-11-25"
+            )
+            stream = {t["name"]: t["description"] for t in streamed.json()["result"]["tools"]}
+            assert jsonrpc == stream
+            return jsonrpc
+
+    assert "call llmwiki_context first" in descriptions()["llmwiki_search"]
+    narrowed = descriptions(mcp_tools=["llmwiki_search", "llmwiki_read"])
+    assert "llmwiki_context" not in narrowed["llmwiki_search"]
+    assert "query_variants" in narrowed["llmwiki_search"]
+    with_context = descriptions(mcp_tools=["llmwiki_context", "llmwiki_search"])
+    assert "call llmwiki_context first" in with_context["llmwiki_search"]

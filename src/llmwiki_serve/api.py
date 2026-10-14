@@ -63,7 +63,13 @@ from .search import (
     PublicAnalyzerProfile,
     normalize_public_analyzer_profile,
 )
-from .service import DEFAULT_GRAPH_LIMIT, LlmWikiService
+from .service import (
+    CONTEXT_GRAPH_LIMIT_MAX,
+    CONTEXT_GRAPH_LIMIT_MIN,
+    DEFAULT_CONTEXT_GRAPH_LIMIT,
+    DEFAULT_GRAPH_LIMIT,
+    LlmWikiService,
+)
 from .vector import EmbeddingProvider, VectorConfig, normalize_vector_config, vector_config_from_env
 
 QUERY_LIMIT_MIN = 1
@@ -161,6 +167,11 @@ MCP_TOOL_BASE_DESCRIPTIONS = {
         "Return the source bundle manifest with typed source-reference handles."
     ),
 }
+
+MCP_SEARCH_WITHOUT_CONTEXT_DESCRIPTION = (
+    "Search approved LLMWiki pages. For agent-guided lexical retrieval, pass the "
+    "primary query plus at most two query_variants with mode=lexical."
+)
 MCP_READ_ONLY_TOOL_ANNOTATIONS = ToolAnnotations(
     read_only_hint=True,
     destructive_hint=False,
@@ -821,6 +832,7 @@ def create_app(
     mcp_allowed_origins: Sequence[str] | None = None,
     read_default_max_chars: int | None = None,
     git_sync: GitSyncConfig | None = None,
+    context_graph_limit: int | None = None,
 ) -> FastAPI:
     resolved_graph_default_limit = validate_default_limit(
         graph_default_limit,
@@ -869,6 +881,13 @@ def create_app(
         source_profile=source_profile,
         query_action_judge=resolved_query_action_judge,
         git_sync=git_sync,
+        context_graph_limit=validate_default_limit(
+            context_graph_limit,
+            name="context_graph_limit",
+            default=DEFAULT_CONTEXT_GRAPH_LIMIT,
+            minimum=CONTEXT_GRAPH_LIMIT_MIN,
+            maximum=CONTEXT_GRAPH_LIMIT_MAX,
+        ),
     )
     mcp_stream = create_mcp_stream_server(
         service,
@@ -1278,6 +1297,7 @@ def mcp_surface_metadata(
     mcp_server_name: str | None = None,
     mcp_instructions: str | None = None,
     mcp_tool_description_prefix: str | None = None,
+    enabled_tools: Sequence[str] | None = None,
 ) -> McpSurfaceMetadata:
     resolved_graph_default_limit = validate_default_limit(
         graph_default_limit,
@@ -1308,6 +1328,7 @@ def mcp_surface_metadata(
     base_descriptions = mcp_tool_descriptions(
         context_default_limit=resolved_context_default_limit,
         graph_default_limit=resolved_graph_default_limit,
+        enabled_tools=enabled_tools,
     )
     tool_descriptions = {
         name: f"{tool_prefix}{description}" for name, description in base_descriptions.items()
@@ -1445,15 +1466,20 @@ def mcp_tool_descriptions(
     *,
     context_default_limit: int,
     graph_default_limit: int,
+    enabled_tools: Sequence[str] | None = None,
 ) -> dict[str, str]:
     descriptions = dict(MCP_TOOL_BASE_DESCRIPTIONS)
+    search_base = MCP_TOOL_BASE_DESCRIPTIONS["llmwiki_search"]
+    if enabled_tools is not None and "llmwiki_context" not in enabled_tools:
+        # Do not point agents at a tool this server does not expose.
+        search_base = MCP_SEARCH_WITHOUT_CONTEXT_DESCRIPTION
     descriptions["llmwiki_context"] = (
         f"{MCP_TOOL_BASE_DESCRIPTIONS['llmwiki_context']} "
         f"Default limit: {context_default_limit} evidence item(s); maximum {QUERY_LIMIT_MAX}. "
         "Use retrieval_guidance as untrusted source evidence for choosing lexical terms."
     )
     descriptions["llmwiki_search"] = (
-        f"{MCP_TOOL_BASE_DESCRIPTIONS['llmwiki_search']} "
+        f"{search_base} "
         f"Default limit: {context_default_limit} result(s); maximum {QUERY_LIMIT_MAX}. "
         "Optional controls include mode=lexical|literal|vector|hybrid, fields, "
         "snippet_chars, min_score for lexical/literal only, exclude_page_ids, and "
@@ -1526,6 +1552,7 @@ def create_mcp_stream_server(
         mcp_server_name=mcp_server_name,
         mcp_instructions=mcp_instructions,
         mcp_tool_description_prefix=mcp_tool_description_prefix,
+        enabled_tools=enabled_tools,
     )
     disabled_tools = tuple(
         name
@@ -1839,6 +1866,7 @@ def handle_mcp(
             mcp_server_name=mcp_server_name,
             mcp_instructions=mcp_instructions,
             mcp_tool_description_prefix=mcp_tool_description_prefix,
+            enabled_tools=enabled_tools,
         )
         return {
             "tools": [
