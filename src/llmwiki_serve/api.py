@@ -528,9 +528,21 @@ def is_legacy_initialize_request(
     protocol_header: str,
     method_header: str,
 ) -> bool:
-    return (
-        method == "initialize" and body_meta is None and not protocol_header and not method_header
-    )
+    """Return whether a request is a pre-2026-07-28 handshake (REQ-MCP-2026-007).
+
+    ``initialize`` does not exist in the 2026-07-28 request model, so it is legacy unless
+    the caller signals modern intent: an ``MCP-Protocol-Version`` header, a mirrored
+    ``Mcp-Method`` naming a different method, or a standard protocol version in
+    ``params._meta``. Earlier revisions allow generic ``_meta`` on any request, and some
+    gateways forward an empty ``_meta`` plus ``Mcp-Method: initialize``.
+    """
+    if method != "initialize" or protocol_header:
+        return False
+    if method_header and decode_mcp_header_value(method_header) != "initialize":
+        return False
+    if body_meta is None:
+        return True
+    return isinstance(body_meta, dict) and MCP_META_PROTOCOL_VERSION not in body_meta
 
 
 def invalid_plain_header_value(value: str) -> bool:

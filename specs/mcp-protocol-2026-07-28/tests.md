@@ -27,7 +27,11 @@
   malformed/conflicting supplied `_meta` fields fail before SDK dispatch.
 - Modern responses do not include `Mcp-Session-Id`.
 - Legacy `initialize` on `/mcp/stream` without modern request headers still
-  succeeds.
+  succeeds, including with generic or empty `params._meta` and with
+  `Mcp-Method: initialize`.
+- `initialize` carrying modern intent without `MCP-Protocol-Version` (standard
+  protocol version in `_meta`, or a mismatched `Mcp-Method`) is still rejected
+  with `-32020`; non-object `_meta` is still rejected.
 - Existing `/mcp` JSON-RPC compatibility tests continue to pass unchanged.
 
 ## Test Coverage

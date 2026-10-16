@@ -491,6 +491,79 @@ def test_mcp_streamable_http_legacy_initialize_still_works() -> None:
     }
 
 
+def legacy_initialize_body(params_extra: dict[str, Any] | None = None) -> dict[str, Any]:
+    return {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2025-11-25",
+            "capabilities": {},
+            "clientInfo": {"name": "legacy-probe", "version": "1.0.0"},
+            **(params_extra or {}),
+        },
+    }
+
+
+def test_mcp_streamable_http_legacy_initialize_accepts_generic_meta_and_mirrored_method() -> None:
+    """REQ-MCP-2026-007: ``initialize`` has no 2026-07-28 meaning, so it is a legacy request.
+
+    Earlier revisions allow generic ``_meta`` on any request, and agentgateway v1.6.0 forwards
+    an empty ``_meta`` plus ``Mcp-Method: initialize``. Without a protocol header or a standard
+    protocol version in ``_meta`` the request must take the legacy path.
+    """
+    cases = [
+        ({"_meta": {}}, {}),
+        ({"_meta": {"progressToken": "p-1"}}, {}),
+        ({}, {"mcp-method": "initialize"}),
+        ({"_meta": {}}, {"mcp-method": "initialize"}),
+    ]
+    with TestClient(
+        create_app(FIXTURE), base_url="http://127.0.0.1:8000", follow_redirects=False
+    ) as client:
+        for params_extra, extra_headers in cases:
+            response = client.post(
+                MCP_STREAM_PATH,
+                json=legacy_initialize_body(params_extra),
+                headers={**base_headers(), **extra_headers},
+            )
+            payload = assert_mcp_success(response, 1)
+            assert payload["result"]["protocolVersion"] == "2025-11-25", (
+                params_extra,
+                extra_headers,
+            )
+
+
+def test_mcp_streamable_http_initialize_with_modern_intent_still_requires_headers() -> None:
+    with TestClient(
+        create_app(FIXTURE), base_url="http://127.0.0.1:8000", follow_redirects=False
+    ) as client:
+        modern_meta_without_header = client.post(
+            MCP_STREAM_PATH,
+            json=legacy_initialize_body({"_meta": modern_meta()}),
+            headers=base_headers(),
+        )
+        assert_mcp_error(
+            modern_meta_without_header, -32020, "MCP-Protocol-Version header is required"
+        )
+
+        mismatched_method_header = client.post(
+            MCP_STREAM_PATH,
+            json=legacy_initialize_body(),
+            headers={**base_headers(), "mcp-method": "tools/list"},
+        )
+        assert_mcp_error(
+            mismatched_method_header, -32020, "MCP-Protocol-Version header is required"
+        )
+
+        malformed_meta = client.post(
+            MCP_STREAM_PATH,
+            json=legacy_initialize_body({"_meta": "not-an-object"}),
+            headers=base_headers(),
+        )
+        assert malformed_meta.status_code == 400, malformed_meta.text
+
+
 def modern_rpc(
     client: TestClient,
     request_id: int,

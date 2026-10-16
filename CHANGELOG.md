@@ -5,6 +5,16 @@ All notable changes to LLMWiki Serve will be documented here.
 This project follows a lightweight public-preview changelog format. Dates use
 `YYYY-MM-DD`.
 
+## Unreleased
+
+- Fixed `/mcp/stream` rejecting legacy `initialize` requests that carry a
+  generic or empty `params._meta` or a mirrored `Mcp-Method: initialize`
+  (`-32020 MCP-Protocol-Version header is required`). agentgateway v1.6.0 sends
+  both, so clients behind it could not connect. `initialize` now counts as
+  modern only with an `MCP-Protocol-Version` header, a mismatched `Mcp-Method`,
+  or a standard protocol version in `_meta`. Modern request validation is
+  unchanged.
+
 ## 0.2.16 - 2026-10-14
 
 - Added `--context-graph-limit` / `LLMWIKI_CONTEXT_GRAPH_LIMIT` /
