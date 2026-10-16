@@ -46,7 +46,7 @@ enterprise auth, model runtime hosting, or certified MCP/A2A platform claims.
 > matrix.
 > Source checkout remains supported for local development and release smoke tests.
 > Already-published package READMEs are immutable. This GitHub README documents
-> the `0.2.16` release line and will be included in the `0.2.16` package; it
+> the `0.2.17` release line and will be included in the `0.2.17` package; it
 > does not change already-published distributions.
 
 ## Start Here
@@ -65,6 +65,15 @@ to see `llmwiki-serve` project an already-existing LLMWiki, Markdown, or
 Obsidian-style folder as a read-only Knowledge Source.
 
 [![First-run demo poster](https://knowledge-bridge-labs.github.io/llmwiki-docs/demo/first-run/first-run-poster.png)](https://knowledge-bridge-labs.github.io/llmwiki-docs/demo)
+
+## 0.2.17 Highlights
+
+- MCP gateway compatibility: legacy `initialize` requests that carry a generic
+  or empty `params._meta` or `Mcp-Method: initialize` are accepted again, so
+  clients behind agentgateway v1.6.0 connect without a header-injection
+  workaround. Modern 2026-07-28 request validation is unchanged.
+- Release evidence: the public-safe 0.2.17 gate summary is tracked in
+  [docs/releases/0.2.17-release-evidence.json](docs/releases/0.2.17-release-evidence.json).
 
 ## 0.2.16 Highlights
 
@@ -345,7 +354,7 @@ Pin the version listed in the
 matrix when you need a reproducible public-preview package install:
 
 ```bash
-uv tool install llmwiki-serve==0.2.16
+uv tool install llmwiki-serve==0.2.17
 ```
 
 ## Contributor Development Path
