@@ -5,7 +5,7 @@ All notable changes to LLMWiki Serve will be documented here.
 This project follows a lightweight public-preview changelog format. Dates use
 `YYYY-MM-DD`.
 
-## Unreleased
+## 0.2.17 - 2026-10-16
 
 - Fixed `/mcp/stream` rejecting legacy `initialize` requests that carry a
   generic or empty `params._meta` or a mirrored `Mcp-Method: initialize`
