@@ -69,6 +69,14 @@ per-request protocol metadata.
   by the SDK and do not include `Mcp-Session-Id`.
 - `REQ-MCP-2026-007`: Legacy `initialize` requests without modern request
   headers still receive a successful SDK-managed compatibility response.
+  `initialize` has no meaning in the 2026-07-28 request model, so it is legacy
+  unless the caller signals modern intent: an `MCP-Protocol-Version` header, a
+  mirrored `Mcp-Method` naming a different method, or a standard
+  `io.modelcontextprotocol/protocolVersion` field in `params._meta`. Generic
+  `_meta` (including an empty object, which earlier revisions allow on any
+  request) and `Mcp-Method: initialize` do not make an `initialize` modern.
+  Amended 2026-10-16: agentgateway v1.6.0 forwards both and was rejected with
+  `-32020`.
 - `REQ-MCP-2026-008`: Release documentation and smoke probes use sanitized
   modern request examples where they exercise `/mcp/stream`.
 - `REQ-MCP-2026-009`: Modern `resources/list`,

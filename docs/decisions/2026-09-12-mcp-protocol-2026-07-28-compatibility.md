@@ -59,6 +59,22 @@ I/O logging, and safe error messages.
   mirrored method/name headers should be covered as optional consistency
   checks, not unconditional requirements.
 
+## Amendment 2026-10-16: Legacy Initialize Detection
+
+The original detection treated an `initialize` as legacy only when it had no
+`params._meta` and no `Mcp-Method` header. That is stricter than
+`REQ-MCP-2026-007`, which keys on modern request headers, and stricter than
+earlier MCP revisions, which allow generic `_meta` on any request.
+agentgateway v1.6.0 forwards every upstream `initialize` with an empty `_meta`
+and `Mcp-Method: initialize` but no `MCP-Protocol-Version`, so gateway clients
+were rejected with `-32020` while direct clients worked.
+
+Because `initialize` does not exist in the 2026-07-28 request model, an
+`initialize` stays on the legacy path unless it signals modern intent: an
+`MCP-Protocol-Version` header, a mirrored `Mcp-Method` naming another method,
+or a standard `io.modelcontextprotocol/protocolVersion` field in `_meta`.
+Modern requests and their validation are unchanged.
+
 ## Follow-Ups
 
 - Refresh external docs portal snippets after this repository update lands.
