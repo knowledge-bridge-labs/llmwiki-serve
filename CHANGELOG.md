@@ -5,6 +5,15 @@ All notable changes to LLMWiki Serve will be documented here.
 This project follows a lightweight public-preview changelog format. Dates use
 `YYYY-MM-DD`.
 
+## Unreleased
+
+- Fixed `/mcp/stream` hanging the whole server (100% CPU, `/health` dead) after
+  a modern streamable HTTP request such as `subscriptions/listen`. The request
+  validation middleware replayed the buffered body and then returned empty
+  `http.request` messages forever instead of the real `receive`, so the MCP
+  SDK's disconnect watcher spun without yielding. Later reads now go to the
+  server's `receive` (#67).
+
 ## 0.2.17 - 2026-10-16
 
 - Fixed `/mcp/stream` rejecting legacy `initialize` requests that carry a
