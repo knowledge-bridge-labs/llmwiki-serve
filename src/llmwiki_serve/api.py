@@ -298,6 +298,8 @@ class McpStreamableHttpValidationMiddleware:
         more_body = True
         while more_body:
             message = await receive()
+            if message["type"] == "http.disconnect":
+                return
             if message["type"] != "http.request":
                 continue
             body += message.get("body", b"")
@@ -317,7 +319,9 @@ class McpStreamableHttpValidationMiddleware:
         async def replay_body() -> Message:
             nonlocal body_sent
             if body_sent:
-                return {"type": "http.request", "body": b"", "more_body": False}
+                # Hand later reads (e.g. waiting for http.disconnect) to the server;
+                # an endless empty http.request busy-loops the event loop (#67).
+                return await receive()
             body_sent = True
             return {"type": "http.request", "body": body, "more_body": False}
 
