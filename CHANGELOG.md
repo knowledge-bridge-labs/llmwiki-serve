@@ -13,6 +13,8 @@ This project follows a lightweight public-preview changelog format. Dates use
   `http.request` messages forever instead of the real `receive`, so the MCP
   SDK's disconnect watcher spun without yielding. Later reads now go to the
   server's `receive` (#67).
+- Fixed the same middleware spinning when a client disconnects before its
+  request body is complete; buffering now stops on `http.disconnect`.
 
 ## 0.2.17 - 2026-10-16
 

@@ -298,6 +298,8 @@ class McpStreamableHttpValidationMiddleware:
         more_body = True
         while more_body:
             message = await receive()
+            if message["type"] == "http.disconnect":
+                return
             if message["type"] != "http.request":
                 continue
             body += message.get("body", b"")
